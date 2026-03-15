@@ -8,17 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 const formTypeLabels: Record<string, string> = {
-  car_rental: "Travel",
-  leave: "Leave",
-  claim: "Expense",
+  claim: "TRAVEL CLAIM",
 };
 
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
-    case "approved_hos":
-    case "approved_hod":
       return <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
     case "rejected":
       return <Badge className="bg-red-50 text-red-600 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
@@ -36,31 +31,27 @@ const getInitialColor = (name: string) => {
   return colors[name.charCodeAt(0) % colors.length];
 };
 
-// HR Admin Dashboard - sees leave and car_rental forms only
-const AdminDashboard = () => {
+const FinanceDashboard = () => {
   const { submissions, updateSubmissionStatus } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  // HR admin only sees leave and car_rental forms
+  // Finance admin only sees claim forms
   const filtered = submissions
-    .filter(s => s.formType === "leave" || s.formType === "car_rental")
+    .filter(s => s.formType === "claim")
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();
-      return s.employeeName.toLowerCase().includes(q) || s.id.includes(q) || s.formType.includes(q);
+      return s.employeeName.toLowerCase().includes(q) || s.id.includes(q);
     });
 
   const stats = {
     total: filtered.length,
-    pending: filtered.filter(s => s.status === "pending" || s.status === "approved_hos" || s.status === "approved_hod").length,
+    pending: filtered.filter(s => s.status === "pending").length,
+    approved: filtered.filter(s => s.status === "approved").length,
+    rejected: filtered.filter(s => s.status === "rejected").length,
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
-  };
-
-  const generateId = (sub: Submission) => {
-    const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
-    return `#${num}`;
   };
 
   const generateRefNo = (sub: Submission) => {
@@ -76,7 +67,7 @@ const AdminDashboard = () => {
     setRemarks("");
   };
 
-  // Review detail view (matching image-9 template)
+  // Review detail view matching the template (image-9)
   if (selectedSubmission) {
     return (
       <div className="p-6 lg:p-8 max-w-3xl mx-auto">
@@ -84,6 +75,7 @@ const AdminDashboard = () => {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to list
         </button>
 
+        {/* Employee Summary */}
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-6">
           <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
@@ -94,6 +86,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* Submission Summary */}
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-6">
           <div className="grid grid-cols-2 gap-4 mb-4">
@@ -104,7 +97,7 @@ const AdminDashboard = () => {
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Form Type / Jenis Borang</p>
               <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1">
-                {formTypeLabels[selectedSubmission.formType]?.toUpperCase() || selectedSubmission.formType.toUpperCase()}
+                {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType.toUpperCase()}
               </Badge>
             </div>
           </div>
@@ -115,21 +108,22 @@ const AdminDashboard = () => {
                 {new Date(selectedSubmission.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
               </p>
             </div>
-            {selectedSubmission.data.amount && (
-              <div>
-                <p className="text-xs text-muted-foreground">Amount / Amaun</p>
-                <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.amount}</p>
-              </div>
-            )}
+            <div>
+              <p className="text-xs text-muted-foreground">Amount / Amaun</p>
+              <p className="text-sm font-bold text-primary">
+                RM {selectedSubmission.data.amount || selectedSubmission.data.totalAmount || "0.00"}
+              </p>
+            </div>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Details / Butiran</p>
             <p className="text-sm text-foreground mt-1">
-              {selectedSubmission.data.description || selectedSubmission.data.purpose || selectedSubmission.data.reason || "No details provided"}
+              {selectedSubmission.data.description || selectedSubmission.data.purpose || "No details provided"}
             </p>
           </div>
         </div>
 
+        {/* Attachment */}
         <div className="border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20">
           <div className="flex items-center gap-3">
             <FileText className="h-5 w-5 text-muted-foreground" />
@@ -138,7 +132,8 @@ const AdminDashboard = () => {
           <ExternalLink className="h-4 w-4 text-muted-foreground" />
         </div>
 
-        {(selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod") && (
+        {/* Remarks */}
+        {(selectedSubmission.status === "pending") && (
           <>
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
             <Textarea
@@ -147,6 +142,8 @@ const AdminDashboard = () => {
               onChange={e => setRemarks(e.target.value)}
               className="mb-6 min-h-[100px]"
             />
+
+            {/* Action Buttons */}
             <div className="flex gap-4">
               <button
                 onClick={() => handleAction(selectedSubmission.id, "rejected")}
@@ -173,7 +170,7 @@ const AdminDashboard = () => {
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Department Overview / Aperçu du département</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming department requests.</p>
+        <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming finance requests.</p>
       </div>
 
       {/* Stats Cards */}
@@ -222,7 +219,7 @@ const AdminDashboard = () => {
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
             <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">No submissions found</h3>
+            <h3 className="text-lg font-semibold text-foreground">No claim submissions found</h3>
           </div>
         ) : (
           <>
@@ -238,29 +235,32 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((sub) => (
-                  <TableRow key={sub.id} className="hover:bg-muted/20">
-                    <TableCell className="text-sm font-medium text-muted-foreground">{generateId(sub)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${getInitialColor(sub.employeeName)}`}>
-                          {getInitials(sub.employeeName)}
+                {filtered.map((sub) => {
+                  const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
+                  return (
+                    <TableRow key={sub.id} className="hover:bg-muted/20">
+                      <TableCell className="text-sm font-medium text-muted-foreground">#{num}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${getInitialColor(sub.employeeName)}`}>
+                            {getInitials(sub.employeeName)}
+                          </div>
+                          <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
                         </div>
-                        <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(sub.submittedAt).toLocaleDateString("en-CA")}
-                    </TableCell>
-                    <TableCell>{statusBadge(sub.status)}</TableCell>
-                    <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary">
-                        {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">Expense</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(sub.submittedAt).toLocaleDateString("en-CA")}
+                      </TableCell>
+                      <TableCell>{statusBadge(sub.status)}</TableCell>
+                      <TableCell className="text-center">
+                        <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary">
+                          {sub.status === "pending" ? "Review" : "Details"}
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
             <div className="flex items-center justify-between p-4 border-t border-border">
@@ -277,4 +277,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+export default FinanceDashboard;

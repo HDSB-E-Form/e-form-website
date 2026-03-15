@@ -1,31 +1,26 @@
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, SlidersHorizontal, ChevronLeft, ChevronRight, ArrowLeft, FileText, ExternalLink } from "lucide-react";
+import { Clock, Search, SlidersHorizontal, ChevronLeft, ChevronRight, ArrowLeft, FileText, ExternalLink, Download, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-const formTypeLabels: Record<string, string> = {
-  car_rental: "Travel",
-  leave: "Leave",
-  claim: "Expense",
+const formTypeLabels: Record<string, { en: string; ms: string }> = {
+  car_rental: { en: "TRAVEL / VOYAGE", ms: "Perjalanan" },
+  leave: { en: "LEAVE REQUEST / CONGÉ", ms: "Cuti" },
+  claim: { en: "EXPENSE / FRAIS", ms: "Perbelanjaan" },
 };
 
-const statusBadge = (status: string) => {
-  switch (status) {
-    case "approved":
-      return <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
-    case "approved_hos":
-    case "approved_hod":
-      return <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
-    case "rejected":
-      return <Badge className="bg-red-50 text-red-600 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
-    case "pending":
-    default:
-      return <Badge className="bg-amber-50 text-amber-700 border-0 text-xs font-medium px-3 py-1">Pending</Badge>;
-  }
+const priorityDot = (formType: string) => {
+  const colors: Record<string, string> = {
+    leave: "bg-red-500",
+    car_rental: "bg-amber-500",
+    claim: "bg-muted-foreground/40",
+  };
+  return <span className={`w-3 h-3 rounded-full inline-block ${colors[formType] || "bg-muted-foreground/40"}`} />;
 };
 
 const getInitials = (name: string) =>
@@ -36,31 +31,34 @@ const getInitialColor = (name: string) => {
   return colors[name.charCodeAt(0) % colors.length];
 };
 
-// HR Admin Dashboard - sees leave and car_rental forms only
-const AdminDashboard = () => {
+const ApproverDashboard = () => {
+  const { user } = useAuth();
   const { submissions, updateSubmissionStatus } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  // HR admin only sees leave and car_rental forms
+  const isHOD = user?.role === "hod";
+  const approverField = isHOD ? "hodName" : "hosName";
+
+  // HOD/HOS only sees forms where they were selected as approver
   const filtered = submissions
-    .filter(s => s.formType === "leave" || s.formType === "car_rental")
+    .filter(s => {
+      const approverValue = s.data[approverField];
+      if (!approverValue) return false;
+      return approverValue === user?.name;
+    })
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();
-      return s.employeeName.toLowerCase().includes(q) || s.id.includes(q) || s.formType.includes(q);
+      return s.employeeName.toLowerCase().includes(q) || s.id.includes(q);
     });
 
   const stats = {
     total: filtered.length,
     pending: filtered.filter(s => s.status === "pending" || s.status === "approved_hos" || s.status === "approved_hod").length,
-    approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
-  };
-
-  const generateId = (sub: Submission) => {
-    const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
-    return `#${num}`;
+    approved: filtered.filter(s => s.status === "approved").length,
+    rejected: filtered.filter(s => s.status === "rejected").length,
   };
 
   const generateRefNo = (sub: Submission) => {
@@ -71,12 +69,12 @@ const AdminDashboard = () => {
 
   const handleAction = (id: string, status: SubmissionStatus) => {
     updateSubmissionStatus(id, status);
-    toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
+    toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
   };
 
-  // Review detail view (matching image-9 template)
+  // Review detail view
   if (selectedSubmission) {
     return (
       <div className="p-6 lg:p-8 max-w-3xl mx-auto">
@@ -104,7 +102,7 @@ const AdminDashboard = () => {
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Form Type / Jenis Borang</p>
               <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1">
-                {formTypeLabels[selectedSubmission.formType]?.toUpperCase() || selectedSubmission.formType.toUpperCase()}
+                {formTypeLabels[selectedSubmission.formType]?.en || selectedSubmission.formType.toUpperCase()}
               </Badge>
             </div>
           </div>
@@ -156,7 +154,10 @@ const AdminDashboard = () => {
                 <span className="block text-xs font-medium opacity-70">REJECT</span>
               </button>
               <button
-                onClick={() => handleAction(selectedSubmission.id, "approved")}
+                onClick={() => {
+                  const nextStatus = isHOD ? "approved_hod" : "approved_hos";
+                  handleAction(selectedSubmission.id, nextStatus);
+                }}
                 className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors"
               >
                 <span className="block text-base">Terima</span>
@@ -172,49 +173,55 @@ const AdminDashboard = () => {
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Department Overview / Aperçu du département</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming department requests.</p>
+        <h1 className="text-2xl font-bold text-foreground">Pending Approvals / Approbations en attente</h1>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Submissions</p>
-            <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[10px] font-semibold px-2">+12%</Badge>
+      {/* Stats Cards - 4 columns like image-11 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="card-elevated p-5 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">Total Received</p>
           </div>
-          <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
-          <p className="text-xs text-muted-foreground mt-1">Current fiscal year / Année en cours</p>
+          <p className="text-4xl font-bold text-foreground">{stats.total}</p>
+          <p className="text-xs text-muted-foreground mt-1">Reçus au total</p>
         </div>
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pending Review</p>
-            <Badge className="bg-amber-50 text-amber-700 border-0 text-[10px] font-semibold px-2">Action Required</Badge>
+        <div className="card-elevated p-5 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Pending</p>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats.pending}</p>
-          <p className="text-xs text-muted-foreground mt-1">Average turnaround: 2 days / Délai moyen: 2 jours</p>
+          <p className="text-xs text-muted-foreground mt-1">En attente</p>
         </div>
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval Rate</p>
-            <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[10px] font-semibold px-2">+2%</Badge>
+        <div className="card-elevated p-5 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CheckCircle className="h-5 w-5 text-emerald-500" />
+            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Approved</p>
           </div>
-          <p className="text-4xl font-bold text-foreground">{stats.approvalRate}%</p>
-          <p className="text-xs text-muted-foreground mt-1">Compliance target: 90% / Cible de conformité</p>
+          <p className="text-4xl font-bold text-foreground">{stats.approved}</p>
+          <p className="text-xs text-muted-foreground mt-1">Approuvés</p>
+        </div>
+        <div className="card-elevated p-5 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <XCircle className="h-5 w-5 text-red-500" />
+            <p className="text-xs font-bold text-red-600 uppercase tracking-wider">Rejected</p>
+          </div>
+          <p className="text-4xl font-bold text-foreground">{stats.rejected}</p>
+          <p className="text-xs text-muted-foreground mt-1">Rejetés</p>
         </div>
       </div>
 
-      {/* Submissions Table */}
+      {/* Table */}
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex items-center justify-between border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Recent Submissions / Soumissions récentes</h2>
+          <h2 className="text-lg font-bold text-foreground">Submissions / Soumissions</h2>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search / Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-56 h-9 text-sm" />
-            </div>
             <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted/50">
               <SlidersHorizontal className="h-4 w-4" /> Filter
+            </button>
+            <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted/50">
+              <Download className="h-4 w-4" /> Export
             </button>
           </div>
         </div>
@@ -222,41 +229,48 @@ const AdminDashboard = () => {
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
             <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">No submissions found</h3>
+            <h3 className="text-lg font-semibold text-foreground">No submissions assigned to you</h3>
+            <p className="text-sm text-muted-foreground mt-1">Forms will appear here when employees select you as their approver.</p>
           </div>
         ) : (
           <>
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Employé</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Statut</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Date / Date</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Type / Type</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Priority</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((sub) => (
                   <TableRow key={sub.id} className="hover:bg-muted/20">
-                    <TableCell className="text-sm font-medium text-muted-foreground">{generateId(sub)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${getInitialColor(sub.employeeName)}`}>
+                        <div className="w-1 h-12 rounded-full bg-primary" />
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${getInitialColor(sub.employeeName)}`}>
                           {getInitials(sub.employeeName)}
                         </div>
-                        <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <p className="text-xs text-muted-foreground">{sub.data.designation || sub.department}</p>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(sub.submittedAt).toLocaleDateString("en-CA")}
                     </TableCell>
-                    <TableCell>{statusBadge(sub.status)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider">
+                        {formTypeLabels[sub.formType]?.en || sub.formType.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">{priorityDot(sub.formType)}</TableCell>
                     <TableCell className="text-center">
                       <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary">
-                        {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
+                        View Details / Détails
                       </button>
                     </TableCell>
                   </TableRow>
@@ -264,10 +278,11 @@ const AdminDashboard = () => {
               </TableBody>
             </Table>
             <div className="flex items-center justify-between p-4 border-t border-border">
-              <p className="text-sm text-muted-foreground">Showing 1-{filtered.length} of {filtered.length} results</p>
+              <p className="text-sm text-muted-foreground">Showing 1 to {filtered.length} of {filtered.length} entries</p>
               <div className="flex gap-1">
-                <button className="w-8 h-8 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
-                <button className="w-8 h-8 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"><ChevronRight className="h-4 w-4" /></button>
+                <button className="w-8 h-8 rounded border border-border flex items-center justify-center text-muted-foreground"><ChevronLeft className="h-4 w-4" /></button>
+                <button className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">1</button>
+                <button className="w-8 h-8 rounded border border-border flex items-center justify-center text-muted-foreground"><ChevronRight className="h-4 w-4" /></button>
               </div>
             </div>
           </>
@@ -277,4 +292,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+export default ApproverDashboard;
