@@ -13,7 +13,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, ChevronDown, Shield } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, ChevronDown, Shield, Users } from "lucide-react";
 import logo from "@/assets/logo.png";
 import {
   DropdownMenu,
@@ -27,9 +27,21 @@ const employeeNav = [
   { title: "My Submissions", url: "/submissions", icon: FileText },
 ];
 
-const adminNav = [
-  { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
-  { title: "Car Management", url: "/admin/cars", icon: Car },
+const hrAdminNav = [
+  { title: "Dashboard / Tableau", url: "/admin/hr", icon: LayoutDashboard },
+  { title: "Fleet Status / Status Armada", url: "/admin/cars", icon: Car },
+];
+
+const financeAdminNav = [
+  { title: "Dashboard / Tableau", url: "/admin/finance", icon: LayoutDashboard },
+];
+
+const approverNav = [
+  { title: "Dashboard / Tableau de bord", url: "/admin/approvals", icon: LayoutDashboard },
+];
+
+const superAdminNav = [
+  { title: "All Users", url: "/admin/users", icon: Users },
 ];
 
 const roleLabels: Record<UserRole, string> = {
@@ -41,14 +53,36 @@ const roleLabels: Record<UserRole, string> = {
   super_admin: "Super Admin",
 };
 
+const getAdminNav = (role?: UserRole) => {
+  switch (role) {
+    case "hr_admin": return hrAdminNav;
+    case "finance_admin": return financeAdminNav;
+    case "hod":
+    case "hos": return approverNav;
+    case "super_admin": return superAdminNav;
+    default: return [];
+  }
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, logout, switchRole } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const isAdmin = user?.role && ["hr_admin", "finance_admin", "hod", "hos", "super_admin"].includes(user.role);
+  const adminNav = getAdminNav(user?.role);
+
+  const sidebarTitle = (() => {
+    switch (user?.role) {
+      case "hr_admin": return { main: "HR Admin", sub: "Dept. Dashboard" };
+      case "finance_admin": return { main: "Finance Admin", sub: "Dept. Dashboard" };
+      case "hod": return { main: "HOD Portal", sub: "Approvals" };
+      case "hos": return { main: "HOS Portal", sub: "Approvals" };
+      case "super_admin": return { main: "Super Admin", sub: "Management Portal" };
+      default: return { main: "DRB-HICOM", sub: "Employee Portal" };
+    }
+  })();
 
   const handleLogout = () => {
     logout();
@@ -59,7 +93,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
         <img src={logo} alt="DRB-HICOM" className="h-8 brightness-200" />
-        {!collapsed && <span className="text-sidebar-foreground font-bold text-sm">DRB-HICOM HR</span>}
+        {!collapsed && (
+          <div>
+            <span className="text-sidebar-foreground font-bold text-sm block">{sidebarTitle.main}</span>
+            <span className="text-sidebar-foreground/50 text-[10px]">{sidebarTitle.sub}</span>
+          </div>
+        )}
       </div>
 
       <SidebarContent>
@@ -81,7 +120,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
+        {isAdmin && adminNav.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-foreground/50">Admin</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -125,7 +164,7 @@ export function AppSidebar() {
             </DropdownMenu>
 
             <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 text-sm mt-1">
-              <LogOut className="h-4 w-4" /> Sign Out
+              <LogOut className="h-4 w-4" /> Sign out / Déconnexion
             </button>
           </>
         )}
