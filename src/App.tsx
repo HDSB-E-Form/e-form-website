@@ -16,6 +16,9 @@ import LeaveForm from "@/pages/LeaveForm";
 import ClaimForm from "@/pages/ClaimForm";
 import MySubmissions from "@/pages/MySubmissions";
 import AdminDashboard from "@/pages/AdminDashboard";
+import FinanceDashboard from "@/pages/FinanceDashboard";
+import ApproverDashboard from "@/pages/ApproverDashboard";
+import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
 import CarManagement from "@/pages/CarManagement";
 import NotFound from "@/pages/NotFound";
 
@@ -41,8 +44,16 @@ const App = () => (
               <Route path="/hr/leave" element={<AppLayout><LeaveForm /></AppLayout>} />
               <Route path="/finance/claim" element={<AppLayout><ClaimForm /></AppLayout>} />
               <Route path="/submissions" element={<AppLayout><MySubmissions /></AppLayout>} />
-              <Route path="/admin/dashboard" element={<AppLayout><AdminDashboard title="All Submissions" /></AppLayout>} />
+
+              {/* Role-specific admin dashboards */}
+              <Route path="/admin/hr" element={<AppLayout><AdminDashboard /></AppLayout>} />
+              <Route path="/admin/finance" element={<AppLayout><FinanceDashboard /></AppLayout>} />
+              <Route path="/admin/approvals" element={<AppLayout><ApproverDashboard /></AppLayout>} />
+              <Route path="/admin/users" element={<AppLayout><SuperAdminDashboard /></AppLayout>} />
               <Route path="/admin/cars" element={<AppLayout><CarManagement /></AppLayout>} />
+
+              {/* Legacy route redirect */}
+              <Route path="/admin/dashboard" element={<Navigate to="/admin/hr" replace />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
