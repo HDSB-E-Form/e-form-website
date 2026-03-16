@@ -76,91 +76,144 @@ const AdminDashboard = () => {
     setRemarks("");
   };
 
-  // Review detail view (matching image-9 template)
-  if (selectedSubmission) {
-    return (
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
-        <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="flex items-center text-muted-foreground hover:text-foreground mb-6 text-sm">
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back to list
-        </button>
+  const renderLeaveDetail = (sub: Submission) => {
+    const year = new Date(sub.submittedAt).getFullYear();
+    const num = sub.id.replace(/\D/g, "").slice(0, 3).padStart(3, "0");
+    const refNo = `#LV-${year}-${num}`;
+    const startDate = sub.data.startDate ? new Date(sub.data.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+    const endDate = sub.data.endDate ? new Date(sub.data.endDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
+    return (
+      <>
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-6">
-          <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-3">{selectedSubmission.data.employeeId || selectedSubmission.submittedBy}</p>
-          <div className="flex gap-2">
-            <Badge variant="outline" className="text-xs">{selectedSubmission.department}</Badge>
-            <Badge variant="outline" className="text-xs">{selectedSubmission.data.designation || "Staff"}</Badge>
-          </div>
+        <div className="bg-muted/30 rounded-xl p-5 mb-8">
+          <Badge className="bg-primary/10 text-primary border-0 text-xs font-semibold mb-2">Dept/Section</Badge>
+          <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
+          <p className="text-sm text-muted-foreground">Staff ID: {sub.data.employeeId || sub.data.staffId || sub.submittedBy}</p>
         </div>
 
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-6">
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Ref No / No. Rujukan</p>
-              <p className="text-sm font-bold text-foreground">{generateRefNo(selectedSubmission)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Form Type / Jenis Borang</p>
-              <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1">
-                {formTypeLabels[selectedSubmission.formType]?.toUpperCase() || selectedSubmission.formType.toUpperCase()}
-              </Badge>
-            </div>
+        <div className="bg-muted/30 rounded-xl divide-y divide-border mb-8">
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Ref No</span>
+            <span className="text-sm font-bold text-foreground">{refNo}</span>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Date / Tarikh</p>
-              <p className="text-sm font-bold text-foreground">
-                {new Date(selectedSubmission.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-              </p>
-            </div>
-            {selectedSubmission.data.amount && (
-              <div>
-                <p className="text-xs text-muted-foreground">Amount / Amaun</p>
-                <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.amount}</p>
-              </div>
-            )}
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Form Type</span>
+            <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold">Leave Form</Badge>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Details / Butiran</p>
-            <p className="text-sm text-foreground mt-1">
-              {selectedSubmission.data.description || selectedSubmission.data.purpose || selectedSubmission.data.reason || "No details provided"}
-            </p>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Leave Type</span>
+            <span className="text-sm font-bold text-foreground">{sub.data.leaveType || "Annual Leave"}</span>
+          </div>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Start Date</span>
+            <span className="text-sm font-bold text-foreground">{startDate}</span>
+          </div>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">End Date</span>
+            <span className="text-sm font-bold text-foreground">{endDate}</span>
+          </div>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Total Days</span>
+            <span className="text-sm font-bold text-primary">{sub.data.days || "—"} Days</span>
+          </div>
+          <div className="px-5 py-3">
+            <span className="text-sm text-primary block mb-1">Reason</span>
+            <p className="text-sm text-foreground">"{sub.data.reason || "No reason provided"}"</p>
           </div>
         </div>
+      </>
+    );
+  };
 
-        <div className="border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20">
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm font-medium text-primary">Lihat Lampiran / View Attachment</span>
-          </div>
-          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+  const renderCarRentalDetail = (sub: Submission) => {
+    const year = new Date(sub.submittedAt).getFullYear();
+    const num = sub.id.replace(/\D/g, "").slice(0, 3).padStart(3, "0");
+    const refNo = `#CR-${year}-${num}`;
+    const startDate = sub.data.startDate ? new Date(sub.data.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+    const endDate = sub.data.endDate ? new Date(sub.data.endDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+
+    return (
+      <>
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-xl font-bold text-foreground">Semakan Permohonan / Review Submission</h2>
         </div>
 
-        {(selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod") && (
+        <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
+        <div className="bg-muted/30 rounded-xl p-5 mb-8">
+          <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
+          <p className="text-sm text-muted-foreground">Staff ID: {sub.data.employeeId || sub.data.staffId || sub.submittedBy}</p>
+        </div>
+
+        <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
+        <div className="bg-muted/30 rounded-xl divide-y divide-border mb-8">
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Ref No</span>
+            <span className="text-sm font-bold text-foreground">{refNo}</span>
+          </div>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Form Type</span>
+            <Badge className="bg-sky-100 text-sky-800 border-0 text-xs font-bold">RENT CAR FORM</Badge>
+          </div>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Journey Dates</span>
+            <span className="text-sm font-bold text-foreground">{startDate} - {endDate}</span>
+          </div>
+          <div className="flex justify-between items-center px-5 py-3">
+            <span className="text-sm text-primary">Destination</span>
+            <span className="text-sm font-bold text-foreground">{sub.data.destination || "—"}</span>
+          </div>
+          <div className="px-5 py-3">
+            <span className="text-sm text-primary block mb-1">Purpose</span>
+            <p className="text-sm text-foreground">{sub.data.purpose || "No purpose provided"}</p>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // Review detail view
+  if (selectedSubmission) {
+    const isLeave = selectedSubmission.formType === "leave";
+    const isCarRental = selectedSubmission.formType === "car_rental";
+    const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod";
+
+    return (
+      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+        {isLeave && (
+          <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="flex items-center text-muted-foreground hover:text-foreground mb-6 text-sm">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to list
+          </button>
+        )}
+
+        {isLeave && renderLeaveDetail(selectedSubmission)}
+        {isCarRental && renderCarRentalDetail(selectedSubmission)}
+
+        {isPending && (
           <>
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
+            <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
             <Textarea
-              placeholder="Sila masukkan ulasan jika ada..."
+              placeholder={isCarRental ? "Enter any additional comments or reasons here..." : "Sila masukkan ulasan jika ada / Please enter remarks if any..."}
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
-              className="mb-6 min-h-[100px]"
+              className="mb-8 min-h-[100px]"
             />
             <div className="flex gap-4">
               <button
                 onClick={() => handleAction(selectedSubmission.id, "rejected")}
                 className="flex-1 px-6 py-4 rounded-xl border-2 border-destructive text-destructive font-bold text-center hover:bg-destructive/10 transition-colors"
               >
-                <span className="block text-base">Tolak</span>
-                <span className="block text-xs font-medium opacity-70">REJECT</span>
+                TOLAK / REJECT
               </button>
               <button
                 onClick={() => handleAction(selectedSubmission.id, "approved")}
-                className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors"
+                className="flex-1 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
               >
-                <span className="block text-base">Terima</span>
-                <span className="block text-xs font-medium opacity-80">ACCEPT</span>
+                TERIMA / ACCEPT
               </button>
             </div>
           </>
