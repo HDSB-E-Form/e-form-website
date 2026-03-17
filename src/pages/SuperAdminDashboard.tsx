@@ -86,7 +86,7 @@ const SuperAdminDashboard = () => {
 
   const stats = {
     totalPersonnel: users.length,
-    activeAdmins: users.filter(u => u.role === "ADMIN" || u.role === "SUPER ADMIN").length,
+    activeAdmins: users.filter(u => u.role === "HR ADMIN" || u.role === "FINANCE ADMIN" || u.role === "IT TEAM").length,
     pendingApprovals: 8,
     departments: [...new Set(users.map(u => u.department))].length,
   };
