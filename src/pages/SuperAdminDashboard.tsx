@@ -44,12 +44,16 @@ const INITIAL_USERS: MockUser[] = [
 
 const roleBadge = (role: string) => {
   switch (role) {
-    case "SUPER ADMIN":
-      return <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] font-bold">⭐ SUPER ADMIN</Badge>;
-    case "ADMIN":
-      return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">ADMIN</Badge>;
-    case "SUPERVISOR":
-      return <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] font-bold">SUPERVISOR</Badge>;
+    case "IT TEAM":
+      return <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] font-bold">⭐ IT TEAM</Badge>;
+    case "HR ADMIN":
+      return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">HR ADMIN</Badge>;
+    case "FINANCE ADMIN":
+      return <Badge className="bg-sky-100 text-sky-700 border-0 text-[10px] font-bold">FINANCE ADMIN</Badge>;
+    case "HOD":
+      return <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] font-bold">HOD</Badge>;
+    case "HOS":
+      return <Badge className="bg-violet-100 text-violet-700 border-0 text-[10px] font-bold">HOS</Badge>;
     case "EMPLOYEE":
     default:
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
