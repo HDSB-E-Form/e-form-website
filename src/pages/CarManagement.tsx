@@ -27,8 +27,8 @@ const CarManagement = () => {
   };
 
   if (view === "checkout" && selectedCar) {
-    return <CheckOutForm car={selectedCar} onCancel={() => setView("overview")} onSubmit={(car) => {
-      checkOutCar(car.id, user?.name || "");
+    return <CheckOutForm car={selectedCar} onCancel={() => setView("overview")} onSubmit={(car, mileage, fuelLevel) => {
+      checkOutCar(car.id, user?.name || "", mileage, fuelLevel);
       toast.success("Vehicle checked out successfully");
       setView("overview");
     }} />;
@@ -165,7 +165,7 @@ const CarManagement = () => {
 };
 
 /* ─── Check-Out Form ─── */
-function CheckOutForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () => void; onSubmit: (car: CarInfo) => void }) {
+function CheckOutForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () => void; onSubmit: (car: CarInfo, mileage: string, fuelLevel: string) => void }) {
   const [employee, setEmployee] = useState("");
   const [mileage, setMileage] = useState("");
   const [fuelLevel, setFuelLevel] = useState("Full");
@@ -290,7 +290,7 @@ function CheckOutForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () 
 
       {/* Buttons */}
       <div className="mt-6 space-y-3">
-        <button onClick={() => onSubmit(car)} className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2">
+        <button onClick={() => onSubmit(car, mileage, fuelLevel)} className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2">
           <CheckCircle className="h-4 w-4" /> Submit / Hantar
         </button>
         <button onClick={onCancel} className="w-full py-3 rounded-lg bg-muted text-foreground font-medium text-sm hover:bg-muted/70 transition-colors">
@@ -349,7 +349,11 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           </div>
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Mileage Out</p>
-            <p className="font-semibold text-foreground">45,200 km</p>
+            <p className="font-semibold text-foreground">{car.mileageOut ? `${car.mileageOut} km` : "—"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Fuel Level Out</p>
+            <p className="font-semibold text-foreground">{car.fuelLevelOut || "—"}</p>
           </div>
         </div>
       </div>

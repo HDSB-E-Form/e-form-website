@@ -21,6 +21,8 @@ export interface CarInfo {
   status: "available" | "checked_out" | "maintenance";
   lastCheckedOutBy?: string;
   lastCheckedOutAt?: string;
+  mileageOut?: string;
+  fuelLevelOut?: string;
 }
 
 interface SubmissionsContextType {
@@ -29,7 +31,7 @@ interface SubmissionsContextType {
   addSubmission: (sub: Omit<Submission, "id" | "submittedAt">) => void;
   updateSubmissionStatus: (id: string, status: SubmissionStatus) => void;
   checkInCar: (carId: string) => void;
-  checkOutCar: (carId: string, userId: string) => void;
+  checkOutCar: (carId: string, userId: string, mileage?: string, fuelLevel?: string) => void;
 }
 
 const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
@@ -86,8 +88,8 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     setCars(prev => prev.map(c => c.id === carId ? { ...c, status: "available" as const, lastCheckedOutBy: undefined, lastCheckedOutAt: undefined } : c));
   }, []);
 
-  const checkOutCar = useCallback((carId: string, userId: string) => {
-    setCars(prev => prev.map(c => c.id === carId ? { ...c, status: "checked_out" as const, lastCheckedOutBy: userId, lastCheckedOutAt: new Date().toISOString() } : c));
+  const checkOutCar = useCallback((carId: string, userId: string, mileage?: string, fuelLevel?: string) => {
+    setCars(prev => prev.map(c => c.id === carId ? { ...c, status: "checked_out" as const, lastCheckedOutBy: userId, lastCheckedOutAt: new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel } : c));
   }, []);
 
   return (

@@ -18,10 +18,12 @@ interface MockUser {
 }
 
 const ROLE_OPTIONS = [
-  { value: "SUPER ADMIN", label: "Super Admin", description: "Full system override & access control", icon: Shield },
-  { value: "ADMIN", label: "Administrator", description: "Manage submissions & departments", icon: UserCheck },
-  { value: "SUPERVISOR", label: "Supervisor", description: "Review team work & approvals", icon: Users },
   { value: "EMPLOYEE", label: "Employee", description: "Standard submission access", icon: User },
+  { value: "HR ADMIN", label: "HR Admin", description: "Manage HR forms & fleet", icon: UserCheck },
+  { value: "FINANCE ADMIN", label: "Finance Admin", description: "Manage finance & claims", icon: UserCheck },
+  { value: "HOD", label: "Head of Department", description: "Approve department submissions", icon: Users },
+  { value: "HOS", label: "Head of Service", description: "Approve service submissions", icon: Users },
+  { value: "IT TEAM", label: "IT Team / Super Admin", description: "Full system override & access control", icon: Shield },
 ];
 
 const DEPARTMENTS = [
@@ -30,24 +32,28 @@ const DEPARTMENTS = [
 ];
 
 const INITIAL_USERS: MockUser[] = [
-  { id: "1", name: "Ahmad Razak", email: "ahmad.razak@drb.com", staffId: "STF-8821", role: "SUPER ADMIN", department: "Executive Management" },
-  { id: "2", name: "Sarah Abdullah", email: "sarah.abdullah@drb.com", staffId: "STF-4309", role: "ADMIN", department: "Human Resources", supervisor: "Ahmad Razak" },
-  { id: "3", name: "Fatimah Hassan", email: "fatimah.hassan@drb.com", staffId: "STF-1102", role: "SUPERVISOR", department: "IT Infrastructure" },
+  { id: "1", name: "Ahmad Razak", email: "ahmad.razak@drb.com", staffId: "STF-8821", role: "IT TEAM", department: "Executive Management" },
+  { id: "2", name: "Sarah Abdullah", email: "sarah.abdullah@drb.com", staffId: "STF-4309", role: "HR ADMIN", department: "Human Resources", supervisor: "Ahmad Razak" },
+  { id: "3", name: "Fatimah Hassan", email: "fatimah.hassan@drb.com", staffId: "STF-1102", role: "HOD", department: "IT Infrastructure" },
   { id: "4", name: "Ismail Rahman", email: "ismail.rahman@drb.com", staffId: "STF-9941", role: "EMPLOYEE", department: "Financial Planning", supervisor: "Sarah Abdullah" },
   { id: "5", name: "Lim Wei Jie", email: "wj.lim@drb.com", staffId: "STF-2287", role: "EMPLOYEE", department: "Operations" },
-  { id: "6", name: "Nurul Aina", email: "nurul.aina@drb.com", staffId: "STF-3344", role: "SUPERVISOR", department: "Corporate Affairs" },
+  { id: "6", name: "Nurul Aina", email: "nurul.aina@drb.com", staffId: "STF-3344", role: "HOS", department: "Corporate Affairs" },
   { id: "7", name: "Raj Kumar", email: "raj.kumar@drb.com", staffId: "STF-5567", role: "EMPLOYEE", department: "Engineering" },
-  { id: "8", name: "Siti Aminah", email: "siti.aminah@drb.com", staffId: "STF-7789", role: "ADMIN", department: "Finance", supervisor: "Ahmad Razak" },
+  { id: "8", name: "Siti Aminah", email: "siti.aminah@drb.com", staffId: "STF-7789", role: "FINANCE ADMIN", department: "Finance", supervisor: "Ahmad Razak" },
 ];
 
 const roleBadge = (role: string) => {
   switch (role) {
-    case "SUPER ADMIN":
-      return <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] font-bold">⭐ SUPER ADMIN</Badge>;
-    case "ADMIN":
-      return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">ADMIN</Badge>;
-    case "SUPERVISOR":
-      return <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] font-bold">SUPERVISOR</Badge>;
+    case "IT TEAM":
+      return <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] font-bold">⭐ IT TEAM</Badge>;
+    case "HR ADMIN":
+      return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">HR ADMIN</Badge>;
+    case "FINANCE ADMIN":
+      return <Badge className="bg-sky-100 text-sky-700 border-0 text-[10px] font-bold">FINANCE ADMIN</Badge>;
+    case "HOD":
+      return <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] font-bold">HOD</Badge>;
+    case "HOS":
+      return <Badge className="bg-violet-100 text-violet-700 border-0 text-[10px] font-bold">HOS</Badge>;
     case "EMPLOYEE":
     default:
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
@@ -80,7 +86,7 @@ const SuperAdminDashboard = () => {
 
   const stats = {
     totalPersonnel: users.length,
-    activeAdmins: users.filter(u => u.role === "ADMIN" || u.role === "SUPER ADMIN").length,
+    activeAdmins: users.filter(u => u.role === "HR ADMIN" || u.role === "FINANCE ADMIN" || u.role === "IT TEAM").length,
     pendingApprovals: 8,
     departments: [...new Set(users.map(u => u.department))].length,
   };
@@ -103,7 +109,7 @@ const SuperAdminDashboard = () => {
 
   const supervisorOptions = users.filter(u =>
     u.id !== selectedUser?.id &&
-    (u.role === "SUPERVISOR" || u.role === "ADMIN" || u.role === "SUPER ADMIN") &&
+    (u.role === "HOD" || u.role === "HOS" || u.role === "HR ADMIN" || u.role === "IT TEAM") &&
     (!supervisorSearch || u.name.toLowerCase().includes(supervisorSearch.toLowerCase()))
   );
 
