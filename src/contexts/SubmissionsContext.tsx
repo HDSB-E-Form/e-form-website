@@ -31,7 +31,7 @@ interface SubmissionsContextType {
   addSubmission: (sub: Omit<Submission, "id" | "submittedAt">) => void;
   updateSubmissionStatus: (id: string, status: SubmissionStatus) => void;
   checkInCar: (carId: string) => void;
-  checkOutCar: (carId: string, userId: string) => void;
+  checkOutCar: (carId: string, userId: string, mileage?: string, fuelLevel?: string) => void;
 }
 
 const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
