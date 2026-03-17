@@ -27,8 +27,8 @@ const CarManagement = () => {
   };
 
   if (view === "checkout" && selectedCar) {
-    return <CheckOutForm car={selectedCar} onCancel={() => setView("overview")} onSubmit={(car) => {
-      checkOutCar(car.id, user?.name || "");
+    return <CheckOutForm car={selectedCar} onCancel={() => setView("overview")} onSubmit={(car, mileage, fuelLevel) => {
+      checkOutCar(car.id, user?.name || "", mileage, fuelLevel);
       toast.success("Vehicle checked out successfully");
       setView("overview");
     }} />;
