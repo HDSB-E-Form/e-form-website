@@ -290,7 +290,7 @@ function CheckOutForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () 
 
       {/* Buttons */}
       <div className="mt-6 space-y-3">
-        <button onClick={() => onSubmit(car)} className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2">
+        <button onClick={() => onSubmit(car, mileage, fuelLevel)} className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2">
           <CheckCircle className="h-4 w-4" /> Submit / Hantar
         </button>
         <button onClick={onCancel} className="w-full py-3 rounded-lg bg-muted text-foreground font-medium text-sm hover:bg-muted/70 transition-colors">
