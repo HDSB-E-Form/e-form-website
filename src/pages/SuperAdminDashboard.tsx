@@ -109,7 +109,7 @@ const SuperAdminDashboard = () => {
 
   const supervisorOptions = users.filter(u =>
     u.id !== selectedUser?.id &&
-    (u.role === "SUPERVISOR" || u.role === "ADMIN" || u.role === "SUPER ADMIN") &&
+    (u.role === "HOD" || u.role === "HOS" || u.role === "HR ADMIN" || u.role === "IT TEAM") &&
     (!supervisorSearch || u.name.toLowerCase().includes(supervisorSearch.toLowerCase()))
   );
 

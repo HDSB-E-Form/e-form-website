@@ -349,7 +349,11 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           </div>
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Mileage Out</p>
-            <p className="font-semibold text-foreground">45,200 km</p>
+            <p className="font-semibold text-foreground">{car.mileageOut ? `${car.mileageOut} km` : "—"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Fuel Level Out</p>
+            <p className="font-semibold text-foreground">{car.fuelLevelOut || "—"}</p>
           </div>
         </div>
       </div>
