@@ -21,6 +21,8 @@ export interface CarInfo {
   status: "available" | "checked_out" | "maintenance";
   lastCheckedOutBy?: string;
   lastCheckedOutAt?: string;
+  mileageOut?: string;
+  fuelLevelOut?: string;
 }
 
 interface SubmissionsContextType {
