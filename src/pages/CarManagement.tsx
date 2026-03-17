@@ -165,7 +165,7 @@ const CarManagement = () => {
 };
 
 /* ─── Check-Out Form ─── */
-function CheckOutForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () => void; onSubmit: (car: CarInfo) => void }) {
+function CheckOutForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () => void; onSubmit: (car: CarInfo, mileage: string, fuelLevel: string) => void }) {
   const [employee, setEmployee] = useState("");
   const [mileage, setMileage] = useState("");
   const [fuelLevel, setFuelLevel] = useState("Full");
