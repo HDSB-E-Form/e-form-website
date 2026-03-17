@@ -18,10 +18,12 @@ interface MockUser {
 }
 
 const ROLE_OPTIONS = [
-  { value: "SUPER ADMIN", label: "Super Admin", description: "Full system override & access control", icon: Shield },
-  { value: "ADMIN", label: "Administrator", description: "Manage submissions & departments", icon: UserCheck },
-  { value: "SUPERVISOR", label: "Supervisor", description: "Review team work & approvals", icon: Users },
   { value: "EMPLOYEE", label: "Employee", description: "Standard submission access", icon: User },
+  { value: "HR ADMIN", label: "HR Admin", description: "Manage HR forms & fleet", icon: UserCheck },
+  { value: "FINANCE ADMIN", label: "Finance Admin", description: "Manage finance & claims", icon: UserCheck },
+  { value: "HOD", label: "Head of Department", description: "Approve department submissions", icon: Users },
+  { value: "HOS", label: "Head of Service", description: "Approve service submissions", icon: Users },
+  { value: "IT TEAM", label: "IT Team / Super Admin", description: "Full system override & access control", icon: Shield },
 ];
 
 const DEPARTMENTS = [
