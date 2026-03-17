@@ -32,14 +32,14 @@ const DEPARTMENTS = [
 ];
 
 const INITIAL_USERS: MockUser[] = [
-  { id: "1", name: "Ahmad Razak", email: "ahmad.razak@drb.com", staffId: "STF-8821", role: "SUPER ADMIN", department: "Executive Management" },
-  { id: "2", name: "Sarah Abdullah", email: "sarah.abdullah@drb.com", staffId: "STF-4309", role: "ADMIN", department: "Human Resources", supervisor: "Ahmad Razak" },
-  { id: "3", name: "Fatimah Hassan", email: "fatimah.hassan@drb.com", staffId: "STF-1102", role: "SUPERVISOR", department: "IT Infrastructure" },
+  { id: "1", name: "Ahmad Razak", email: "ahmad.razak@drb.com", staffId: "STF-8821", role: "IT TEAM", department: "Executive Management" },
+  { id: "2", name: "Sarah Abdullah", email: "sarah.abdullah@drb.com", staffId: "STF-4309", role: "HR ADMIN", department: "Human Resources", supervisor: "Ahmad Razak" },
+  { id: "3", name: "Fatimah Hassan", email: "fatimah.hassan@drb.com", staffId: "STF-1102", role: "HOD", department: "IT Infrastructure" },
   { id: "4", name: "Ismail Rahman", email: "ismail.rahman@drb.com", staffId: "STF-9941", role: "EMPLOYEE", department: "Financial Planning", supervisor: "Sarah Abdullah" },
   { id: "5", name: "Lim Wei Jie", email: "wj.lim@drb.com", staffId: "STF-2287", role: "EMPLOYEE", department: "Operations" },
-  { id: "6", name: "Nurul Aina", email: "nurul.aina@drb.com", staffId: "STF-3344", role: "SUPERVISOR", department: "Corporate Affairs" },
+  { id: "6", name: "Nurul Aina", email: "nurul.aina@drb.com", staffId: "STF-3344", role: "HOS", department: "Corporate Affairs" },
   { id: "7", name: "Raj Kumar", email: "raj.kumar@drb.com", staffId: "STF-5567", role: "EMPLOYEE", department: "Engineering" },
-  { id: "8", name: "Siti Aminah", email: "siti.aminah@drb.com", staffId: "STF-7789", role: "ADMIN", department: "Finance", supervisor: "Ahmad Razak" },
+  { id: "8", name: "Siti Aminah", email: "siti.aminah@drb.com", staffId: "STF-7789", role: "FINANCE ADMIN", department: "Finance", supervisor: "Ahmad Razak" },
 ];
 
 const roleBadge = (role: string) => {
