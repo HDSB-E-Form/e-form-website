@@ -69,7 +69,7 @@ const CarRentalForm = () => {
       submittedBy: user?.id || "",
       employeeName: user?.name || "",
       department: user?.department || "",
-      data: { ...form, passengers },
+      data: { ...form, passengers, hosName: form.hos, hodName: form.hod },
     });
     toast.success("Company car request submitted successfully!");
     navigate("/home");
