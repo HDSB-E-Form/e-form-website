@@ -145,36 +145,51 @@ const ApproverDashboard = () => {
           <ExternalLink className="h-4 w-4 text-muted-foreground" />
         </div>
 
-        {(selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod") && (
-          <>
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
-            <Textarea
-              placeholder="Sila masukkan ulasan jika ada..."
-              value={remarks}
-              onChange={e => setRemarks(e.target.value)}
-              className="mb-6 min-h-[100px]"
-            />
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                className="flex-1 px-6 py-4 rounded-xl border-2 border-destructive text-destructive font-bold text-center hover:bg-destructive/10 transition-colors"
-              >
-                <span className="block text-base">Tolak</span>
-                <span className="block text-xs font-medium opacity-70">REJECT</span>
-              </button>
-              <button
-                onClick={() => {
-                  const nextStatus = isHOD ? "approved_hod" : "approved_hos";
-                  handleAction(selectedSubmission.id, nextStatus);
-                }}
-                className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors"
-              >
-                <span className="block text-base">Terima</span>
-                <span className="block text-xs font-medium opacity-80">ACCEPT</span>
-              </button>
+        {/* Show action buttons only when it's this approver's turn */}
+        {(() => {
+          const canApprove = (isHOS && selectedSubmission.status === "pending") || 
+                             (isHOD && selectedSubmission.status === "approved_hos");
+          if (!canApprove) return (
+            <div className="p-4 bg-muted/30 rounded-xl text-center">
+              <p className="text-sm text-muted-foreground font-medium">
+                {selectedSubmission.status === "rejected" ? "This submission has been rejected." :
+                 selectedSubmission.status === "approved" || selectedSubmission.status === "approved_hod" ? "You have already approved this submission." :
+                 isHOD && selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval first." :
+                 "No action required at this time."}
+              </p>
             </div>
-          </>
-        )}
+          );
+          return (
+            <>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
+              <Textarea
+                placeholder="Sila masukkan ulasan jika ada..."
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+                className="mb-6 min-h-[100px]"
+              />
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleAction(selectedSubmission.id, "rejected")}
+                  className="flex-1 px-6 py-4 rounded-xl border-2 border-destructive text-destructive font-bold text-center hover:bg-destructive/10 transition-colors"
+                >
+                  <span className="block text-base">Tolak</span>
+                  <span className="block text-xs font-medium opacity-70">REJECT</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const nextStatus = isHOS ? "approved_hos" : "approved_hod";
+                    handleAction(selectedSubmission.id, nextStatus);
+                  }}
+                  className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors"
+                >
+                  <span className="block text-base">Terima</span>
+                  <span className="block text-xs font-medium opacity-80">ACCEPT</span>
+                </button>
+              </div>
+            </>
+          );
+        })()}
       </div>
     );
   }
