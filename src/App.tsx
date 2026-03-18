@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubmissionsProvider } from "@/contexts/SubmissionsContext";
+import { UsersProvider } from "@/contexts/UsersContext";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
@@ -27,6 +28,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <UsersProvider>
       <SubmissionsProvider>
         <TooltipProvider>
           <Toaster />
@@ -60,6 +62,7 @@ const App = () => (
           </BrowserRouter>
         </TooltipProvider>
       </SubmissionsProvider>
+      </UsersProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

@@ -39,14 +39,23 @@ const ApproverDashboard = () => {
   const [remarks, setRemarks] = useState("");
 
   const isHOD = user?.role === "hod";
-  const approverField = isHOD ? "hodName" : "hosName";
+  const isHOS = user?.role === "hos";
 
   // HOD/HOS only sees forms where they were selected as approver
+  // Also check car rental form's hos/hod fields
   const filtered = submissions
     .filter(s => {
-      const approverValue = s.data[approverField];
-      if (!approverValue) return false;
-      return approverValue === user?.name;
+      const hosValue = s.data.hosName || s.data.hos;
+      const hodValue = s.data.hodName || s.data.hod;
+      if (isHOS && hosValue === user?.name) return true;
+      if (isHOD && hodValue === user?.name) return true;
+      return false;
+    })
+    .filter(s => {
+      // HOS sees pending submissions, HOD sees approved_hos submissions
+      if (isHOS) return s.status === "pending" || s.status === "approved_hos" || s.status === "approved_hod" || s.status === "approved" || s.status === "rejected";
+      if (isHOD) return s.status === "approved_hos" || s.status === "approved_hod" || s.status === "approved" || s.status === "rejected";
+      return true;
     })
     .filter(s => {
       if (!search) return true;
@@ -136,36 +145,51 @@ const ApproverDashboard = () => {
           <ExternalLink className="h-4 w-4 text-muted-foreground" />
         </div>
 
-        {(selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod") && (
-          <>
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
-            <Textarea
-              placeholder="Sila masukkan ulasan jika ada..."
-              value={remarks}
-              onChange={e => setRemarks(e.target.value)}
-              className="mb-6 min-h-[100px]"
-            />
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                className="flex-1 px-6 py-4 rounded-xl border-2 border-destructive text-destructive font-bold text-center hover:bg-destructive/10 transition-colors"
-              >
-                <span className="block text-base">Tolak</span>
-                <span className="block text-xs font-medium opacity-70">REJECT</span>
-              </button>
-              <button
-                onClick={() => {
-                  const nextStatus = isHOD ? "approved_hod" : "approved_hos";
-                  handleAction(selectedSubmission.id, nextStatus);
-                }}
-                className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors"
-              >
-                <span className="block text-base">Terima</span>
-                <span className="block text-xs font-medium opacity-80">ACCEPT</span>
-              </button>
+        {/* Show action buttons only when it's this approver's turn */}
+        {(() => {
+          const canApprove = (isHOS && selectedSubmission.status === "pending") || 
+                             (isHOD && selectedSubmission.status === "approved_hos");
+          if (!canApprove) return (
+            <div className="p-4 bg-muted/30 rounded-xl text-center">
+              <p className="text-sm text-muted-foreground font-medium">
+                {selectedSubmission.status === "rejected" ? "This submission has been rejected." :
+                 selectedSubmission.status === "approved" || selectedSubmission.status === "approved_hod" ? "You have already approved this submission." :
+                 isHOD && selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval first." :
+                 "No action required at this time."}
+              </p>
             </div>
-          </>
-        )}
+          );
+          return (
+            <>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
+              <Textarea
+                placeholder="Sila masukkan ulasan jika ada..."
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+                className="mb-6 min-h-[100px]"
+              />
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleAction(selectedSubmission.id, "rejected")}
+                  className="flex-1 px-6 py-4 rounded-xl border-2 border-destructive text-destructive font-bold text-center hover:bg-destructive/10 transition-colors"
+                >
+                  <span className="block text-base">Tolak</span>
+                  <span className="block text-xs font-medium opacity-70">REJECT</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const nextStatus = isHOS ? "approved_hos" : "approved_hod";
+                    handleAction(selectedSubmission.id, nextStatus);
+                  }}
+                  className="flex-1 px-6 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors"
+                >
+                  <span className="block text-base">Terima</span>
+                  <span className="block text-xs font-medium opacity-80">ACCEPT</span>
+                </button>
+              </div>
+            </>
+          );
+        })()}
       </div>
     );
   }

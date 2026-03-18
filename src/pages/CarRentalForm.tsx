@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,13 +18,14 @@ import {
 } from "@/components/ui/select";
 
 const DEPARTMENTS = ["Engineering", "Finance", "HR", "Marketing", "Operations", "IT", "Legal"];
-const HOS_OPTIONS = ["Encik Ahmad bin Hassan", "Puan Siti Aminah", "Encik Raj Kumar"];
-const HOD_OPTIONS = ["Dato' Mohd Razali", "Puan Noraini binti Yusof", "Encik Tan Wei Ming"];
 
 const CarRentalForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
+  const { getUsersByRole } = useUsers();
+  const hosUsers = getUsersByRole("HOS");
+  const hodUsers = getUsersByRole("HOD");
   const [step, setStep] = useState(1);
   const [policyAgreed, setPolicyAgreed] = useState(false);
 
@@ -67,7 +69,7 @@ const CarRentalForm = () => {
       submittedBy: user?.id || "",
       employeeName: user?.name || "",
       department: user?.department || "",
-      data: { ...form, passengers },
+      data: { ...form, passengers, hosName: form.hos, hodName: form.hod },
     });
     toast.success("Company car request submitted successfully!");
     navigate("/home");
@@ -244,7 +246,7 @@ const CarRentalForm = () => {
                       <SelectValue placeholder="Choose Head of Section" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HOS_OPTIONS.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                      {hosUsers.map(h => <SelectItem key={h.id} value={h.name}>{h.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -255,7 +257,7 @@ const CarRentalForm = () => {
                       <SelectValue placeholder="Choose Head of Department" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HOD_OPTIONS.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                      {hodUsers.map(h => <SelectItem key={h.id} value={h.name}>{h.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

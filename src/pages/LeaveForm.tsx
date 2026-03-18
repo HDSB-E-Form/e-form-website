@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, UserCheck, Info, ShieldCheck, Shield, Send, Car, LogIn, LogOut } from "lucide-react";
@@ -11,6 +12,10 @@ const LeaveForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
+  const { getUsersByRole } = useUsers();
+
+  const hosUsers = getUsersByRole("HOS");
+  const hodUsers = getUsersByRole("HOD");
 
   const [employeeInfo, setEmployeeInfo] = useState({
     name: user?.name || "",
@@ -238,9 +243,9 @@ const LeaveForm = () => {
                 required
               >
                 <option value="">Choose Head of Section</option>
-                <option>Encik Azman</option>
-                <option>Puan Siti</option>
-                <option>Encik Hafiz</option>
+                {hosUsers.map(u => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -254,9 +259,9 @@ const LeaveForm = () => {
                 required
               >
                 <option value="">Choose Head of Department</option>
-                <option>Dato' Ibrahim</option>
-                <option>Encik Rashid</option>
-                <option>Puan Nora</option>
+                {hodUsers.map(u => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
               </select>
             </div>
           </div>
