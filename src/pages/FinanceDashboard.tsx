@@ -132,8 +132,8 @@ const FinanceDashboard = () => {
           <ExternalLink className="h-4 w-4 text-muted-foreground" />
         </div>
 
-        {/* Remarks */}
-        {(selectedSubmission.status === "pending") && (
+        {/* Remarks & Actions - only when HOD has approved */}
+        {selectedSubmission.status === "approved_hod" && (
           <>
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
             <Textarea
@@ -161,6 +161,15 @@ const FinanceDashboard = () => {
               </button>
             </div>
           </>
+        )}
+
+        {(selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos") && (
+          <div className="p-4 bg-muted/30 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground font-medium">
+              {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
+               "Waiting for Head of Department (HOD) approval."}
+            </p>
+          </div>
         )}
       </div>
     );
