@@ -180,6 +180,7 @@ const AdminDashboard = () => {
   if (selectedSubmission) {
     const isLeave = selectedSubmission.formType === "leave";
     const isCarRental = selectedSubmission.formType === "car_rental";
+    const canApprove = selectedSubmission.status === "approved_hod";
     const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod";
 
     return (
