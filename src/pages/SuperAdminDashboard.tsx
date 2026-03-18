@@ -71,7 +71,7 @@ const SuperAdminDashboard = () => {
     departments: [...new Set(users.map(u => u.department))].length,
   };
 
-  const openManage = (user: MockUser) => {
+  const openManage = (user: AppUser) => {
     setSelectedUser(user);
     setEditRole(user.role);
     setEditDepartment(user.department);
