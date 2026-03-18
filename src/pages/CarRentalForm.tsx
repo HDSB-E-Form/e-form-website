@@ -23,6 +23,9 @@ const CarRentalForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
+  const { getUsersByRole } = useUsers();
+  const hosUsers = getUsersByRole("HOS");
+  const hodUsers = getUsersByRole("HOD");
   const [step, setStep] = useState(1);
   const [policyAgreed, setPolicyAgreed] = useState(false);
 
