@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,8 +18,6 @@ import {
 } from "@/components/ui/select";
 
 const DEPARTMENTS = ["Engineering", "Finance", "HR", "Marketing", "Operations", "IT", "Legal"];
-const HOS_OPTIONS = ["Encik Ahmad bin Hassan", "Puan Siti Aminah", "Encik Raj Kumar"];
-const HOD_OPTIONS = ["Dato' Mohd Razali", "Puan Noraini binti Yusof", "Encik Tan Wei Ming"];
 
 const CarRentalForm = () => {
   const navigate = useNavigate();
