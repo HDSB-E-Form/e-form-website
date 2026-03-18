@@ -82,7 +82,7 @@ const SuperAdminDashboard = () => {
 
   const handleSave = () => {
     if (!selectedUser) return;
-    setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, role: editRole, department: editDepartment, supervisor: editSupervisor } : u));
+    updateUser(selectedUser.id, { role: editRole, department: editDepartment, supervisor: editSupervisor });
     setSheetOpen(false);
     toast.success(`Permissions updated for ${selectedUser.name}`);
   };
