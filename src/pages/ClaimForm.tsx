@@ -20,6 +20,9 @@ const ClaimForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
+  const { getUsersByRole } = useUsers();
+  const hosUsers = getUsersByRole("HOS");
+  const hodUsers = getUsersByRole("HOD");
 
   const [employeeInfo, setEmployeeInfo] = useState({
     name: user?.name || "",
