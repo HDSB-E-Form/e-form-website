@@ -194,7 +194,17 @@ const AdminDashboard = () => {
         {isLeave && renderLeaveDetail(selectedSubmission)}
         {isCarRental && renderCarRentalDetail(selectedSubmission)}
 
-        {isPending && (
+        {isPending && !canApprove && (
+          <div className="p-4 bg-muted/30 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground font-medium">
+              {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
+               selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
+               "No action required at this time."}
+            </p>
+          </div>
+        )}
+
+        {canApprove && (
           <>
             <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
             <Textarea
