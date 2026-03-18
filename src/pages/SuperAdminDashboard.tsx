@@ -50,8 +50,8 @@ const getInitialColor = (name: string) => {
 
 const SuperAdminDashboard = () => {
   const [search, setSearch] = useState("");
-  const [users, setUsers] = useState<MockUser[]>(INITIAL_USERS);
-  const [selectedUser, setSelectedUser] = useState<MockUser | null>(null);
+  const { users, updateUser } = useUsers();
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editRole, setEditRole] = useState("");
   const [editDepartment, setEditDepartment] = useState("");
