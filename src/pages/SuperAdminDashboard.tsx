@@ -6,16 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-
-interface MockUser {
-  id: string;
-  name: string;
-  email: string;
-  staffId: string;
-  role: string;
-  department: string;
-  supervisor?: string;
-}
+import { useUsers, type AppUser } from "@/contexts/UsersContext";
 
 const ROLE_OPTIONS = [
   { value: "EMPLOYEE", label: "Employee", description: "Standard submission access", icon: User },
@@ -29,17 +20,6 @@ const ROLE_OPTIONS = [
 const DEPARTMENTS = [
   "Executive Management", "Human Resources", "IT Infrastructure",
   "Financial Planning", "Operations", "Corporate Affairs", "Engineering", "Finance"
-];
-
-const INITIAL_USERS: MockUser[] = [
-  { id: "1", name: "Ahmad Razak", email: "ahmad.razak@drb.com", staffId: "STF-8821", role: "IT TEAM", department: "Executive Management" },
-  { id: "2", name: "Sarah Abdullah", email: "sarah.abdullah@drb.com", staffId: "STF-4309", role: "HR ADMIN", department: "Human Resources", supervisor: "Ahmad Razak" },
-  { id: "3", name: "Fatimah Hassan", email: "fatimah.hassan@drb.com", staffId: "STF-1102", role: "HOD", department: "IT Infrastructure" },
-  { id: "4", name: "Ismail Rahman", email: "ismail.rahman@drb.com", staffId: "STF-9941", role: "EMPLOYEE", department: "Financial Planning", supervisor: "Sarah Abdullah" },
-  { id: "5", name: "Lim Wei Jie", email: "wj.lim@drb.com", staffId: "STF-2287", role: "EMPLOYEE", department: "Operations" },
-  { id: "6", name: "Nurul Aina", email: "nurul.aina@drb.com", staffId: "STF-3344", role: "HOS", department: "Corporate Affairs" },
-  { id: "7", name: "Raj Kumar", email: "raj.kumar@drb.com", staffId: "STF-5567", role: "EMPLOYEE", department: "Engineering" },
-  { id: "8", name: "Siti Aminah", email: "siti.aminah@drb.com", staffId: "STF-7789", role: "FINANCE ADMIN", department: "Finance", supervisor: "Ahmad Razak" },
 ];
 
 const roleBadge = (role: string) => {
