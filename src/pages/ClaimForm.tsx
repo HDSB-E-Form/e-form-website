@@ -303,9 +303,9 @@ const ClaimForm = () => {
                 required
               >
                 <option value="">Choose Head of Department</option>
-                <option>Dato' Ibrahim</option>
-                <option>Encik Rashid</option>
-                <option>Puan Nora</option>
+                {hodUsers.map(u => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
               </select>
             </div>
           </div>
