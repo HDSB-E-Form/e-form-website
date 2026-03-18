@@ -287,9 +287,9 @@ const ClaimForm = () => {
                 required
               >
                 <option value="">Choose Head of Section</option>
-                <option>Encik Azman</option>
-                <option>Puan Siti</option>
-                <option>Encik Hafiz</option>
+                {hosUsers.map(u => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-1.5">
