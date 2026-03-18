@@ -246,7 +246,7 @@ const CarRentalForm = () => {
                       <SelectValue placeholder="Choose Head of Section" />
                     </SelectTrigger>
                     <SelectContent>
-                      {HOS_OPTIONS.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                      {hosUsers.map(h => <SelectItem key={h.id} value={h.name}>{h.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
