@@ -39,14 +39,23 @@ const ApproverDashboard = () => {
   const [remarks, setRemarks] = useState("");
 
   const isHOD = user?.role === "hod";
-  const approverField = isHOD ? "hodName" : "hosName";
+  const isHOS = user?.role === "hos";
 
   // HOD/HOS only sees forms where they were selected as approver
+  // Also check car rental form's hos/hod fields
   const filtered = submissions
     .filter(s => {
-      const approverValue = s.data[approverField];
-      if (!approverValue) return false;
-      return approverValue === user?.name;
+      const hosValue = s.data.hosName || s.data.hos;
+      const hodValue = s.data.hodName || s.data.hod;
+      if (isHOS && hosValue === user?.name) return true;
+      if (isHOD && hodValue === user?.name) return true;
+      return false;
+    })
+    .filter(s => {
+      // HOS sees pending submissions, HOD sees approved_hos submissions
+      if (isHOS) return s.status === "pending" || s.status === "approved_hos" || s.status === "approved_hod" || s.status === "approved" || s.status === "rejected";
+      if (isHOD) return s.status === "approved_hos" || s.status === "approved_hod" || s.status === "approved" || s.status === "rejected";
+      return true;
     })
     .filter(s => {
       if (!search) return true;
