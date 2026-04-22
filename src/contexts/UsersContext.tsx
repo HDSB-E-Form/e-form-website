@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
+import { supabase } from "@/supabase";
 
 export interface AppUser {
   id: string;
@@ -12,35 +13,101 @@ export interface AppUser {
 
 interface UsersContextType {
   users: AppUser[];
-  updateUser: (id: string, updates: Partial<AppUser>) => void;
+  updateUser: (id: string, updates: Partial<AppUser>) => Promise<boolean>;
+  deleteUser: (id: string) => Promise<boolean>;
   getUsersByRole: (role: string) => AppUser[];
+  isLoading: boolean;
 }
 
 const UsersContext = createContext<UsersContextType | null>(null);
 
-const INITIAL_USERS: AppUser[] = [
-  { id: "1", name: "Ahmad Razak", email: "ahmad.razak@drb.com", staffId: "STF-8821", role: "IT TEAM", department: "Executive Management" },
-  { id: "2", name: "Sarah Abdullah", email: "sarah.abdullah@drb.com", staffId: "STF-4309", role: "HR ADMIN", department: "Human Resources", supervisor: "Ahmad Razak" },
-  { id: "3", name: "Fatimah Hassan", email: "fatimah.hassan@drb.com", staffId: "STF-1102", role: "HOD", department: "IT Infrastructure" },
-  { id: "4", name: "Ismail Rahman", email: "ismail.rahman@drb.com", staffId: "STF-9941", role: "EMPLOYEE", department: "Financial Planning", supervisor: "Sarah Abdullah" },
-  { id: "5", name: "Lim Wei Jie", email: "wj.lim@drb.com", staffId: "STF-2287", role: "EMPLOYEE", department: "Operations" },
-  { id: "6", name: "Nurul Aina", email: "nurul.aina@drb.com", staffId: "STF-3344", role: "HOS", department: "Corporate Affairs" },
-  { id: "7", name: "Raj Kumar", email: "raj.kumar@drb.com", staffId: "STF-5567", role: "EMPLOYEE", department: "Engineering" },
-  { id: "8", name: "Siti Aminah", email: "siti.aminah@drb.com", staffId: "STF-7789", role: "FINANCE ADMIN", department: "Finance", supervisor: "Ahmad Razak" },
-];
-
 export function UsersProvider({ children }: { children: React.ReactNode }) {
-  const [users, setUsers] = useState<AppUser[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const updateUser = useCallback((id: string, updates: Partial<AppUser>) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase.from("users").select("*").eq("status", "active");
+        if (error) throw error;
+        
+        const fetchedUsers: AppUser[] = (data || []).map((doc: any) => ({
+          id: doc.id,
+          name: doc.name,
+          email: doc.email,
+          staffId: doc.employeeId || "",
+          role: doc.role || "employee",
+          department: doc.department || "",
+          supervisor: doc.supervisor || "",
+        }));
+        
+        setUsers(fetchedUsers);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const updateUser = useCallback(async (id: string, updates: Partial<AppUser>) => {
+    // Prepare the data for Supabase, mapping properties like staffId -> employeeId
+    const dbUpdates: { [key: string]: any } = { ...updates };
+    if (dbUpdates.staffId) {
+      dbUpdates.employeeId = dbUpdates.staffId;
+      delete dbUpdates.staffId;
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating user:", error);
+      toast.error("Failed to update user: " + error.message);
+      return false;
+    }
+
+    // Update local state with the confirmed data from the database
+    const updatedUser: AppUser = {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      staffId: data.employeeId || "",
+      role: data.role || "employee",
+      department: data.department || "",
+      supervisor: data.supervisor || "",
+    };
+    setUsers(prev => prev.map(u => (u.id === id ? updatedUser : u)));
+    return true;
+  }, []);
+
+  const deleteUser = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from("users")
+      .update({ status: "inactive" })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deactivating user:", error);
+      return false;
+    }
+    
+    setUsers(prev => prev.filter(u => u.id !== id));
+    return true;
   }, []);
 
   const getUsersByRole = useCallback((role: string) => {
-    return users.filter(u => u.role === role);
+    return users.filter(u => u.role?.toLowerCase() === role.toLowerCase());
   }, [users]);
 
-  const value = useMemo(() => ({ users, updateUser, getUsersByRole }), [users, updateUser, getUsersByRole]);
+  const value = useMemo(() => ({ users, updateUser, deleteUser, getUsersByRole, isLoading }), [users, updateUser, deleteUser, getUsersByRole, isLoading]);
 
   return (
     <UsersContext.Provider value={value}>

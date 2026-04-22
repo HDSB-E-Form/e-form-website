@@ -1,47 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap');
 
 @layer base {
   :root {
     --background: 220 20% 97%;
     --foreground: 230 25% 15%;
-
     --card: 0 0% 100%;
     --card-foreground: 230 25% 15%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 230 25% 15%;
-
     --primary: 233 50% 25%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 220 20% 95%;
     --secondary-foreground: 230 25% 15%;
-
     --muted: 220 15% 93%;
     --muted-foreground: 220 10% 45%;
-
-    --accent: 43 96% 56%;
-    --accent-foreground: 230 25% 15%;
-
+    --accent: 38 92% 50%;
+    --accent-foreground: 233 50% 15%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
-
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-
     --border: 220 15% 90%;
     --input: 220 15% 90%;
     --ring: 233 50% 25%;
-
     --radius: 0.75rem;
 
+    /* Sidebar & Nav */
     --sidebar-background: 233 50% 20%;
     --sidebar-foreground: 220 20% 90%;
     --sidebar-primary: 43 96% 56%;
@@ -50,7 +40,6 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 233 40% 30%;
     --sidebar-ring: 43 96% 56%;
-
     --nav-dark: 233 50% 18%;
     --nav-dark-foreground: 220 20% 85%;
 
@@ -71,7 +60,7 @@
     --secondary-foreground: 220 20% 90%;
     --muted: 233 35% 20%;
     --muted-foreground: 220 15% 60%;
-    --accent: 43 96% 56%;
+    --accent: 38 92% 50%;
     --accent-foreground: 233 50% 15%;
     --destructive: 0 62% 30.6%;
     --destructive-foreground: 210 40% 98%;
@@ -100,6 +89,78 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
   }
+
+  ::placeholder {
+    color: hsl(var(--muted-foreground));
+    opacity: 0.55 !important;
+  }
+
+  @media print {
+    @page {
+      size: A4;
+      margin: 0.6cm; /* Reduced even further to force content onto page 1 */
+    }
+
+    body {
+      font-size: 7.5pt !important; /* 0.5pt smaller for tight body text */
+      line-height: 1.0 !important; /* Forces maximum vertical compression */
+      -webkit-print-color-adjust: exact;
+      background: white !important;
+    }
+
+    /* 1. KEEP TOP HEADING & BRANDING LARGER */
+    h1, .print-header-main {
+      font-size: 15pt !important;
+      margin-bottom: 2px !important;
+      font-weight: 800 !important;
+    }
+
+    /* 2. FIX CLAIM ROWS & ATTACHMENT ALIGNMENT */
+    /* Prevents the (--) symbol from wrapping below the text */
+    td, th, p, span, div {
+      white-space: nowrap !important; 
+      vertical-align: middle !important;
+    }
+
+    /* 3. CONDENSE ALL ROWS */
+    table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin-bottom: 4px !important;
+    }
+
+    td, th {
+      padding: 1px 4px !important; /* Minimal padding for ultra-tight rows */
+      border: 1px solid #ddd !important;
+      height: 14pt !important; /* Standardizes row height across the form */
+    }
+
+    /* Target specific sections like Employee Info to stay compact */
+    .section-header {
+      font-size: 9pt !important;
+      font-weight: bold;
+      border-bottom: 2px solid black !important;
+      margin-top: 5px !important;
+      margin-bottom: 2px !important;
+    }
+
+    /* General Print Clean-up */
+    * {
+      color: black !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+
+    /* Hide elements that cause extra page breaks */
+    nav, .no-print, .sidebar, footer {
+      display: none !important;
+    }
+
+    /* Hide specific claim rows in finance form when printing*/
+    .print-hide-finance-claim-row {
+      display: none !important;
+    }
+  }
 }
 
 @layer components {
@@ -108,10 +169,10 @@
   }
   .btn-gold {
     @apply bg-accent text-accent-foreground font-semibold rounded-lg px-6 py-3 transition-all;
-    box-shadow: 0 4px 14px hsl(43 96% 56% / 0.3);
+    box-shadow: 0 4px 14px hsl(217 91% 60% / 0.3);
   }
   .btn-gold:hover {
-    box-shadow: 0 6px 20px hsl(43 96% 56% / 0.5);
+    box-shadow: 0 6px 20px hsl(217 91% 60% / 0.5);
     transform: translateY(-1px);
   }
   .card-elevated {
@@ -126,13 +187,11 @@
     box-shadow: 0 8px 30px hsl(43 96% 56% / 0.15);
     transform: translateY(-4px);
   }
-  .status-pending {
-    @apply bg-warning/10 text-warning;
-  }
-  .status-approved {
-    @apply bg-success/10 text-success;
-  }
-  .status-rejected {
-    @apply bg-destructive/10 text-destructive;
+  .status-pending { @apply bg-warning/10 text-warning; }
+  .status-approved { @apply bg-success/10 text-success; }
+  .status-rejected { @apply bg-destructive/10 text-destructive; }
+
+  [data-sonner-toast][data-type="error"] [data-icon] {
+    color: hsl(var(--destructive)) !important;
   }
 }

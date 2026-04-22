@@ -1,5 +1,24 @@
 import { useNavigate } from "react-router-dom";
-import { Car, CalendarDays, ArrowLeft } from "lucide-react";
+import { CalendarDays, ArrowLeft } from "lucide-react";
+
+// Custom Sedan Icon to replace the default Lucide Car (which looks like a hatchback/SUV)
+const CustomSedanIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M5 17H3a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h3l2.5-4.5A2 2 0 0 1 10 7h4a2 2 0 0 1 1.5 1.5L17 11.5h4a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-2" />
+    <circle cx="7" cy="17" r="2" />
+    <path d="M9 17h6" />
+    <circle cx="17" cy="17" r="2" />
+  </svg>
+);
 
 const HRFormsPage = () => {
   const navigate = useNavigate();
@@ -9,13 +28,13 @@ const HRFormsPage = () => {
       id: "car_rental",
       title: "Company Car Request",
       description: "Request a company vehicle for business travel",
-      icon: Car,
+      icon: CustomSedanIcon,
       path: "/hr/car-rental",
     },
     {
       id: "leave",
-      title: "Leave Application",
-      description: "Apply for annual, sick, or other types of leave",
+      title: "Gate Pass",
+      description: "Apply for a pass to exit the company premises",
       icon: CalendarDays,
       path: "/hr/leave",
     },
@@ -23,8 +42,8 @@ const HRFormsPage = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-      <button onClick={() => navigate("/home")} className="flex items-center text-muted-foreground hover:text-foreground mb-6 text-sm">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Back to Home
+      <button onClick={() => navigate("/home")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Home
       </button>
 
       <div className="mb-8">
