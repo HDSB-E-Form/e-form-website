@@ -79,17 +79,17 @@ const LoginPage = () => {
       }
       
       if (userData?.role === "hr_admin") {
-        navigate("/admin/hr");
+        window.location.href = "/admin/hr";
       } else if (userData?.role === "finance_admin") {
-        navigate("/admin/finance");
+        window.location.href = "/admin/finance";
       } else if (userData?.role === "security_guard") {
-        navigate("/admin/security");
+        window.location.href = "/admin/security";
       } else if (userData?.role === "hod" || userData?.role === "hos") {
-        navigate("/admin/approvals");
+        window.location.href = "/admin/approvals";
       } else if (userData?.role === "super_admin") {
-        navigate("/admin/users");
+        window.location.href = "/admin/users";
       } else {
-        navigate("/home");
+        window.location.href = "/home";
       }
     } else {
       setError("Invalid credentials");
@@ -140,7 +140,7 @@ const LoginPage = () => {
       if (updateError) throw updateError;
       toast.success("Password updated successfully! You can now continue.");
       setIsUpdatePasswordMode(false);
-      navigate("/home");
+      window.location.href = "/home";
     } catch (err: any) {
       console.error("Update password error:", err);
       setError(err.message || "Failed to update password.");
