@@ -23,7 +23,7 @@ const RegisterPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!form.name || !form.email || !form.employeeId || !form.phone || !form.password) {
+    if (!form.name || !form.email || !form.employeeId || !form.phone || !form.department || !form.position || !form.password) {
       setError("Please fill in all required fields");
       return;
     }
@@ -162,11 +162,11 @@ const RegisterPage = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
+                    <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
                     <Input id="department" value={form.department} onChange={e => handleChange("department", e.target.value)} placeholder="e.g. Engineering" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
+                    <Label htmlFor="position">Position <span className="text-destructive">*</span></Label>
                     <Input id="position" value={form.position} onChange={e => handleChange("position", e.target.value)} placeholder="e.g. Executive" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>

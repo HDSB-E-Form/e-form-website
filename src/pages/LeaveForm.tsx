@@ -24,7 +24,7 @@ const LeaveForm = () => {
     name: user?.name || "",
     staffNo: user?.employeeId || "",
     department: user?.department || "",
-    designation: (user as any)?.position || "",
+    position: (user as any)?.position || "",
     avatar: user?.avatar || "",
     phone: user?.phone || "",
   });
@@ -37,7 +37,7 @@ const LeaveForm = () => {
         staffNo: user.employeeId || "",
         department: user.department || "",
         phone: user.phone || "",
-        designation: (user as any)?.position || "",
+        position: (user as any)?.position || "",
         avatar: user.avatar || "",
       }));
     }
@@ -150,8 +150,8 @@ const LeaveForm = () => {
               <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Designation / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.designation || "—"}</div>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
+              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No Pekerja</Label>

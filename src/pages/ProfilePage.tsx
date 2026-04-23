@@ -271,9 +271,13 @@ const ProfilePage = () => {
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Staff ID</p>
                   <p className="text-sm font-medium text-foreground flex items-center gap-2"><IdCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.employeeId}</p>
                 </div>
-                <div className="md:col-span-2">
+                <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Department</p>
                   <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{user?.department}</span></p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Position</p>
+                  <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{(user as any)?.position || <span className="text-muted-foreground italic">Not set</span>}</span></p>
                 </div>
               </div>
             </div>

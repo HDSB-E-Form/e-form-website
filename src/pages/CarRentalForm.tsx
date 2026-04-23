@@ -42,7 +42,7 @@ const CarRentalForm = () => {
     icNo: "",
     avatar: user?.avatar || "",
     department: user?.department || "",
-    designation: (user as any)?.position || "",
+    position: (user as any)?.position || "",
     mobileNumber: user?.phone || "",
     drivingLicenseNo: "",
     drivingLicenseExpiry: "",
@@ -51,7 +51,7 @@ const CarRentalForm = () => {
   });
 
   const [passengers, setPassengers] = useState(
-    Array.from({ length: 2 }, () => ({ name: "", staffId: "", designation: "", department: "" }))
+    Array.from({ length: 2 }, () => ({ name: "", staffId: "", position: "", department: "" }))
   );
 
   useEffect(() => {
@@ -62,7 +62,7 @@ const CarRentalForm = () => {
         staffId: user.employeeId || "",
         department: user.department || "",
         mobileNumber: user.phone || "",
-        designation: (user as any).position || "",
+        position: (user as any).position || "",
         avatar: user.avatar || "",
       }));
     }
@@ -115,7 +115,7 @@ const CarRentalForm = () => {
   };
 
   const handleAddPassenger = () => {
-    setPassengers(prev => [...prev, { name: "", staffId: "", designation: "", department: "" }]);
+    setPassengers(prev => [...prev, { name: "", staffId: "", position: "", department: "" }]);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -362,8 +362,8 @@ const CarRentalForm = () => {
               <div className="font-medium text-foreground text-sm">{form.name}</div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Designation / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{form.designation || "—"}</div>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
+              <div className="font-medium text-foreground text-sm">{form.position || "—"}</div>
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / ID Kakitangan</Label>
@@ -554,7 +554,7 @@ const CarRentalForm = () => {
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left w-12">No.</th>
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Name / Nama</th>
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Staff ID</th>
-                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Designation / Jawatan</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Position / Jawatan</th>
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Department / Jabatan</th>
                 </tr>
               </thead>
@@ -569,7 +569,7 @@ const CarRentalForm = () => {
                       <Input value={p.staffId} onChange={e => handlePassengerChange(i, "staffId", e.target.value)} placeholder="ID" className="h-10 border-0 bg-transparent shadow-none text-sm" />
                     </td>
                     <td className="px-2 py-2">
-                      <Input value={p.designation} onChange={e => handlePassengerChange(i, "designation", e.target.value)} placeholder="Title" className="h-10 border-0 bg-transparent shadow-none text-sm" />
+                      <Input value={p.position} onChange={e => handlePassengerChange(i, "position", e.target.value)} placeholder="Title" className="h-10 border-0 bg-transparent shadow-none text-sm" />
                     </td>
                     <td className="px-2 py-2">
                       <Input value={p.department} onChange={e => handlePassengerChange(i, "department", e.target.value)} placeholder="Dept" className="h-10 border-0 bg-transparent shadow-none text-sm" />

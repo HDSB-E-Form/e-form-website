@@ -32,7 +32,7 @@ const ClaimForm = () => {
     phone: user?.phone || "",
     employeeNumber: user?.employeeId || "",
     department: user?.department || "",
-    designation: (user as any)?.position || "",
+    position: (user as any)?.position || "",
     departmentCode: "",
     avatar: user?.avatar || "",
     date: new Date().toISOString().split("T")[0],
@@ -46,7 +46,7 @@ const ClaimForm = () => {
         phone: user.phone || "",
         employeeNumber: user.employeeId || "",
         department: user.department || "",
-        designation: (user as any)?.position || "",
+        position: (user as any)?.position || "",
         avatar: user.avatar || "",
       }));
     }
@@ -238,8 +238,8 @@ const ClaimForm = () => {
               <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Designation / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.designation || "—"}</div>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
+              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No. Pekerja</Label>

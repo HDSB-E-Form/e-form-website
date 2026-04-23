@@ -156,7 +156,7 @@ const AdminDashboard = () => {
                   <div key={i} className="flex justify-between items-center bg-background/50 p-2.5 rounded-lg border border-border/50">
                     <div>
                       <p className="text-sm font-bold text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{p.department} {p.designation ? `• ${p.designation}` : ''}</p>
+                      <p className="text-xs text-muted-foreground">{p.department} {p.position ? `• ${p.position}` : ''}</p>
                     </div>
                     <span className="text-xs font-bold text-foreground bg-muted px-2 py-1 rounded">{p.staffId}</span>
                   </div>
