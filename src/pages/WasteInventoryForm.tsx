@@ -166,7 +166,7 @@ const WasteInventoryForm = () => {
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select Waste Type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" side="bottom" avoidCollisions={false} className="max-h-[200px] overflow-y-auto">
                     {(category === "sell" ? SELL_WASTE_TYPES : PAY_WASTE_TYPES).map(type => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
