@@ -151,7 +151,7 @@ const LoginPage = () => {
 
   return (
     <div 
-      className="h-screen overflow-hidden flex items-center justify-center p-4 relative"
+      className="h-screen overflow-hidden flex items-center justify-center p-4 relative bg-gray-900"
       style={{ 
         backgroundImage: `url(${bgImage})`,
         backgroundSize: "cover",
