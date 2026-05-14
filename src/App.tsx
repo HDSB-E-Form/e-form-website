@@ -16,6 +16,7 @@ import HRFormsPage from "@/pages/HRFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import CarRentalForm from "@/pages/CarRentalForm";
 import LeaveForm from "@/pages/LeaveForm";
+import PpeRequestForm from "@/pages/PpeRequestForm";
 import ClaimForm from "@/pages/ClaimForm";
 import MySubmissions from "@/pages/MySubmissions";
 import AdminDashboard from "@/pages/AdminDashboard";
@@ -126,6 +127,7 @@ const App = () => (
               <Route path="/finance" element={<AppLayout><FinanceFormsPage /></AppLayout>} />
               <Route path="/hr/car-rental" element={<AppLayout><CarRentalForm /></AppLayout>} />
               <Route path="/hr/leave" element={<AppLayout><LeaveForm /></AppLayout>} />
+              <Route path="/hr/ppe-request" element={<AppLayout><PpeRequestForm /></AppLayout>} />
               <Route path="/finance/claim" element={<AppLayout><ClaimForm /></AppLayout>} />
               <Route path="/submissions" element={<AppLayout><MySubmissions /></AppLayout>} />
               <Route path="/profile" element={<AppLayout><ProfilePage /></AppLayout>} />

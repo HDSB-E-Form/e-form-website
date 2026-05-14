@@ -1,0 +1,318 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useUsers } from "@/contexts/UsersContext";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, UserCheck, Package, Send } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/supabase";
+
+const PPE_ITEMS = [
+  "Goggle",
+  "Helmet",
+  "Safety Boot",
+  "Safety Shoe",
+  "Safety Insert",
+  "Earplug",
+  "Apron",
+  "Crane Vest",
+  "3-ply Mask",
+  "N-95 Mask",
+  "Forklift Vest"
+];
+
+const UNIFORM_ITEMS = [
+  "Uniform Item 1 (Placeholder)",
+  "Uniform Item 2 (Placeholder)"
+];
+
+const OFFICE_ITEMS = [
+  "Office Item 1 (Placeholder)",
+  "Office Item 2 (Placeholder)"
+];
+
+const PpeRequestForm = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { addSubmission } = useSubmissions();
+  const { getUsersByRole } = useUsers();
+  
+  const hrAdmins = getUsersByRole("hr_admin");
+
+  const [employeeInfo, setEmployeeInfo] = useState({
+    name: user?.name || "",
+    staffNo: user?.employeeId || "",
+    department: user?.department || "",
+    position: (user as any)?.position || "",
+    avatar: user?.avatar || "",
+    phone: user?.phone || "",
+  });
+
+  useEffect(() => {
+    if (user) {
+      setEmployeeInfo(prev => ({
+        ...prev,
+        name: user.name || "",
+        staffNo: user.employeeId || "",
+        department: user.department || "",
+        phone: user.phone || "",
+        position: (user as any)?.position || "",
+        avatar: user.avatar || "",
+      }));
+    }
+  }, [user]);
+
+  const [requestCategory, setRequestCategory] = useState<"ppe" | "uniform" | "office">("ppe");
+  const [ppeItems, setPpeItems] = useState(PPE_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
+  const [uniformItems, setUniformItems] = useState(UNIFORM_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
+  const [officeItems, setOfficeItems] = useState(OFFICE_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
+  const [remarks, setRemarks] = useState("");
+
+  const currentItems = requestCategory === "ppe" ? ppeItems : requestCategory === "uniform" ? uniformItems : officeItems;
+  const setCurrentItems = requestCategory === "ppe" ? setPpeItems : requestCategory === "uniform" ? setUniformItems : setOfficeItems;
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleItemChange = (index: number, field: string, value: string | boolean) => {
+    setCurrentItems((prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const toggleItemSelection = (index: number) => {
+    setCurrentItems((prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, selected: !item.selected } : item));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const selectedItems = currentItems.filter(item => item.selected);
+    
+    if (selectedItems.length === 0) {
+      toast.error("Please select at least one item to request.");
+      return;
+    }
+
+    if (selectedItems.some(item => !item.quantity || parseInt(item.quantity) < 1)) {
+      toast.error("Please provide a valid quantity for all selected items.");
+      return;
+    }
+
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    const success = await addSubmission({
+      formType: "ppe_request",
+      status: "approved_hod",
+      submittedBy: user?.id || "",
+      employeeName: employeeInfo.name,
+      department: employeeInfo.department,
+      data: {
+        employeeInfo,
+        requestCategory,
+        items: selectedItems.map(({ name, size, quantity }) => requestCategory === "office" ? { "Item Name": name, Quantity: quantity } : { "Item Name": name, Size: size, Quantity: quantity }),
+        remarks,
+      },
+    });
+
+    if (success) {
+      try {
+        const recipientEmails = [
+          ...hrAdmins.map(admin => admin.email)
+        ].filter(Boolean);
+
+        if (recipientEmails.length > 0) {
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              to: recipientEmails,
+              subject: `New Request for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
+              employeeName: employeeInfo.name,
+              formType: "PPE | Uniform | Office Supplies Request",
+              url: window.location.origin
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send email", err);
+      }
+
+      toast.success("Request submitted successfully!");
+      navigate("/home");
+    } else {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+      <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
+      </button>
+
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
+          PPE | Uniform | Office Supplies Request
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Employee Details */}
+        <div className="card-elevated p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <UserCheck className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-sm">
+              Employee Details / <span className="font-normal">Butiran Pekerja</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-xl border border-border/50">
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name / Nama</Label>
+              <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
+              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No Pekerja</Label>
+              <div className="font-medium text-foreground text-sm">{employeeInfo.staffNo || "—"}</div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Department / Jabatan</Label>
+              <div className="font-medium text-foreground text-sm">{employeeInfo.department || "—"}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Request Category */}
+        <div className="card-elevated p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Package className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-sm">
+              Request Details / <span className="font-normal">Butiran Permohonan</span>
+            </h2>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Category / Kategori <span className="text-destructive">*</span></Label>
+              <div className="flex flex-col sm:flex-row gap-3 mt-1.5">
+                {[
+                  { id: "ppe", label: "PPE" },
+                  { id: "uniform", label: "Uniform" },
+                  { id: "office", label: "Office Supplies" }
+                ].map(cat => (
+                  <div
+                    key={cat.id}
+                    className={`flex-1 rounded-xl border-2 p-3 sm:p-4 transition-all cursor-pointer flex items-center gap-3 ${
+                      requestCategory === cat.id
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-muted-foreground/30 text-muted-foreground"
+                    }`}
+                    onClick={() => setRequestCategory(cat.id as any)}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${requestCategory === cat.id ? "border-primary" : "border-muted-foreground"}`}>
+                      {requestCategory === cat.id && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                    <span className="font-bold text-sm uppercase tracking-wider">{cat.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border border-border rounded-lg overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-center w-16">Select</th>
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left">Item Name / Nama Barang</th>
+                    {requestCategory !== "office" && (
+                      <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">Size / Saiz</th>
+                    )}
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">Qty / Kuantiti</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {currentItems.map((item, i) => (
+                    <tr key={i} className={`transition-colors ${item.selected ? 'bg-primary/5' : 'hover:bg-muted/5'}`}>
+                      <td className="px-4 py-3 text-center">
+                        <div 
+                          onClick={() => toggleItemSelection(i)}
+                          className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${item.selected ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30 hover:border-muted-foreground'}`}
+                        >
+                          {item.selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-foreground">
+                        {item.name}
+                      </td>
+                      {requestCategory !== "office" && (
+                        <td className="px-2 py-2">
+                          <Select 
+                            value={item.size} 
+                            onValueChange={(value) => handleItemChange(i, "size", value)}
+                            disabled={!item.selected}
+                          >
+                            <SelectTrigger className="h-10 border-0 bg-background/50 focus:bg-background">
+                              <SelectValue placeholder="Size" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="XS">XS</SelectItem>
+                              <SelectItem value="S">S</SelectItem>
+                              <SelectItem value="M">M</SelectItem>
+                              <SelectItem value="L">L</SelectItem>
+                              <SelectItem value="XL">XL</SelectItem>
+                              <SelectItem value="XXL">XXL</SelectItem>
+                              <SelectItem value="XXXL">XXXL</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      )}
+                      <td className="px-2 py-2">
+                        <Input 
+                          type="number" 
+                          min="1"
+                          value={item.quantity} 
+                          onChange={(e) => handleItemChange(i, "quantity", e.target.value)}
+                          className="h-10 border-0 bg-background/50 focus:bg-background"
+                          disabled={!item.selected}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-1.5 pt-4">
+              <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
+              <Input
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+                placeholder="Add any remarks..."
+                className="h-11"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-center pt-4 pb-8">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="btn-gold px-12 py-4 rounded-full text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            <Send className="h-4 w-4" />
+            {isSubmitting ? "Submitting..." : "Submit Record"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default PpeRequestForm;

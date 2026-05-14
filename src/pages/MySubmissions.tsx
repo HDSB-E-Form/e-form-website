@@ -11,6 +11,7 @@ const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request / Permintaan Kenderaan",
   leave: "Gate Pass",
   claim: "Misc. Advance / Pendahuluan Pelbagai",
+  ppe_request: "PPE / Uniform / Office Supplies",
 };
 
 type FilterType = "all" | "pending" | "approved" | "rejected";

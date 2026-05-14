@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
   claim: "Expense",
+  leave: "Gate Pass",
+  ppe_request: "PPE / Uniform / Office",
 };
 
 const statusBadge = (status: string) => {
@@ -49,9 +51,9 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
 
-  // HR admin only sees leave and car_rental forms
+  // HR admin only sees leave, car_rental, and ppe_request forms
   const filtered = submissions
-    .filter(s => s.formType === "car_rental")
+    .filter(s => ["car_rental", "leave", "ppe_request"].includes(s.formType))
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();

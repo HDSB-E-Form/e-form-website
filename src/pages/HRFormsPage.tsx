@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, ArrowLeft } from "lucide-react";
+import { CalendarDays, ArrowLeft, Package } from "lucide-react";
 
 // Custom Sedan Icon to replace the default Lucide Car (which looks like a hatchback/SUV)
 const CustomSedanIcon = ({ className }: { className?: string }) => (
@@ -37,6 +37,13 @@ const HRFormsPage = () => {
       description: "Apply for a pass to exit the company premises",
       icon: CalendarDays,
       path: "/hr/leave",
+    },
+    {
+      id: "ppe_request",
+      title: "PPE | Uniform | Office Supplies",
+      description: "Request personal protective equipment, uniforms, or office supplies",
+      icon: Package,
+      path: "/hr/ppe-request",
     },
   ];
 

@@ -11,6 +11,7 @@ const formTypeLabels: Record<string, { en: string; ms: string }> = {
   car_rental: { en: "TRAVEL / PERJALANAN", ms: "Perjalanan" },
   leave: { en: "GATE PASS", ms: "Gate Pass" },
   claim: { en: "EXPENSE / TUNTUTAN", ms: "Perbelanjaan" },
+  ppe_request: { en: "PPE / UNIFORM", ms: "PPE" },
 };
 
 const statusBadge = (status: string) => {
