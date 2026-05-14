@@ -104,7 +104,7 @@ const RegisterPage = () => {
 
   return (
     <div 
-      className="min-h-screen overflow-y-auto flex items-center justify-center p-4 py-12 relative bg-gray-900"
+      className="min-h-screen overflow-y-auto flex items-center justify-center p-4 py-12 relative"
       style={{ 
         backgroundImage: `url(${bgImage})`,
         backgroundSize: "cover",
