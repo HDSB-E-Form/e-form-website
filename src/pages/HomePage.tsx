@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { Users, CircleDollarSign, FileText, CheckCircle, XCircle } from "lucide-react";
+import { Users, CircleDollarSign, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
 
 const HomePage = () => {
   const { user } = useAuth();
@@ -34,6 +34,15 @@ const HomePage = () => {
       color: "from-accent to-accent/80",
       iconColor: "text-accent-foreground",
       path: "/finance",
+    },
+    {
+      id: "safety",
+      title: "Safety Department",
+      description: "Submit incident reports and safety forms",
+      icon: ShieldCheck,
+      color: "from-emerald-500 to-emerald-600",
+      iconColor: "text-white",
+      path: "/safety",
     },
   ];
 

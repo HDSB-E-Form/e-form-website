@@ -27,6 +27,8 @@ import SecurityDashboard from "@/pages/SecurityDashboard";
 import NotFound from "@/pages/NotFound";
 import AllSubmissionsPage from "@/pages/AllSubmissionsPage";
 import ProfilePage from "@/pages/ProfilePage";
+import SafetyFormsPage from "@/pages/SafetyFormsPage";
+import WasteInventoryForm from "@/pages/WasteInventoryForm";
 
 import { useRealtimeNotifications } from "@/useRealtimeNotifications";
 
@@ -119,6 +121,8 @@ const App = () => (
 
               <Route path="/home" element={<AppLayout><ConditionalHomePage /></AppLayout>} />
               <Route path="/hr" element={<AppLayout><HRFormsPage /></AppLayout>} />
+              <Route path="/safety" element={<AppLayout><SafetyFormsPage /></AppLayout>} />
+              <Route path="/safety/waste-inventory" element={<AppLayout><WasteInventoryForm /></AppLayout>} />
               <Route path="/finance" element={<AppLayout><FinanceFormsPage /></AppLayout>} />
               <Route path="/hr/car-rental" element={<AppLayout><CarRentalForm /></AppLayout>} />
               <Route path="/hr/leave" element={<AppLayout><LeaveForm /></AppLayout>} />
