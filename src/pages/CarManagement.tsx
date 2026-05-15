@@ -172,8 +172,8 @@ const CarManagement = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="card-elevated p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-            <CheckCircle className="h-5 w-5 text-emerald-600" />
+          <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center">
+            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Available / Tersedia</p>
@@ -200,7 +200,7 @@ const CarManagement = () => {
               <h2 className="font-bold text-foreground">Available Cars</h2>
               <p className="text-xs text-muted-foreground">Ready for Check-out</p>
             </div>
-            <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs font-bold">{available.length} VEHICLES</Badge>
+            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-bold">{available.length} VEHICLES</Badge>
           </div>
           <div className="divide-y divide-border">
             {available.length === 0 && (
@@ -314,7 +314,7 @@ const CarManagement = () => {
                   <h2 className="font-bold text-foreground">Under Maintenance</h2>
                   <p className="text-xs text-muted-foreground">Currently unavailable</p>
                 </div>
-                <Badge className="bg-orange-100 text-orange-700 border-0 text-xs font-bold">{maintenance.length} VEHICLES</Badge>
+                <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0 text-xs font-bold">{maintenance.length} VEHICLES</Badge>
               </div>
               <div className="divide-y divide-border">
                 {maintenance.map(car => (

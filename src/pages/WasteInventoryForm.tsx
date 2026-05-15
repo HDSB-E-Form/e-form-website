@@ -286,7 +286,7 @@ const WasteInventoryForm = () => {
         </div>
 
         <p className="text-center text-xs text-muted-foreground pb-4 print:text-gray-400 print:mt-12">
-          HICOM DIECASTINGS GATE SYSTEM V2.4  •  ISO 9001:2015 CERTIFIED
+          This is computer generated and no signature is required.
         </p>
       </div>
     </div>

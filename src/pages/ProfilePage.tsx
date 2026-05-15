@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera } from "lucide-react";
 import { supabase } from "@/supabase";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DEPARTMENTS } from "@/lib/departments";
 
 const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
@@ -335,7 +337,16 @@ const ProfilePage = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Department</Label>
-                    <Input value={profile.department} onChange={e => handleProfileChange("department", e.target.value)} />
+                    <Select value={DEPARTMENTS.includes(profile.department) ? profile.department : undefined} onValueChange={val => handleProfileChange("department", val)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DEPARTMENTS.map(dept => (
+                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="mt-6 border-t border-border pt-5 flex justify-end gap-3">
@@ -363,8 +374,8 @@ const ProfilePage = () => {
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   {isPasswordRecovery ? (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                      <p className="text-sm text-blue-800 font-medium">
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-center">
+                    <p className="text-sm text-blue-800 dark:text-blue-400 font-medium">
                         Enter a new password for your account.
                       </p>
                     </div>

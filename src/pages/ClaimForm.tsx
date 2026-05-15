@@ -530,7 +530,7 @@ const ClaimForm = () => {
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground pb-4">
-          HICOM DIECASTINGS GATE SYSTEM V2.4 &nbsp;•&nbsp; ISO 9001:2015 CERTIFIED
+          This is computer generated and no signature is required.
         </p>
       </form>
     </div>

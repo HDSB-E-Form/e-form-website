@@ -14,18 +14,18 @@ const formTypeLabels: Record<string, string> = {
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-50 text-emerald-700 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
     case "on_leave":
-      return <Badge className="bg-indigo-50 text-indigo-700 border-0 text-xs font-medium px-3 py-1">On Leave</Badge>;
+      return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">On Leave</Badge>;
     case "approved_hod":
-      return <Badge className="bg-blue-50 text-blue-700 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-50 text-sky-700 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
     case "rejected":
-      return <Badge className="bg-red-50 text-red-600 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
+      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "pending":
     default:
-      return <Badge className="bg-amber-50 text-amber-700 border-0 text-xs font-medium px-3 py-1">Pending HOS</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOS</Badge>;
   }
 };
 
@@ -33,7 +33,7 @@ const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
 
 const getInitialColor = (name: string) => {
-  const colors = ["bg-violet-100 text-violet-700", "bg-sky-100 text-sky-700", "bg-amber-100 text-amber-700", "bg-emerald-100 text-emerald-700", "bg-rose-100 text-rose-700"];
+  const colors = ["bg-violet-500/15 text-violet-700 dark:text-violet-400", "bg-sky-500/15 text-sky-700 dark:text-sky-400", "bg-amber-500/15 text-amber-700 dark:text-amber-400", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", "bg-rose-500/15 text-rose-700 dark:text-rose-400"];
   let hash = 0;
   const safeName = name || " ";
   for (let i = 0; i < safeName.length; i++) {
@@ -186,7 +186,7 @@ const SecurityDashboard = () => {
         {renderLeaveDetail(selectedSubmission)}
 
         {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-red-50 border-red-100 text-red-900' : 'bg-blue-50 border-blue-100 text-blue-900'}`}>
+          <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
             <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>

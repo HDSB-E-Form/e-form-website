@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
 import { supabase } from "@/supabase";
 import { useUsers } from "@/contexts/UsersContext";
+import { DEPARTMENTS } from "@/lib/departments";
 
 interface FirestoreUser {
   id: string;
@@ -32,27 +33,22 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "super_admin", label: "Super Admin", description: "Full system access & user management", icon: Shield },
 ];
 
-const INITIAL_DEPARTMENTS = [
-  "Executive Management", "Human Resources", "IT Infrastructure",
-  "Financial Planning", "Operations", "Corporate Affairs", "Engineering", "Finance", "General"
-];
-
 const roleBadge = (role: UserRole) => {
   switch (role) {
     case "super_admin":
-      return <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] font-bold">⭐ SUPER ADMIN</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[10px] font-bold">⭐ SUPER ADMIN</Badge>;
     case "hr_admin":
       return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">HR ADMIN</Badge>;
     case "finance_admin":
-      return <Badge className="bg-sky-100 text-sky-700 border-0 text-[10px] font-bold">FINANCE ADMIN</Badge>;
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[10px] font-bold">FINANCE ADMIN</Badge>;
     case "hod":
-      return <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] font-bold">HOD</Badge>;
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">HOD</Badge>;
     case "hos":
-      return <Badge className="bg-violet-100 text-violet-700 border-0 text-[10px] font-bold">HOS</Badge>;
+      return <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-400 border-0 text-[10px] font-bold">HOS</Badge>;
     case "employee":
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
     case "security_guard":
-      return <Badge className="bg-gray-200 text-gray-800 border-0 text-[10px] font-bold">SECURITY</Badge>;
+      return <Badge className="bg-gray-500/20 text-gray-800 dark:text-gray-300 border-0 text-[10px] font-bold">SECURITY</Badge>;
     default:
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
   }
@@ -62,7 +58,7 @@ const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
 
 const getInitialColor = (name: string) => {
-  const colors = ["bg-violet-100 text-violet-700", "bg-sky-100 text-sky-700", "bg-amber-100 text-amber-700", "bg-emerald-100 text-emerald-700", "bg-rose-100 text-rose-700"];
+  const colors = ["bg-violet-500/15 text-violet-700 dark:text-violet-400", "bg-sky-500/15 text-sky-700 dark:text-sky-400", "bg-amber-500/15 text-amber-700 dark:text-amber-400", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", "bg-rose-500/15 text-rose-700 dark:text-rose-400"];
   let hash = 0;
   const safeName = name || " ";
   for (let i = 0; i < safeName.length; i++) {
@@ -86,8 +82,19 @@ const SuperAdminDashboard = () => {
   const [isViewAll, setIsViewAll] = useState(false);
 
   const [departmentsList, setDepartmentsList] = useState<string[]>(() => {
-    const saved = localStorage.getItem("hdsb_departments");
-    return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
+    try {
+      const saved = localStorage.getItem("hdsb_departments_v2");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return Array.from(new Set([...DEPARTMENTS, ...parsed]));
+        }
+      }
+    } catch (e) {
+      console.warn("Cleared corrupted departments from local storage");
+      localStorage.removeItem("hdsb_departments_v2");
+    }
+    return DEPARTMENTS;
   });
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
@@ -98,7 +105,7 @@ const SuperAdminDashboard = () => {
     name: "",
     email: "",
     employeeId: "",
-    department: "General",
+    department: DEPARTMENTS[0],
     position: "",
     role: "employee" as UserRole,
   });
@@ -136,7 +143,7 @@ const SuperAdminDashboard = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("hdsb_departments", JSON.stringify(departmentsList));
+    localStorage.setItem("hdsb_departments_v2", JSON.stringify(departmentsList));
   }, [departmentsList]);
 
   const filtered = users.filter(u => {
@@ -249,7 +256,7 @@ const SuperAdminDashboard = () => {
       setUsers([...users, { ...userToSave, createdAt: new Date(userToSave.createdAt) }]);
       toast.success("User successfully added! Default password is 'password123'");
       setAddSheetOpen(false);
-      setAddFormData({ name: "", email: "", employeeId: "", department: "General", position: "", role: "employee" });
+      setAddFormData({ name: "", email: "", employeeId: "", department: DEPARTMENTS[0], position: "", role: "employee" });
     } catch (error) {
       console.error("Error adding user:", error);
       toast.error("Failed to save new user to database");
@@ -480,7 +487,7 @@ const SuperAdminDashboard = () => {
             {/* Department */}
             <div>
               <p className="text-xs font-bold text-primary tracking-wider mb-3">DEPARTMENT</p>
-              <Select value={editDepartment} onValueChange={setEditDepartment}>
+              <Select value={departmentsList.includes(editDepartment) ? editDepartment : undefined} onValueChange={setEditDepartment}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -545,7 +552,7 @@ const SuperAdminDashboard = () => {
             </div>
             <div>
               <p className="text-xs font-bold text-primary tracking-wider mb-2">DEPARTMENT</p>
-              <Select value={addFormData.department} onValueChange={val => setAddFormData({...addFormData, department: val})}>
+              <Select value={departmentsList.includes(addFormData.department) ? addFormData.department : undefined} onValueChange={val => setAddFormData({...addFormData, department: val})}>
                 <SelectTrigger className="h-10"><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
                 {departmentsList.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}

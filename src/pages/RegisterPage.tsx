@@ -4,11 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
+import bgImage from "@/assets/digital.jpg";
 import { Loader2 } from "lucide-react";
-import bgImage from "@/assets/digital.jpg"; // <-- CHANGE THIS TO MATCH YOUR ACTUAL FILE
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DEPARTMENTS } from "@/lib/departments";
 
 const RegisterPage = () => {
   const [form, setForm] = useState({ name: "", email: "", employeeId: "", phone: "", department: "", position: "", password: "", confirmPassword: "" });
@@ -163,7 +165,16 @@ const RegisterPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
-                    <Input id="department" value={form.department} onChange={e => handleChange("department", e.target.value)} placeholder="e.g. Engineering" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <Select value={DEPARTMENTS.includes(form.department) ? form.department : undefined} onValueChange={val => handleChange("department", val)}>
+                      <SelectTrigger className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow">
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DEPARTMENTS.map(dept => (
+                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="position">Position <span className="text-destructive">*</span></Label>

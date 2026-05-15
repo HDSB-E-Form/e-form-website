@@ -1,12 +1,27 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { Users, CircleDollarSign, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
+import { Users, CircleDollarSign, FileText, CheckCircle, XCircle, ShieldCheck, Sun, Moon } from "lucide-react";
 
 const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { submissions } = useSubmissions();
+
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   // Calculate user's personal submission stats
   const mySubmissions = submissions.filter(s => s.submittedBy === user?.id);
@@ -48,9 +63,14 @@ const HomePage = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Welcome back, {user?.name ? user.name.split(" ")[0] : "User"}!</h1>
-        <p className="text-muted-foreground mt-1">Select a department to submit a form</p>
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Welcome back, {user?.name ? user.name.split(" ")[0] : "User"}!</h1>
+          <p className="text-muted-foreground mt-1">Select a department to submit a form</p>
+        </div>
+        <button onClick={toggleTheme} className="p-3 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors shadow-sm" title="Toggle Theme">
+          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
       </div>
 
       {/* Submissions Overview Dashboard */}
@@ -64,18 +84,18 @@ const HomePage = () => {
             <p className="text-3xl font-bold text-foreground">{stats.total}</p>
           </div>
         </div>
-        <div onClick={() => navigate("/submissions")} className="card-elevated p-5 flex items-center gap-4 cursor-pointer hover:bg-emerald-50/50 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-            <CheckCircle className="h-6 w-6 text-emerald-600" />
+        <div onClick={() => navigate("/submissions")} className="card-elevated p-5 flex items-center gap-4 cursor-pointer hover:bg-emerald-500/10 transition-colors">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accepted / Diterima</p>
             <p className="text-3xl font-bold text-foreground">{stats.accepted}</p>
           </div>
         </div>
-        <div onClick={() => navigate("/submissions")} className="card-elevated p-5 flex items-center gap-4 cursor-pointer hover:bg-red-50/50 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
-            <XCircle className="h-6 w-6 text-red-500" />
+        <div onClick={() => navigate("/submissions")} className="card-elevated p-5 flex items-center gap-4 cursor-pointer hover:bg-destructive/10 transition-colors">
+          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+            <XCircle className="h-6 w-6 text-destructive dark:text-red-400" />
           </div>
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rejected / Ditolak</p>
