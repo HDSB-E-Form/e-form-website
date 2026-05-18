@@ -104,7 +104,7 @@ const PpeRequestForm = () => {
 
     const success = await addSubmission({
       formType: "ppe_request",
-      status: "approved_hod",
+      status: "approved",
       submittedBy: user?.id || "",
       employeeName: employeeInfo.name,
       department: employeeInfo.department,
@@ -126,7 +126,7 @@ const PpeRequestForm = () => {
           await supabase.functions.invoke('send-notification', {
             body: {
               to: recipientEmails,
-              subject: `New Request for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
+              subject: `New Collection Record for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
               employeeName: employeeInfo.name,
               formType: "PPE | Uniform | Office Supplies Request",
               url: window.location.origin
@@ -137,7 +137,7 @@ const PpeRequestForm = () => {
         console.error("Failed to send email", err);
       }
 
-      toast.success("Request submitted successfully!");
+      toast.success("Collection record saved successfully!");
       navigate("/home");
     } else {
       setIsSubmitting(false);

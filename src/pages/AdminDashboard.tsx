@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, Package, Box, AlertTriangle, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -42,18 +45,51 @@ const getInitialColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+const INITIAL_STOCK = {
+  "Goggle": 100,
+  "Helmet": 50,
+  "Safety Boot": 50,
+  "Safety Shoe": 50,
+  "Safety Insert": 50,
+  "Earplug": 200,
+  "Apron": 30,
+  "Crane Vest": 30,
+  "3-ply Mask": 500,
+  "N-95 Mask": 100,
+  "Forklift Vest": 30,
+};
+
 // HR Admin Dashboard - sees leave and car_rental forms only
 const AdminDashboard = () => {
   const { submissions, updateSubmissionStatus } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [viewMode, setViewMode] = useState<"approvals" | "inventory">("approvals");
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
+  
+  // Inventory State
+  const [inventoryStock, setInventoryStock] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem("hdsb_inventory_stock");
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return INITIAL_STOCK;
+  });
+  const [isStockSheetOpen, setIsStockSheetOpen] = useState(false);
+  const [stockForm, setStockForm] = useState({ itemName: "", quantity: "" });
+  const [customItem, setCustomItem] = useState("");
 
-  // HR admin only sees leave, car_rental, and ppe_request forms
-  const filtered = submissions
-    .filter(s => ["car_rental", "leave", "ppe_request"].includes(s.formType))
+  useEffect(() => {
+    localStorage.setItem("hdsb_inventory_stock", JSON.stringify(inventoryStock));
+  }, [inventoryStock]);
+
+  // Separate standard approvals from instant-record inventory forms
+  const approvalSubmissions = submissions.filter(s => ["car_rental", "leave"].includes(s.formType));
+  const inventorySubmissions = submissions.filter(s => s.formType === "ppe_request");
+
+  const filtered = approvalSubmissions
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -98,6 +134,37 @@ const AdminDashboard = () => {
     setSelectedSubmission(null);
     setRemarks("");
   };
+
+  const handleUpdateStock = () => {
+    const nameToUpdate = stockForm.itemName === "other" ? customItem : stockForm.itemName;
+    if (!nameToUpdate || !stockForm.quantity) {
+      toast.error("Please provide an item name and quantity");
+      return;
+    }
+    setInventoryStock(prev => ({
+      ...prev,
+      [nameToUpdate]: (prev[nameToUpdate] || 0) + parseInt(stockForm.quantity)
+    }));
+    toast.success(`${stockForm.quantity} unit(s) added to ${nameToUpdate} stock`);
+    setIsStockSheetOpen(false);
+    setStockForm({ itemName: "", quantity: "" });
+    setCustomItem("");
+  };
+
+  // Calculate Distributed Inventory
+  const distributedItems: Record<string, number> = {};
+  inventorySubmissions.forEach(sub => {
+    if (sub.status === "approved" && sub.data?.items && Array.isArray(sub.data.items)) {
+      sub.data.items.forEach((item: any) => {
+        const name = item["Item Name"];
+        const qty = parseInt(item.Quantity) || 0;
+        if (name) distributedItems[name] = (distributedItems[name] || 0) + qty;
+      });
+    }
+  });
+
+  // Combine all known inventory items
+  const allInventoryKeys = Array.from(new Set([...Object.keys(inventoryStock), ...Object.keys(distributedItems)])).sort();
 
   const renderCarRentalDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
@@ -171,9 +238,51 @@ const AdminDashboard = () => {
     );
   };
 
+  const renderPpeDetail = (sub: Submission) => {
+    return (
+      <>
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center justify-center w-12 h-12 text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
+            <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+          </button>
+          <h2 className="text-xl font-bold text-foreground">Collection Record / Rekod Kutipan</h2>
+        </div>
+        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50">
+          <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
+          <p className="text-sm text-muted-foreground mb-3">{sub.department}</p>
+          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold uppercase">
+            {sub.data.requestCategory || "PPE"} Collection
+          </Badge>
+        </div>
+        <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">ITEMS COLLECTED / BARANG DIAMBIL</p>
+        <div className="border border-border rounded-lg overflow-hidden mb-6">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="text-xs font-bold text-muted-foreground">Item Name</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground">Size</TableHead>
+                <TableHead className="text-xs font-bold text-muted-foreground text-right">Qty</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(sub.data.items || []).map((item: any, i: number) => (
+                <TableRow key={i}>
+                  <TableCell className="font-semibold text-sm">{item["Item Name"]}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{item.Size || "—"}</TableCell>
+                  <TableCell className="text-right font-bold">{item.Quantity}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </>
+    );
+  };
+
   // Review detail view
   if (selectedSubmission) {
     const isCarRental = selectedSubmission.formType === "car_rental";
+    const isPpe = selectedSubmission.formType === "ppe_request";
     // Enforce strict 3-step approval: HOS -> HOD -> HR
     const canApprove = selectedSubmission.status === "approved_hod";
     const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod";
@@ -181,6 +290,7 @@ const AdminDashboard = () => {
     return (
       <div className="p-6 lg:p-8 max-w-3xl mx-auto">
         {isCarRental && renderCarRentalDetail(selectedSubmission)}
+        {isPpe && renderPpeDetail(selectedSubmission)}
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
@@ -189,7 +299,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {isPending && !canApprove && (
+        {isPending && !canApprove && !isPpe && (
           <div className="p-4 bg-muted/30 rounded-xl text-center">
             <p className="text-sm text-muted-foreground font-medium">
               {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
@@ -230,11 +340,23 @@ const AdminDashboard = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">HR Admin Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Review and approve all incoming Vehicle Requests.</p>
+      <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">HR Admin Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage approvals and track department inventory.</p>
+        </div>
+        <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50 w-fit">
+          <button onClick={() => setViewMode("approvals")} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === "approvals" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            Form Approvals
+          </button>
+          <button onClick={() => setViewMode("inventory")} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${viewMode === "inventory" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+            <Package className="h-4 w-4" /> Inventory Tracker
+          </button>
+        </div>
       </div>
 
+      {viewMode === "approvals" ? (
+        <>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="card-elevated p-5">
@@ -371,6 +493,164 @@ const AdminDashboard = () => {
           </>
         )}
       </div>
+        </>
+      ) : (
+        /* INVENTORY TRACKER VIEW */
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Inventory Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card-elevated p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Box className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Item Types</p>
+                <p className="text-3xl font-bold text-foreground">{allInventoryKeys.length}</p>
+              </div>
+            </div>
+            <div className="card-elevated p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <Package className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Items Distributed</p>
+                <p className="text-3xl font-bold text-foreground">{Object.values(distributedItems).reduce((a, b) => a + b, 0)}</p>
+              </div>
+            </div>
+            <div className="card-elevated p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-destructive dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Low Stock Alerts</p>
+                <p className="text-3xl font-bold text-foreground">
+                  {allInventoryKeys.filter(k => (inventoryStock[k] || 0) - (distributedItems[k] || 0) <= 10).length}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Stock Levels */}
+            <div className="xl:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
+              <div className="p-5 border-b border-border flex items-center justify-between bg-muted/10 shrink-0">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Stock Levels</h2>
+                  <p className="text-xs text-muted-foreground">Monitor remaining PPE & Uniform inventory</p>
+                </div>
+                <button onClick={() => setIsStockSheetOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
+                  <Plus className="h-4 w-4" /> Add / Update Stock
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1">
+                <Table>
+                  <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-md z-10">
+                    <TableRow>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider">Item Name</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Total Stock</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Distributed</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Remaining</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allInventoryKeys.map(item => {
+                      const total = inventoryStock[item] || 0;
+                      const dist = distributedItems[item] || 0;
+                      const left = total - dist;
+                      const percent = total > 0 ? Math.min((dist / total) * 100, 100) : 100;
+                      return (
+                        <TableRow key={item} className="hover:bg-muted/10">
+                          <TableCell className="font-semibold text-sm">{item}</TableCell>
+                          <TableCell className="text-center text-sm font-medium">{total}</TableCell>
+                          <TableCell className="text-center text-sm font-medium text-muted-foreground">{dist}</TableCell>
+                          <TableCell className={`text-center text-sm font-bold ${left <= 10 ? 'text-destructive' : 'text-foreground'}`}>{left}</TableCell>
+                          <TableCell>
+                            <div className="w-24 h-2 rounded-full bg-muted overflow-hidden flex items-center">
+                              <div className={`h-full rounded-full ${percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Recent Collections */}
+            <div className="card-elevated overflow-hidden flex flex-col h-[600px]">
+              <div className="p-5 border-b border-border bg-muted/10 shrink-0">
+                <h2 className="text-lg font-bold text-foreground">Recent Collections</h2>
+                <p className="text-xs text-muted-foreground">Latest distributed items</p>
+              </div>
+              <div className="overflow-y-auto flex-1 p-0">
+                {inventorySubmissions.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-sm text-muted-foreground">No items have been distributed yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {inventorySubmissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).slice(0, 20).map(sub => (
+                      <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => setSelectedSubmission(sub)}>
+                        <div className="flex justify-between items-start mb-1.5">
+                          <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <span className="text-[10px] text-muted-foreground font-medium">{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {(sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Stock Sheet */}
+      <Sheet open={isStockSheetOpen} onOpenChange={setIsStockSheetOpen}>
+        <SheetContent className="w-full sm:max-w-md">
+          <SheetHeader className="border-b border-border pb-4 mb-6">
+            <SheetTitle className="text-xl font-bold">Add / Update Stock</SheetTitle>
+            <p className="text-sm text-muted-foreground">Increase inventory for an existing item or add a new one.</p>
+          </SheetHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-primary uppercase tracking-wider">Select Item</Label>
+              <Select value={stockForm.itemName} onValueChange={val => setStockForm(p => ({...p, itemName: val}))}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Choose an item..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allInventoryKeys.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                  <SelectItem value="other" className="font-bold text-primary italic">+ Add New Custom Item</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {stockForm.itemName === "other" && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label className="text-xs font-bold text-primary uppercase tracking-wider">New Item Name</Label>
+                <Input value={customItem} onChange={e => setCustomItem(e.target.value)} placeholder="e.g. Safety Glasses" className="h-11" />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-primary uppercase tracking-wider">Quantity to Add</Label>
+              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="e.g. 50" className="h-11" />
+              <p className="text-[10px] text-muted-foreground">This amount will be added to the total historical stock.</p>
+            </div>
+            
+            <div className="pt-4 flex gap-3">
+              <button onClick={() => setIsStockSheetOpen(false)} className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted/50">Cancel</button>
+              <button onClick={handleUpdateStock} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90">Update Stock</button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
