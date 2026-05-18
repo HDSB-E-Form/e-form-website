@@ -30,6 +30,8 @@ import AllSubmissionsPage from "@/pages/AllSubmissionsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import WasteInventoryForm from "@/pages/WasteInventoryForm";
+import SafetyAdminDashboard from "@/pages/SafetyAdminDashboard";
+import DailyOperationMonitoringForm from "@/pages/WaterTreatmentForm"; // Note: Renamed component
 
 import { useRealtimeNotifications } from "@/useRealtimeNotifications";
 
@@ -124,6 +126,15 @@ const App = () => (
               <Route path="/hr" element={<AppLayout><HRFormsPage /></AppLayout>} />
               <Route path="/safety" element={<AppLayout><SafetyFormsPage /></AppLayout>} />
               <Route path="/safety/waste-inventory" element={<AppLayout><WasteInventoryForm /></AppLayout>} />
+              <Route path="/safety/incident" element={<AppLayout><DailyOperationMonitoringForm /></AppLayout>} />
+              <Route 
+                path="/admin/safety" 
+                element={
+                  <ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}>
+                    <AppLayout><SafetyAdminDashboard /></AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
               <Route path="/finance" element={<AppLayout><FinanceFormsPage /></AppLayout>} />
               <Route path="/hr/car-rental" element={<AppLayout><CarRentalForm /></AppLayout>} />
               <Route path="/hr/leave" element={<AppLayout><LeaveForm /></AppLayout>} />

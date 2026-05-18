@@ -82,6 +82,8 @@ const LoginPage = () => {
         window.location.href = "/admin/hr";
       } else if (userData?.role === "finance_admin") {
         window.location.href = "/admin/finance";
+      } else if (userData?.role === "safety_admin") {
+        window.location.href = "/admin/safety";
       } else if (userData?.role === "security_guard") {
         window.location.href = "/admin/security";
       } else if (userData?.role === "hod" || userData?.role === "hos") {

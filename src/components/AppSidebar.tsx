@@ -30,6 +30,10 @@ const financeAdminNav = [
   { title: "Dashboard / Papan Pemuka", url: "/admin/finance", icon: LayoutDashboard },
 ];
 
+const safetyAdminNav = [
+  { title: "Dashboard", url: "/admin/safety", icon: LayoutDashboard },
+];
+
 const approverNav = [
   { title: "Dashboard / Papan Pemuka", url: "/admin/approvals", icon: LayoutDashboard },
 ];
@@ -51,12 +55,14 @@ const roleLabels: Record<UserRole, string> = {
   finance_admin: "Finance Admin",
   super_admin: "Super Admin",
   security_guard: "Security Guard",
+  safety_admin: "Safety Admin",
 };
 
 const getAdminNav = (role?: UserRole) => {
   switch (role) {
     case "hr_admin": return hrAdminNav;
     case "finance_admin": return financeAdminNav;
+    case "safety_admin": return safetyAdminNav;
     case "hod":
     case "hos": return approverNav;
     case "super_admin": return superAdminNav;
@@ -71,7 +77,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const isAdmin = user?.role && ["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard"].includes(user.role);
+  const isAdmin = user?.role && ["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard", "safety_admin"].includes(user.role);
   const isSuperAdmin = user?.role === "super_admin";
   const isSecurityGuard = user?.role === "security_guard";
   const adminNav = getAdminNav(user?.role);
@@ -95,6 +101,7 @@ export function AppSidebar() {
     switch (user?.role) {
       case "hr_admin": return { main: "HR Admin", sub: "Dept. Dashboard" };
       case "finance_admin": return { main: "Finance Admin", sub: "Dept. Dashboard" };
+      case "safety_admin": return { main: "Safety Admin", sub: "Dept. Dashboard" };
       case "hod": return { main: "HOD Portal", sub: "Approvals" };
       case "hos": return { main: "HOS Portal", sub: "Approvals" };
       case "security_guard": return { main: "Security", sub: "Guard Portal" };

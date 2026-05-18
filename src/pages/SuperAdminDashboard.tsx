@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +30,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "hod", label: "Head of Department", description: "Approve department submissions", icon: Users },
   { value: "hr_admin", label: "HR Admin", description: "Manage HR forms & fleet", icon: UserCheck },
   { value: "finance_admin", label: "Finance Admin", description: "Manage finance & claims", icon: UserCheck },
+  { value: "safety_admin", label: "Safety Admin", description: "View safety dashboards & reports", icon: SafetyIcon },
   { value: "super_admin", label: "Super Admin", description: "Full system access & user management", icon: Shield },
 ];
 
@@ -47,6 +48,8 @@ const roleBadge = (role: UserRole) => {
       return <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-400 border-0 text-[10px] font-bold">HOS</Badge>;
     case "employee":
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
+    case "safety_admin":
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">SAFETY ADMIN</Badge>;
     case "security_guard":
       return <Badge className="bg-gray-500/20 text-gray-800 dark:text-gray-300 border-0 text-[10px] font-bold">SECURITY</Badge>;
     default:

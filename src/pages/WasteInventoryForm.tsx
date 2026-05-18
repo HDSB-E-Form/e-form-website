@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,7 +11,6 @@ import logo from "@/assets/logo.png";
 
 // Define your two categories of waste types here!
 const SELL_WASTE_TYPES = [
-  "SW422 MIX SCHEDULE WASTE",
   "SW104 ALUMINIUM DROSS",
   "SW104 ALUMINIUM SLUDGE",
   "SW422 OILY SCRAP",
@@ -28,6 +29,8 @@ const PAY_WASTE_TYPES = [
 
 const WasteInventoryForm = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { addSubmission } = useSubmissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [category, setCategory] = useState<"sell" | "pay">("sell");
   const [wasteType, setWasteType] = useState(SELL_WASTE_TYPES[0]);
@@ -84,6 +87,35 @@ const WasteInventoryForm = () => {
     },
     { gross: 0, container: 0, net: 0 }
   );
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    const submissionData = {
+      category,
+      wasteType,
+      rows,
+      totals,
+    };
+
+    const success = await addSubmission({
+      formType: "waste_inventory",
+      status: "approved", // This is a record, so it can be auto-approved.
+      submittedBy: user?.id || "",
+      employeeName: user?.name || "Unknown User",
+      department: user?.department || "Unknown Dept",
+      data: submissionData,
+    });
+
+    if (success) {
+      toast.success("Waste inventory record submitted successfully!");
+      navigate("/safety");
+    } else {
+      toast.error("Failed to submit record.");
+    }
+    setIsSubmitting(false);
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
@@ -280,7 +312,11 @@ const WasteInventoryForm = () => {
           >
             <FileDown className="h-4 w-4" /> Export as PDF
           </button>
-          <button className="btn-gold px-12 py-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg shadow-primary/20">
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="btn-gold px-12 py-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
             <Send className="h-4 w-4" /> Submit Records
           </button>
         </div>
