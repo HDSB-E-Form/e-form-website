@@ -41,7 +41,7 @@ const HomePage = () => {
       title: "Safety Department",
       description: "Submit incident reports and safety forms",
       icon: ShieldCheck,
-      color: "from-emerald-500 to-emerald-600",
+      color: "from-red-500 to-red-600",
       iconColor: "text-white",
       path: "/safety",
     },

@@ -126,7 +126,8 @@ const App = () => (
               <Route path="/hr" element={<AppLayout><HRFormsPage /></AppLayout>} />
               <Route path="/safety" element={<AppLayout><SafetyFormsPage /></AppLayout>} />
               <Route path="/safety/waste-inventory" element={<AppLayout><WasteInventoryForm /></AppLayout>} />
-              <Route path="/safety/incident" element={<AppLayout><DailyOperationMonitoringForm /></AppLayout>} />
+              <Route path="/safety/mixing" element={<AppLayout><DailyOperationMonitoringForm /></AppLayout>} />
+              <Route path="/safety/discharge" element={<AppLayout><DailyOperationMonitoringForm /></AppLayout>} />
               <Route 
                 path="/admin/safety" 
                 element={

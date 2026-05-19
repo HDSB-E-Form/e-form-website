@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 
 // Define your two categories of waste types here!
-const SELL_WASTE_TYPES = [
+export const DEFAULT_SELL_WASTE_TYPES = [
   "SW104 ALUMINIUM DROSS",
   "SW104 ALUMINIUM SLUDGE",
   "SW422 OILY SCRAP",
@@ -20,7 +20,7 @@ const SELL_WASTE_TYPES = [
   "SW306 SPENT HYDRAULIC OIL"
 ];
 
-const PAY_WASTE_TYPES = [
+export const DEFAULT_PAY_WASTE_TYPES = [
   "SW410 CONTAMINATED COTTON RAG/GLOVE",
   "SW204 SLUDGE CAKE",
   "SW307 SPENT MINERAL OIL WITH WATER EMULSION",
@@ -32,8 +32,19 @@ const WasteInventoryForm = () => {
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [plant, setPlant] = useState<"Plant 1" | "Plant 2">("Plant 1");
   const [category, setCategory] = useState<"sell" | "pay">("sell");
-  const [wasteType, setWasteType] = useState(SELL_WASTE_TYPES[0]);
+  
+  const [sellWasteTypes] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("hdsb_waste_types_sell") || "null") || DEFAULT_SELL_WASTE_TYPES; } 
+    catch { return DEFAULT_SELL_WASTE_TYPES; }
+  });
+  const [payWasteTypes] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("hdsb_waste_types_pay") || "null") || DEFAULT_PAY_WASTE_TYPES; } 
+    catch { return DEFAULT_PAY_WASTE_TYPES; }
+  });
+
+  const [wasteType, setWasteType] = useState(sellWasteTypes[0]);
   const [rows, setRows] = useState([
     { id: 1, gross: "", container: "" },
     { id: 2, gross: "", container: "" },
@@ -49,7 +60,7 @@ const WasteInventoryForm = () => {
   // Automatically update the waste type list when switching categories
   const handleCategoryChange = (newCategory: "sell" | "pay") => {
     setCategory(newCategory);
-    setWasteType(newCategory === "sell" ? SELL_WASTE_TYPES[0] : PAY_WASTE_TYPES[0]);
+    setWasteType(newCategory === "sell" ? sellWasteTypes[0] : payWasteTypes[0]);
   };
 
   // Handle Input Changes
@@ -93,6 +104,7 @@ const WasteInventoryForm = () => {
     setIsSubmitting(true);
 
     const submissionData = {
+      plant,
       category,
       wasteType,
       rows,
@@ -154,6 +166,42 @@ const WasteInventoryForm = () => {
           </div>
 
           <div className="max-w-md space-y-6">
+            {/* Plant Toggle */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Plant / Kilang <span className="text-destructive">*</span></Label>
+              <div className="flex gap-3 sm:gap-4 mt-1.5 print:hidden">
+                <div
+                  className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
+                    plant === "Plant 1"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:border-muted-foreground/30 text-muted-foreground"
+                  }`}
+                  onClick={() => setPlant("Plant 1")}
+                >
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${plant === "Plant 1" ? "border-primary" : "border-muted-foreground"}`}>
+                    {plant === "Plant 1" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <span className="font-bold text-sm uppercase tracking-wider">Plant 1</span>
+                </div>
+                <div
+                  className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
+                    plant === "Plant 2"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:border-muted-foreground/30 text-muted-foreground"
+                  }`}
+                  onClick={() => setPlant("Plant 2")}
+                >
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${plant === "Plant 2" ? "border-primary" : "border-muted-foreground"}`}>
+                    {plant === "Plant 2" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <span className="font-bold text-sm uppercase tracking-wider">Plant 2</span>
+                </div>
+              </div>
+              <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
+                Plant: {plant}
+              </div>
+            </div>
+
             {/* Category Toggle */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Inventory Category / Kategori Inventori <span className="text-destructive">*</span></Label>
@@ -169,7 +217,7 @@ const WasteInventoryForm = () => {
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${category === "sell" ? "border-primary" : "border-muted-foreground"}`}>
                     {category === "sell" && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
-                  <span className="font-bold text-sm uppercase tracking-wider">Sell</span>
+                  <span className="font-bold text-sm uppercase tracking-wider">Recycle (Sell)</span>
                 </div>
                 <div
                   className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
@@ -182,11 +230,11 @@ const WasteInventoryForm = () => {
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${category === "pay" ? "border-primary" : "border-muted-foreground"}`}>
                     {category === "pay" && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
-                  <span className="font-bold text-sm uppercase tracking-wider">Pay</span>
+                  <span className="font-bold text-sm uppercase tracking-wider">Dispose (Pay)</span>
                 </div>
               </div>
               <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
-                Category: {category}
+                Category: {category === "sell" ? "Recycle (Sell)" : "Dispose (Pay)"}
               </div>
             </div>
 
@@ -199,7 +247,7 @@ const WasteInventoryForm = () => {
                     <SelectValue placeholder="Select Waste Type" />
                   </SelectTrigger>
                   <SelectContent position="popper" side="bottom" avoidCollisions={false} className="max-h-[200px] overflow-y-auto">
-                    {(category === "sell" ? SELL_WASTE_TYPES : PAY_WASTE_TYPES).map(type => (
+                    {(category === "sell" ? sellWasteTypes : payWasteTypes).map(type => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
                   </SelectContent>

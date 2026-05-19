@@ -1,19 +1,22 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Send, Calendar, Clock, Layers, Droplet, UserCheck } from "lucide-react";
+import { ArrowLeft, Send, Calendar, Clock, Layers, Droplet, UserCheck, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 const DailyOperationMonitoringForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const { addSubmission } = useSubmissions();
+  const { addSubmission, submissions } = useSubmissions();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [remarks, setRemarks] = useState("");
+  const activeFormType = location.pathname.includes("discharge") ? "discharge" : "mixing";
 
   const [employeeInfo, setEmployeeInfo] = useState({
     name: user?.name || "",
@@ -32,6 +35,14 @@ const DailyOperationMonitoringForm = () => {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    if (activeFormType === "mixing") {
+      const mixingCount = submissions.filter(s => s.formType === "mixing_chemical_stages").length;
+      const autoBatchNo = `BCH-${String(mixingCount + 1).padStart(4, '0')}`;
+      setProcessInfo(p => ({ ...p, mixingTankBatchNo: autoBatchNo }));
+    }
+  }, [submissions, activeFormType]);
 
   // --- FORM STATE ---
   const [metaInfo, setMetaInfo] = useState({
@@ -72,8 +83,12 @@ const DailyOperationMonitoringForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!metaInfo.shift || !processInfo.mixingTankVolume) {
-      toast.error("Please fill in all mandatory dropdown fields (Shift and Mixing Tank Volume).");
+    if (!metaInfo.shift) {
+      toast.error("Please fill in the Shift field.");
+      return;
+    }
+    if (activeFormType === "mixing" && !processInfo.mixingTankVolume) {
+      toast.error("Please fill in Mixing Tank Volume.");
       return;
     }
 
@@ -88,16 +103,16 @@ const DailyOperationMonitoringForm = () => {
     };
 
     const success = await addSubmission({
-      formType: "daily_operation_monitoring",
+      formType: activeFormType === "mixing" ? "mixing_chemical_stages" : "final_discharge",
       status: "pending",
       submittedBy: user?.id || "",
       employeeName: user?.name || "Unknown User",
       department: user?.department || "Unknown Dept",
-      data: { employeeInfo, metaInfo: finalMetaInfo, processInfo, finalDischarge },
+      data: activeFormType === "mixing" ? { employeeInfo, metaInfo: finalMetaInfo, processInfo, remarks } : { employeeInfo, metaInfo: finalMetaInfo, finalDischarge, remarks },
     });
 
     if (success) {
-      toast.success("Daily Operation Monitoring Report submitted successfully!");
+      toast.success(`${activeFormType === "mixing" ? "Mixing & Chemical Stages" : "Final Discharge"} submitted successfully!`);
       navigate("/home");
     } else {
       setIsSubmitting(false);
@@ -116,8 +131,8 @@ const DailyOperationMonitoringForm = () => {
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
-          Daily Operation Monitoring Report
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground uppercase tracking-wide">
+          {activeFormType === "mixing" ? "Mixing & Chemical Stages" : "Final Discharge"}
         </h1>
         <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">
           HICOM Diecastings Sdn Bhd
@@ -134,6 +149,13 @@ const DailyOperationMonitoringForm = () => {
               Employee Details / <span className="font-normal text-muted-foreground">Maklumat Pekerja</span>
             </h2>
           </div>
+
+          {activeFormType === "mixing" && processInfo.mixingTankBatchNo && (
+            <div className="mb-3 pl-1">
+              <span className="text-[10px] font-bold text-primary uppercase tracking-wider mr-2">Batch Number:</span>
+              <span className="text-sm font-bold text-foreground tracking-widest">{processInfo.mixingTankBatchNo}</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="space-y-1">
@@ -155,33 +177,39 @@ const DailyOperationMonitoringForm = () => {
           </div>
         </div>
 
-        {/* SECTION 1: Meta Information */}
-        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 mb-5">
-            <Calendar className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
-              Log Identification / <span className="font-normal text-muted-foreground">Maklumat Log</span>
-            </h2>
-          </div>
+        {activeFormType === "discharge" && (
+          <>
+            {/* SECTION 1: Meta Information */}
+            <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
+              <div className="flex items-center gap-2 mb-5">
+                <Calendar className="h-5 w-5 text-primary" />
+                <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+                  Log Identification / <span className="font-normal text-muted-foreground">Maklumat Log</span>
+                </h2>
+              </div>
 
-          <div className="max-w-xs">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Shift <span className="text-destructive">*</span></Label>
-              <Select value={metaInfo.shift} onValueChange={(val) => setMetaInfo(p => ({ ...p, shift: val }))}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Select Shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Day">Day</SelectItem>
-                  <SelectItem value="Night">Night</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="max-w-xs">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-primary">Shift <span className="text-destructive">*</span></Label>
+                  <Select value={metaInfo.shift} onValueChange={(val) => setMetaInfo(p => ({ ...p, shift: val }))}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Select Shift" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Day">Day</SelectItem>
+                      <SelectItem value="Night">Night</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* SECTION 2: Mixing & Treatment Stages */}
-        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
+      {activeFormType === "mixing" && (
+        <>
+          {/* SECTION 2: Mixing & Treatment Stages */}
+          <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
           <div className="flex items-center gap-2 mb-5">
             <Layers className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
@@ -194,14 +222,16 @@ const DailyOperationMonitoringForm = () => {
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
               <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Mixing Tank Details</div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Batch No.</Label>
-                <Input
-                  type="text"
-                  placeholder="Enter Batch No."
-                  value={processInfo.mixingTankBatchNo}
-                  onChange={e => setProcessInfo(p => ({ ...p, mixingTankBatchNo: e.target.value }))}
-                  className="h-10"
-                />
+                <Label className="text-xs font-semibold">Shift <span className="text-destructive">*</span></Label>
+                <Select value={metaInfo.shift} onValueChange={(val) => setMetaInfo(p => ({ ...p, shift: val }))}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select Shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Day">Day</SelectItem>
+                    <SelectItem value="Night">Night</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter) <span className="text-destructive">*</span></Label>
@@ -296,9 +326,13 @@ const DailyOperationMonitoringForm = () => {
             </div>
           </div>
         </div>
+        </>
+      )}
 
-        {/* SECTION 3: Final Discharge Metrics (Spreadsheet Layout Matching) */}
-        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
+      {activeFormType === "discharge" && (
+        <>
+          {/* SECTION 3: Final Discharge Metrics (Spreadsheet Layout Matching) */}
+          <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
           <div className="flex items-center gap-2 mb-6 border-b pb-4">
             <Droplet className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
@@ -316,7 +350,7 @@ const DailyOperationMonitoringForm = () => {
           {/* Parameters Stack */}
           <div className="space-y-3">
             {[
-              { id: "ph4", label: "pH 4", hint: "6.0 ~ 8.0", step: "0.01" },
+              { id: "ph4", label: "pH", hint: "6.0 ~ 8.0", step: "0.01" },
               { id: "cod", label: "COD", hint: "<200" },
               { id: "bod", label: "BOD", hint: "<50" },
               { id: "tss", label: "TSS", hint: "<100" },
@@ -368,6 +402,24 @@ const DailyOperationMonitoringForm = () => {
             ))}
           </div>
         </div>
+        </>
+      )}
+
+        {/* SECTION: Optional Remarks */}
+        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+              Remarks / <span className="font-normal text-muted-foreground">Catatan (Optional)</span>
+            </h2>
+          </div>
+          <Input
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="Add any optional remarks or notes here..."
+            className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors"
+          />
+        </div>
 
         {/* Submit Section */}
         <div className="flex justify-center pt-4 pb-8">
@@ -377,7 +429,7 @@ const DailyOperationMonitoringForm = () => {
             className="btn-gold px-12 py-4 rounded-full text-sm font-bold flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90 shadow-md disabled:opacity-70 disabled:cursor-not-allowed transition-all"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting Records..." : "Submit Log / Hantar Rekod"}
+          {isSubmitting ? "Submitting Records..." : `Submit ${activeFormType === "mixing" ? "Mixing Log" : "Discharge Log"} / Hantar Rekod`}
           </button>
         </div>
 
