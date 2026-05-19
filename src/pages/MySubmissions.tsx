@@ -158,15 +158,18 @@ const MySubmissions = () => {
             const originalTitle = document.title;
             document.title = generateRefNo(selectedSubmission);
             
-            window.onafterprint = () => {
-              document.title = originalTitle;
-              window.onafterprint = null;
-            };
-            
-            window.print();
-            
-            // Fallback for browsers that don't support afterprint
-            setTimeout(() => { document.title = originalTitle; }, 2000);
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) document.documentElement.classList.remove('dark');
+
+            setTimeout(() => {
+              window.onafterprint = () => {
+                document.title = originalTitle;
+                if (isDark) document.documentElement.classList.add('dark');
+                window.onafterprint = null;
+              };
+              window.print();
+              setTimeout(() => { document.title = originalTitle; }, 2000);
+            }, 50);
           }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm">
             <Printer className="h-4 w-4" /> Print
           </button>

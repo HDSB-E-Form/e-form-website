@@ -305,8 +305,19 @@ const WasteInventoryForm = () => {
               e.preventDefault();
               const originalTitle = document.title;
               document.title = `Waste_Inventory_Record_${new Date().toISOString().split('T')[0]}`;
-              window.print();
-              setTimeout(() => { document.title = originalTitle; }, 2000);
+              
+              const isDark = document.documentElement.classList.contains('dark');
+              if (isDark) document.documentElement.classList.remove('dark');
+              
+              setTimeout(() => {
+                window.onafterprint = () => {
+                  document.title = originalTitle;
+                  if (isDark) document.documentElement.classList.add('dark');
+                  window.onafterprint = null;
+                };
+                window.print();
+                setTimeout(() => { document.title = originalTitle; }, 2000);
+              }, 50);
             }}
           className="btn-gold px-12 py-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 active:scale-95"
           >
