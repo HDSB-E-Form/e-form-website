@@ -461,7 +461,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                 <CalendarClock className="h-4 w-4" />
               </div>
-              <input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} onClick={e => { try { e.currentTarget.showPicker(); } catch(err) {} }} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pl-10 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm [color-scheme:light_dark] cursor-pointer" />
+                  <input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pl-10 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" />
             </div>
           </div>
         </div>
@@ -696,7 +696,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                 <CalendarClock className="h-4 w-4" />
               </div>
-              <input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} onClick={e => { try { e.currentTarget.showPicker(); } catch(err) {} }} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pl-10 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm [color-scheme:light_dark] cursor-pointer" />
+                  <input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pl-10 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" />
             </div>
           </div>
         </div>

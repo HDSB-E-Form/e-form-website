@@ -304,7 +304,7 @@ const PpeRequestForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold px-12 py-4 rounded-full text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
           >
             <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit Record"}

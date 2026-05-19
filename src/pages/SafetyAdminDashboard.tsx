@@ -174,30 +174,32 @@ const SafetyAdminDashboard = () => {
                                     <CalendarDays className="h-4 w-4" />
                                 </div>
                                 <Input 
-                                    type={startDate ? "date" : "text"}
-                                    placeholder="From Date"
+                                    type="date"
                                     value={startDate} 
                                     onChange={e => setStartDate(e.target.value)} 
-                                    onFocus={e => e.currentTarget.type = 'date'}
-                                    onBlur={e => { if (!e.currentTarget.value) e.currentTarget.type = 'text'; }}
-                                    onClick={e => { try { e.currentTarget.showPicker(); } catch(err) {} }} 
-                                    className="h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 focus:bg-background/80 text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden" 
+                                    className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 focus:bg-background/80 text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 ${!startDate ? 'text-transparent' : ''}`} 
                                 />
+                                {!startDate && (
+                                    <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none text-muted-foreground text-sm font-medium">
+                                        From Date
+                                    </div>
+                                )}
                             </div>
                             <div className="relative group w-full sm:w-40">
                                 <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                                     <CalendarDays className="h-4 w-4" />
                                 </div>
                                 <Input 
-                                    type={endDate ? "date" : "text"} 
-                                    placeholder="To Date"
+                                    type="date"
                                     value={endDate} 
                                     onChange={e => setEndDate(e.target.value)} 
-                                    onFocus={e => e.currentTarget.type = 'date'}
-                                    onBlur={e => { if (!e.currentTarget.value) e.currentTarget.type = 'text'; }}
-                                    onClick={e => { try { e.currentTarget.showPicker(); } catch(err) {} }} 
-                                    className="h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 focus:bg-background/80 text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden" 
+                                    className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 focus:bg-background/80 text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 ${!endDate ? 'text-transparent' : ''}`} 
                                 />
+                                {!endDate && (
+                                    <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none text-muted-foreground text-sm font-medium">
+                                        To Date
+                                    </div>
+                                )}
                             </div>
                             <div className="w-full sm:w-48">
                                 <Select value={selectedParameter} onValueChange={setSelectedParameter}>

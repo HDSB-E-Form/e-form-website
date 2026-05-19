@@ -325,8 +325,7 @@ const LeaveForm = () => {
                   type="time"
                   value={estimatedTime.timeOut}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeOut: e.target.value }))}
-                  onClick={e => { try { e.currentTarget.showPicker(); } catch(err) {} }}
-                  className="h-11 pl-10 bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer"
+                        className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0"
                   placeholder="--:--"
                 />
               </div>
@@ -341,8 +340,7 @@ const LeaveForm = () => {
                   type="time"
                   value={estimatedTime.timeIn}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeIn: e.target.value }))}
-                  onClick={e => { try { e.currentTarget.showPicker(); } catch(err) {} }}
-                  className="h-11 pl-10 bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer"
+                        className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0"
                   placeholder="--:--"
                 />
               </div>
@@ -355,7 +353,7 @@ const LeaveForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold px-12 py-4 rounded-full text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
           >
             <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit Gate Pass / Hantar Pas Keluar"}
