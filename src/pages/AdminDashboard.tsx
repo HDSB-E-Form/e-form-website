@@ -59,6 +59,17 @@ const INITIAL_STOCK = {
   "Forklift Vest": 30,
 };
 
+const PPE_ITEMS = ["Goggle", "Helmet", "Safety Boot", "Safety Shoe", "Safety Insert", "Earplug", "Apron", "Crane Vest", "3-ply Mask", "N-95 Mask", "Forklift Vest"];
+const UNIFORM_ITEMS = ["Company T-Shirt (Short Sleeve)", "Company T-Shirt (Long Sleeve)", "Company Shirt", "Company Shirt (Long Sleeve)", "Cargo Pants"];
+const OFFICE_ITEMS = ["Ball Pen", "Permanent Marker", "Highlighter", "Pencil", "Eraser", "Correction Tape", "A4 Paper", "Notebook", "Stapler", "Staple Pin", "Paper Clip", "Binder Clip", "File Folder", "Ring File", "Sticky Notes", "Scissors", "Glue Stick", "Clear Tape", "Calculator", "Whiteboard Marker", "A3 Paper", "A5 Paper"];
+
+const getItemCategory = (name: string) => {
+  if (PPE_ITEMS.includes(name)) return "ppe";
+  if (UNIFORM_ITEMS.includes(name)) return "uniform";
+  if (OFFICE_ITEMS.includes(name)) return "office";
+  return "other";
+};
+
 // HR Admin Dashboard - sees leave and car_rental forms only
 const AdminDashboard = () => {
   const { submissions, updateSubmissionStatus } = useSubmissions();
@@ -80,6 +91,8 @@ const AdminDashboard = () => {
   const [isStockSheetOpen, setIsStockSheetOpen] = useState(false);
   const [stockForm, setStockForm] = useState({ itemName: "", quantity: "" });
   const [customItem, setCustomItem] = useState("");
+  const [inventoryTab, setInventoryTab] = useState<"all" | "ppe" | "uniform" | "office">("all");
+  const [inventorySearch, setInventorySearch] = useState("");
 
   useEffect(() => {
     localStorage.setItem("hdsb_inventory_stock", JSON.stringify(inventoryStock));
@@ -165,6 +178,12 @@ const AdminDashboard = () => {
 
   // Combine all known inventory items
   const allInventoryKeys = Array.from(new Set([...Object.keys(inventoryStock), ...Object.keys(distributedItems)])).sort();
+
+  const filteredInventoryKeys = allInventoryKeys.filter(item => {
+    const matchesTab = inventoryTab === "all" || getItemCategory(item) === inventoryTab;
+    const matchesSearch = item.toLowerCase().includes(inventorySearch.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   const renderCarRentalDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
@@ -533,20 +552,50 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Stock Levels */}
             <div className="xl:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
-              <div className="p-5 border-b border-border flex items-center justify-between bg-muted/10 shrink-0">
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">Stock Levels</h2>
-                  <p className="text-xs text-muted-foreground">Monitor remaining PPE & Uniform inventory</p>
+              <div className="p-5 border-b border-border bg-muted/10 shrink-0 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground">Stock Levels</h2>
+                    <p className="text-xs text-muted-foreground">Monitor remaining inventory across all categories</p>
+                  </div>
+                  <button onClick={() => setIsStockSheetOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap">
+                    <Plus className="h-4 w-4" /> Add / Update Stock
+                  </button>
                 </div>
-                <button onClick={() => setIsStockSheetOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
-                  <Plus className="h-4 w-4" /> Add / Update Stock
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-between">
+                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {[
+                      { id: "all", label: "All Items" },
+                      { id: "ppe", label: "PPE" },
+                      { id: "uniform", label: "Uniforms" },
+                      { id: "office", label: "Office Supplies" },
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setInventoryTab(tab.id as any)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors border whitespace-nowrap ${inventoryTab === tab.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:text-foreground'}`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative w-full sm:w-64 shrink-0">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search inventory..."
+                      value={inventorySearch}
+                      onChange={e => setInventorySearch(e.target.value)}
+                      className="h-8 pl-8 text-xs bg-background"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="overflow-y-auto flex-1">
                 <Table>
                   <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-md z-10">
                     <TableRow>
                       <TableHead className="text-xs font-bold uppercase tracking-wider">Item Name</TableHead>
+                      <TableHead className="text-xs font-bold uppercase tracking-wider">Category</TableHead>
                       <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Total Stock</TableHead>
                       <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Distributed</TableHead>
                       <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Remaining</TableHead>
@@ -554,7 +603,7 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allInventoryKeys.map(item => {
+                    {filteredInventoryKeys.map(item => {
                       const total = inventoryStock[item] || 0;
                       const dist = distributedItems[item] || 0;
                       const left = total - dist;
@@ -562,6 +611,11 @@ const AdminDashboard = () => {
                       return (
                         <TableRow key={item} className="hover:bg-muted/10">
                           <TableCell className="font-semibold text-sm">{item}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider">
+                              {getItemCategory(item)}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="text-center text-sm font-medium">{total}</TableCell>
                           <TableCell className="text-center text-sm font-medium text-muted-foreground">{dist}</TableCell>
                           <TableCell className={`text-center text-sm font-bold ${left <= 10 ? 'text-destructive' : 'text-foreground'}`}>{left}</TableCell>
@@ -573,6 +627,11 @@ const AdminDashboard = () => {
                         </TableRow>
                       );
                     })}
+                    {filteredInventoryKeys.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No items match your criteria.</TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -594,7 +653,10 @@ const AdminDashboard = () => {
                     {inventorySubmissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).slice(0, 20).map(sub => (
                       <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => setSelectedSubmission(sub)}>
                         <div className="flex justify-between items-start mb-1.5">
-                          <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                            <Badge className="bg-primary/10 text-primary border-0 text-[9px] uppercase px-1.5 py-0">{sub.data.requestCategory || "PPE"}</Badge>
+                          </div>
                           <span className="text-[10px] text-muted-foreground font-medium">{new Date(sub.submittedAt).toLocaleDateString()}</span>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-2">
@@ -624,8 +686,12 @@ const AdminDashboard = () => {
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Choose an item..." />
                 </SelectTrigger>
-                <SelectContent>
-                  {allInventoryKeys.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                <SelectContent className="max-h-[300px]">
+                  {allInventoryKeys.map(k => (
+                    <SelectItem key={k} value={k}>
+                      {k} <span className="text-muted-foreground opacity-60 text-[10px] ml-1 uppercase">({getItemCategory(k)})</span>
+                    </SelectItem>
+                  ))}
                   <SelectItem value="other" className="font-bold text-primary italic">+ Add New Custom Item</SelectItem>
                 </SelectContent>
               </Select>

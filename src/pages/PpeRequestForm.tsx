@@ -25,13 +25,36 @@ const PPE_ITEMS = [
 ];
 
 const UNIFORM_ITEMS = [
-  "Uniform Item 1 (Placeholder)",
-  "Uniform Item 2 (Placeholder)"
+  "Company T-Shirt (Short Sleeve)",
+  "Company T-Shirt (Long Sleeve)",
+  "Company Shirt",
+  "Company Shirt (Long Sleeve)",
+  "Cargo Pants"
 ];
 
 const OFFICE_ITEMS = [
-  "Office Item 1 (Placeholder)",
-  "Office Item 2 (Placeholder)"
+  "Ball Pen",
+  "Permanent Marker",
+  "Highlighter",
+  "Pencil",
+  "Eraser",
+  "Correction Tape",
+  "A4 Paper",
+  "Notebook",
+  "Stapler",
+  "Staple Pin",
+  "Paper Clip",
+  "Binder Clip",
+  "File Folder",
+  "Ring File",
+  "Sticky Notes",
+  "Scissors",
+  "Glue Stick",
+  "Clear Tape",
+  "Calculator",
+  "Whiteboard Marker",
+  "A3 Paper",
+  "A5 Paper"
 ];
 
 const PpeRequestForm = () => {
@@ -260,13 +283,48 @@ const PpeRequestForm = () => {
                               <SelectValue placeholder="Size" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="XS">XS</SelectItem>
-                              <SelectItem value="S">S</SelectItem>
-                              <SelectItem value="M">M</SelectItem>
-                              <SelectItem value="L">L</SelectItem>
-                              <SelectItem value="XL">XL</SelectItem>
-                              <SelectItem value="XXL">XXL</SelectItem>
-                              <SelectItem value="XXXL">XXXL</SelectItem>
+                              {requestCategory === "ppe" ? (
+                                item.name === "Safety Shoe" || item.name === "Safety Boot" ? (
+                                  <>
+                                    <SelectItem value="4">4</SelectItem>
+                                    <SelectItem value="5">5</SelectItem>
+                                    <SelectItem value="6">6</SelectItem>
+                                    <SelectItem value="7">7</SelectItem>
+                                    <SelectItem value="8">8</SelectItem>
+                                    <SelectItem value="9">9</SelectItem>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="11">11</SelectItem>
+                                    <SelectItem value="12">12</SelectItem>
+                                    <SelectItem value="13">13</SelectItem>
+                                    <SelectItem value="14">14</SelectItem>
+                                  </>
+                                ) : (
+                                  <SelectItem value="Free Size">Free Size</SelectItem>
+                                )
+                              ) : item.name === "Cargo Pants" ? (
+                                <>
+                                  <SelectItem value="28">28</SelectItem>
+                                  <SelectItem value="30">30</SelectItem>
+                                  <SelectItem value="32">32</SelectItem>
+                                  <SelectItem value="34">34</SelectItem>
+                                  <SelectItem value="36">36</SelectItem>
+                                  <SelectItem value="38">38</SelectItem>
+                                  <SelectItem value="40">40</SelectItem>
+                                  <SelectItem value="42">42</SelectItem>
+                                  <SelectItem value="44">44</SelectItem>
+                                </>
+                              ) : (
+                                <>
+                                  <SelectItem value="XS">XS</SelectItem>
+                                  <SelectItem value="S">S</SelectItem>
+                                  <SelectItem value="M">M</SelectItem>
+                                  <SelectItem value="L">L</SelectItem>
+                                  <SelectItem value="XL">XL</SelectItem>
+                                  <SelectItem value="2XL">2XL</SelectItem>
+                                  <SelectItem value="3XL">3XL</SelectItem>
+                                  <SelectItem value="4XL">4XL</SelectItem>
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                         </td>

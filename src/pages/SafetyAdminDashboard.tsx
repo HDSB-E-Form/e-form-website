@@ -37,7 +37,7 @@ const SafetyAdminDashboard = () => {
     useEffect(() => { localStorage.setItem("hdsb_waste_types_pay", JSON.stringify(payTypes)); }, [payTypes]);
 
     const monitoringSubmissions = useMemo(() => 
-        submissions.filter(s => s.formType === "daily_operation_monitoring"), 
+        submissions.filter(s => ["final_discharge", "daily_operation_monitoring"].includes(s.formType)), 
     [submissions]);
 
     const remarksList = useMemo(() => {
@@ -52,11 +52,12 @@ const SafetyAdminDashboard = () => {
         const end = endDate || "9999-12-31";
 
         const data = monitoringSubmissions
-            .filter(s => s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
+            .filter(s => s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
             .map(s => ({
                 date: s.data.metaInfo.date,
-                value: parseFloat(s.data.finalDischarge[selectedParameter]) || 0,
+                value: parseFloat(s.data.finalDischarge?.[selectedParameter]) || 0,
             }))
+            .filter(d => d.value > 0)
             .sort((a, b) => a.date.localeCompare(b.date));
 
         const groupedData = data.reduce((acc, curr) => {
@@ -81,16 +82,25 @@ const SafetyAdminDashboard = () => {
         const end = endDate || "9999-12-31";
 
         const filteredSubmissions = monitoringSubmissions.filter(s => {
-            return s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
+            return s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
         });
-        const totalReports = filteredSubmissions.length;
-        const avgPh = totalReports > 0 ? filteredSubmissions.reduce((sum, s) => sum + (parseFloat(s.data.finalDischarge.ph4) || 0), 0) / totalReports : 0;
+        
+        let totalValue = 0;
+        let validCount = 0;
+
+        filteredSubmissions.forEach(s => {
+            const val = parseFloat(s.data.finalDischarge?.[selectedParameter]);
+            if (!isNaN(val) && val > 0) {
+                totalValue += val;
+                validCount++;
+            }
+        });
 
         return {
-            totalReports,
-            avgPh: avgPh.toFixed(2),
+            totalReports: filteredSubmissions.length,
+            avgValue: validCount > 0 ? (totalValue / validCount).toFixed(2) : "0.00",
         };
-    }, [monitoringSubmissions, startDate, endDate]);
+    }, [monitoringSubmissions, startDate, endDate, selectedParameter]);
 
     const handleAddWasteType = () => {
         if (!newTypeName.trim()) return toast.error("Waste type name cannot be empty");
@@ -153,10 +163,10 @@ const SafetyAdminDashboard = () => {
                     </div>
                 </div>
                 <div className="card-elevated p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center"><span className="text-xl font-bold text-emerald-600">pH</span></div>
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center"><span className="text-sm font-bold text-emerald-600 text-center leading-tight">{selectedParamInfo?.label.includes("pH") ? "pH" : selectedParamInfo?.label}</span></div>
                     <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Average pH (Selected)</p>
-                        <p className="text-3xl font-bold text-foreground">{stats.avgPh}</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Average {selectedParamInfo?.label}</p>
+                        <p className="text-3xl font-bold text-foreground">{stats.avgValue}</p>
                     </div>
                 </div>
             </div>
@@ -165,7 +175,7 @@ const SafetyAdminDashboard = () => {
             <div className="card-elevated p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                         <div>
-                            <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Final Discharge Monitoring</h2>
+                            <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Water Treatment Monitoring</h2>
                             <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -218,7 +228,15 @@ const SafetyAdminDashboard = () => {
                             <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
+                                <YAxis 
+                                    tick={{ fontSize: 12 }} 
+                                    tickLine={false} 
+                                    axisLine={false} 
+                                    domain={selectedParameter.toLowerCase().includes("ph") 
+                                        ? [(dataMin: number) => Math.min(dataMin - 0.5, 5.5), (dataMax: number) => Math.max(dataMax + 0.5, 9.5)]
+                                        : ['dataMin - 1', 'dataMax + 1']
+                                    } 
+                                />
                                 <Tooltip
                                     contentStyle={{
                                         background: "hsl(var(--background))",
@@ -227,7 +245,7 @@ const SafetyAdminDashboard = () => {
                                     }}
                                 />
                                 <Legend />
-                                {selectedParameter === "ph4" && (
+                                {selectedParameter.toLowerCase().includes("ph") && (
                                     <>
                                         <ReferenceLine y={9} stroke="#ef4444" strokeDasharray="3 3" />
                                         <ReferenceLine y={6} stroke="#ef4444" strokeDasharray="3 3" />
