@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -72,7 +73,8 @@ const getItemCategory = (name: string) => {
 
 // HR Admin Dashboard - sees leave and car_rental forms only
 const AdminDashboard = () => {
-  const { submissions, updateSubmissionStatus } = useSubmissions();
+  const { user } = useAuth();
+  const { submissions, updateSubmissionStatus, addSubmission } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -80,23 +82,23 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
   
-  // Inventory State
-  const [inventoryStock, setInventoryStock] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem("hdsb_inventory_stock");
-      if (saved) return JSON.parse(saved);
-    } catch(e) {}
-    return INITIAL_STOCK;
-  });
+  // Inventory State (Calculated from database history)
+  const inventoryStock = useMemo(() => {
+    const stock: Record<string, number> = { ...INITIAL_STOCK };
+    submissions.filter(s => s.formType === "inventory_addition").forEach(sub => {
+      const { itemName, quantity } = sub.data;
+      if (itemName && quantity) {
+        stock[itemName] = (stock[itemName] || 0) + parseInt(quantity);
+      }
+    });
+    return stock;
+  }, [submissions]);
   const [isStockSheetOpen, setIsStockSheetOpen] = useState(false);
   const [stockForm, setStockForm] = useState({ itemName: "", quantity: "" });
   const [customItem, setCustomItem] = useState("");
   const [inventoryTab, setInventoryTab] = useState<"all" | "ppe" | "uniform" | "office">("all");
   const [inventorySearch, setInventorySearch] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem("hdsb_inventory_stock", JSON.stringify(inventoryStock));
-  }, [inventoryStock]);
+  const [stockSheetCategory, setStockSheetCategory] = useState<"ppe" | "uniform" | "office" | "other">("ppe");
 
   // Separate standard approvals from instant-record inventory forms
   const approvalSubmissions = submissions.filter(s => ["car_rental", "leave"].includes(s.formType));
@@ -148,20 +150,31 @@ const AdminDashboard = () => {
     setRemarks("");
   };
 
-  const handleUpdateStock = () => {
+  const handleUpdateStock = async () => {
     const nameToUpdate = stockForm.itemName === "other" ? customItem : stockForm.itemName;
     if (!nameToUpdate || !stockForm.quantity) {
       toast.error("Please provide an item name and quantity");
       return;
     }
-    setInventoryStock(prev => ({
-      ...prev,
-      [nameToUpdate]: (prev[nameToUpdate] || 0) + parseInt(stockForm.quantity)
-    }));
-    toast.success(`${stockForm.quantity} unit(s) added to ${nameToUpdate} stock`);
-    setIsStockSheetOpen(false);
-    setStockForm({ itemName: "", quantity: "" });
-    setCustomItem("");
+
+    const qty = parseInt(stockForm.quantity);
+    const success = await addSubmission({
+      formType: "inventory_addition",
+      status: "approved",
+      submittedBy: user?.id || "",
+      employeeName: user?.name || "System Admin",
+      department: user?.department || "HR",
+      data: { itemName: nameToUpdate, quantity: qty, category: stockSheetCategory }
+    });
+
+    if (success) {
+      toast.success(`${qty} unit(s) added to ${nameToUpdate} stock`);
+      setIsStockSheetOpen(false);
+      setStockForm({ itemName: "", quantity: "" });
+      setCustomItem("");
+    } else {
+      toast.error("Failed to add stock to the database.");
+    }
   };
 
   // Calculate Distributed Inventory
@@ -185,6 +198,13 @@ const AdminDashboard = () => {
     return matchesTab && matchesSearch;
   });
 
+  const recentActivity = useMemo(() => {
+    return submissions
+      .filter(s => (s.formType === "ppe_request" && s.status === "approved") || s.formType === "inventory_addition")
+      .sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+      .slice(0, 30);
+  }, [submissions]);
+
   const renderCarRentalDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
     const startDate = sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
@@ -202,7 +222,8 @@ const AdminDashboard = () => {
         <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-8">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-3">Staff ID: {sub.data.staffId || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.staffId || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.position || sub.data.employeeInfo?.position || "—"}</p>
           <p className="text-sm font-medium text-primary">{sub.department}</p>
         </div>
 
@@ -268,8 +289,9 @@ const AdminDashboard = () => {
         </div>
         <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-3">{sub.department}</p>
-          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold uppercase">
+          <p className="text-sm text-muted-foreground mb-1">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
+          <p className="text-sm font-medium text-primary mb-3">{sub.department}</p>
+          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold uppercase w-fit">
             {sub.data.requestCategory || "PPE"} Collection
           </Badge>
         </div>
@@ -307,7 +329,7 @@ const AdminDashboard = () => {
     const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod";
 
     return (
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
         {isCarRental && renderCarRentalDetail(selectedSubmission)}
         {isPpe && renderPpeDetail(selectedSubmission)}
 
@@ -358,7 +380,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">HR Admin Dashboard</h1>
@@ -637,33 +659,41 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Recent Collections */}
+            {/* Recent Activity History */}
             <div className="card-elevated overflow-hidden flex flex-col h-[600px]">
               <div className="p-5 border-b border-border bg-muted/10 shrink-0">
-                <h2 className="text-lg font-bold text-foreground">Recent Collections</h2>
-                <p className="text-xs text-muted-foreground">Latest distributed items</p>
+                <h2 className="text-lg font-bold text-foreground">Recent Activity</h2>
+                <p className="text-xs text-muted-foreground">Latest distributed items and restocks</p>
               </div>
               <div className="overflow-y-auto flex-1 p-0">
-                {inventorySubmissions.length === 0 ? (
+                {recentActivity.length === 0 ? (
                   <div className="p-8 text-center">
-                    <p className="text-sm text-muted-foreground">No items have been distributed yet.</p>
+                    <p className="text-sm text-muted-foreground">No recent inventory activity.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
-                    {inventorySubmissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).slice(0, 20).map(sub => (
-                      <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => setSelectedSubmission(sub)}>
+                    {recentActivity.map(sub => {
+                      const isRestock = sub.formType === "inventory_addition";
+                      return (
+                        <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => !isRestock && setSelectedSubmission(sub)}>
                         <div className="flex justify-between items-start mb-1.5">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
-                            <Badge className="bg-primary/10 text-primary border-0 text-[9px] uppercase px-1.5 py-0">{sub.data.requestCategory || "PPE"}</Badge>
+                              <Badge className={`border-0 text-[9px] uppercase px-1.5 py-0 ${isRestock ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400' : 'bg-primary/10 text-primary'}`}>
+                                {isRestock ? "RESTOCK" : (sub.data.requestCategory || "PPE")}
+                              </Badge>
                           </div>
                           <span className="text-[10px] text-muted-foreground font-medium">{new Date(sub.submittedAt).toLocaleDateString()}</span>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {(sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ")}
+                            {isRestock
+                              ? `+${sub.data.quantity}x ${sub.data.itemName}`
+                              : (sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ")
+                            }
                         </p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -680,24 +710,44 @@ const AdminDashboard = () => {
             <p className="text-sm text-muted-foreground">Increase inventory for an existing item or add a new one.</p>
           </SheetHeader>
           <div className="space-y-5">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-primary uppercase tracking-wider">Select Item</Label>
+            <div>
+              <Label className="text-xs font-bold text-primary uppercase tracking-wider block mb-2">1. Select Category</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" onClick={() => { setStockSheetCategory("ppe"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'ppe' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>PPE</button>
+                <button type="button" onClick={() => { setStockSheetCategory("uniform"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'uniform' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Uniforms</button>
+                <button type="button" onClick={() => { setStockSheetCategory("office"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'office' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Office</button>
+                <button type="button" onClick={() => { setStockSheetCategory("other"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'other' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Custom</button>
+              </div>
+            </div>
+
+            <div className="space-y-2 animate-in fade-in slide-in-from-right-2 duration-300">
+              <Label className="text-xs font-bold text-primary uppercase tracking-wider">2. Select Item</Label>
               <Select value={stockForm.itemName} onValueChange={val => setStockForm(p => ({...p, itemName: val}))}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose an item..." />
+                  <SelectValue placeholder={
+                    stockSheetCategory === "ppe" ? "Choose a PPE item..." :
+                    stockSheetCategory === "uniform" ? "Choose a Uniform..." :
+                    stockSheetCategory === "office" ? "Choose an Office Supply..." :
+                    "Choose a Custom Item..."
+                  } />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {allInventoryKeys.map(k => (
-                    <SelectItem key={k} value={k}>
-                      {k} <span className="text-muted-foreground opacity-60 text-[10px] ml-1 uppercase">({getItemCategory(k)})</span>
-                    </SelectItem>
+                  {Array.from(new Set([
+                    ...(stockSheetCategory === "ppe" ? PPE_ITEMS : []),
+                    ...(stockSheetCategory === "uniform" ? UNIFORM_ITEMS : []),
+                    ...(stockSheetCategory === "office" ? OFFICE_ITEMS : []),
+                    ...allInventoryKeys.filter(k => getItemCategory(k) === stockSheetCategory)
+                  ])).sort().map(k => (
+                    <SelectItem key={k} value={k}>{k}</SelectItem>
                   ))}
-                  <SelectItem value="other" className="font-bold text-primary italic">+ Add New Custom Item</SelectItem>
+                  {stockSheetCategory === "other" && (
+                    <SelectItem value="other" className="font-bold text-primary italic">+ Add New Custom Item</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
             
-            {stockForm.itemName === "other" && (
+            {stockForm.itemName === "other" && stockSheetCategory === "other" && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                 <Label className="text-xs font-bold text-primary uppercase tracking-wider">New Item Name</Label>
                 <Input value={customItem} onChange={e => setCustomItem(e.target.value)} placeholder="e.g. Safety Glasses" className="h-11" />
@@ -705,8 +755,8 @@ const AdminDashboard = () => {
             )}
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-primary uppercase tracking-wider">Quantity to Add</Label>
-              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="e.g. 50" className="h-11" />
+              <Label className="text-xs font-bold text-primary uppercase tracking-wider">3. Quantity to Add</Label>
+              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="e.g. 50" className="h-11 no-spinner" onWheel={(e) => (e.target as HTMLElement).blur()} />
               <p className="text-[10px] text-muted-foreground">This amount will be added to the total historical stock.</p>
             </div>
             

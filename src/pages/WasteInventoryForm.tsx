@@ -130,7 +130,7 @@ const WasteInventoryForm = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
       {/* Navigation Header */}
       <button onClick={() => navigate("/safety")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Safety Forms
@@ -292,7 +292,8 @@ const WasteInventoryForm = () => {
                         value={row.gross} 
                         onChange={(e) => handleInputChange(row.id, "gross", e.target.value)}
                         placeholder="0.00"
-                        className="h-10 min-w-[100px] border-0 bg-muted/20 focus:bg-background print:bg-transparent print:p-0 print:text-black print:h-auto"
+                        className="h-10 min-w-[100px] border-0 bg-muted/20 focus:bg-background print:bg-transparent print:p-0 print:text-black print:h-auto no-spinner"
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
                       />
                     </td>
                     <td className="px-2 py-2">
@@ -301,7 +302,8 @@ const WasteInventoryForm = () => {
                         value={row.container} 
                         onChange={(e) => handleInputChange(row.id, "container", e.target.value)}
                         placeholder="0.00"
-                        className="h-10 min-w-[100px] border-0 bg-muted/20 focus:bg-background print:bg-transparent print:p-0 print:text-black print:h-auto"
+                        className="h-10 min-w-[100px] border-0 bg-muted/20 focus:bg-background print:bg-transparent print:p-0 print:text-black print:h-auto no-spinner"
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
                       />
                     </td>
                     <td className="px-4 py-2 text-sm font-bold text-foreground print:text-black whitespace-nowrap">

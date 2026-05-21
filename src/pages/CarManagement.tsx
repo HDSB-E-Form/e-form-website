@@ -125,7 +125,7 @@ const CarManagement = () => {
     });
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Fullscreen Image Preview Modal */}
       {fullscreenImage && (
         <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setFullscreenImage(null)}>
@@ -408,7 +408,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-Out</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-Out Form</h1>
       <p className="text-muted-foreground text-sm">Borang Keluar Kenderaan</p>
@@ -615,7 +615,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-In</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-In Form</h1>
       <p className="text-muted-foreground text-sm">Borang Pulang Kenderaan</p>

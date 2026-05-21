@@ -209,7 +209,7 @@ const ClaimForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <button onClick={() => navigate("/finance")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Finance Forms
       </button>
@@ -338,6 +338,7 @@ const ClaimForm = () => {
                         onChange={e => updateRow(i, "gst", e.target.value)}
                         placeholder="0.00"
                         className="h-10 border-0 shadow-none text-right no-spinner"
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
                       />
                     </td>
                     <td className="p-1.5 border border-border">
@@ -355,7 +356,8 @@ const ClaimForm = () => {
                         value={row.amount}
                         onChange={e => updateRow(i, "amount", e.target.value)}
                         placeholder="0.00"
-                        className="h-10 border-0 shadow-none text-right"
+                        className="h-10 border-0 shadow-none text-right no-spinner"
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
                       />
                     </td>
                     <td className="p-1.5 border border-border text-center">

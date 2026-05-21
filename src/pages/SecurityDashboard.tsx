@@ -129,7 +129,8 @@ const SecurityDashboard = () => {
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-8">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-3">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
           <p className="text-sm font-medium text-primary">{sub.department}</p>
         </div>
 
@@ -178,7 +179,7 @@ const SecurityDashboard = () => {
     const isOnLeave = selectedSubmission.status === "on_leave";
 
     return (
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
         <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
         </button>
@@ -266,7 +267,7 @@ const SecurityDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Security Dashboard / Papan Pemuka Keselamatan</h1>
         <p className="text-muted-foreground text-sm mt-1">Review and approve all incoming Gate Pass requests.</p>

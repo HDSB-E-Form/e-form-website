@@ -120,7 +120,7 @@ const DailyOperationMonitoringForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Back Button */}
       <button
         onClick={() => navigate("/safety")} 
@@ -257,7 +257,8 @@ const DailyOperationMonitoringForm = () => {
                   placeholder="0.00"
                   value={processInfo.causticSodaLitres}
                   onChange={e => setProcessInfo(p => ({ ...p, causticSodaLitres: e.target.value }))}
-                  className="h-10"
+                  className="h-10 no-spinner"
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                 />
               </div>
               <div className="space-y-1.5">
@@ -268,7 +269,8 @@ const DailyOperationMonitoringForm = () => {
                   placeholder="pH Level"
                   value={processInfo.causticSodaPH1}
                   onChange={e => setProcessInfo(p => ({ ...p, causticSodaPH1: e.target.value }))}
-                  className="h-10"
+                  className="h-10 no-spinner"
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                 />
               </div>
             </div>
@@ -283,7 +285,8 @@ const DailyOperationMonitoringForm = () => {
                   placeholder="0.00"
                   value={processInfo.coagulationLitres}
                   onChange={e => setProcessInfo(p => ({ ...p, coagulationLitres: e.target.value }))}
-                  className="h-10"
+                  className="h-10 no-spinner"
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                 />
               </div>
               <div className="space-y-1.5">
@@ -294,7 +297,8 @@ const DailyOperationMonitoringForm = () => {
                   placeholder="pH Level"
                   value={processInfo.coagulationPH2}
                   onChange={e => setProcessInfo(p => ({ ...p, coagulationPH2: e.target.value }))}
-                  className="h-10"
+                  className="h-10 no-spinner"
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                 />
               </div>
             </div>
@@ -309,7 +313,8 @@ const DailyOperationMonitoringForm = () => {
                   placeholder="0.00"
                   value={processInfo.flocculationLitres}
                   onChange={e => setProcessInfo(p => ({ ...p, flocculationLitres: e.target.value }))}
-                  className="h-10"
+                  className="h-10 no-spinner"
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                 />
               </div>
               <div className="space-y-1.5">
@@ -320,7 +325,8 @@ const DailyOperationMonitoringForm = () => {
                   placeholder="pH Level"
                   value={processInfo.flocculationPH3}
                   onChange={e => setProcessInfo(p => ({ ...p, flocculationPH3: e.target.value }))}
-                  className="h-10"
+                  className="h-10 no-spinner"
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                 />
               </div>
             </div>
@@ -384,7 +390,8 @@ const DailyOperationMonitoringForm = () => {
                     placeholder={`Enter value for ${param.label}`}
                     value={(finalDischarge as any)[param.id]}
                     onChange={e => setFinalDischarge(p => ({ ...p, [param.id]: e.target.value }))}
-                    className="h-10 text-center font-medium shadow-sm"
+                    className="h-10 text-center font-medium shadow-sm no-spinner"
+                    onWheel={(e) => (e.target as HTMLElement).blur()}
                   />
                 </div>
 

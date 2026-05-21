@@ -114,7 +114,7 @@ const AllSubmissionsPage = () => {
     const isRejected = selectedSubmission.status === "rejected";
 
     return (
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
         <div className="flex items-center justify-between mb-6 print:hidden">
           <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to All Submissions
@@ -162,9 +162,16 @@ const AllSubmissionsPage = () => {
             </div>
           </div>
 
+          <div className="py-4 border-b border-border print:border-gray-300 flex justify-between items-center mb-4">
+            <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Position</span>
+            <div className="text-sm font-medium text-foreground print:text-black text-right">
+              {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
+            </div>
+          </div>
+
           <div className="space-y-4 mb-8">
             {Object.entries(selectedSubmission.data)
-              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog'].includes(key))
+              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key))
               .map(([key, value]) => {
                 let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                 if (key === 'hosName') formattedKey = 'Head of Section';
@@ -253,7 +260,7 @@ const AllSubmissionsPage = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">All System Submissions</h1>
         <p className="text-muted-foreground text-sm mt-1">Monitor all form submissions across the entire organization.</p>

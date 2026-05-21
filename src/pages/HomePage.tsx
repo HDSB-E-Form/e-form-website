@@ -48,7 +48,7 @@ const HomePage = () => {
   ];
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Welcome back, {user?.name ? user.name.split(" ")[0] : "User"}!</h1>

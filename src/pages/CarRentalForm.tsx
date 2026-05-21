@@ -205,7 +205,7 @@ const CarRentalForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Availability Modal - Calendar Timeline */}
       {isAvailabilityModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsAvailabilityModalOpen(false)}>

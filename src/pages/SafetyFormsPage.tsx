@@ -5,7 +5,14 @@ import safetyPoster from "@/assets/safety_poster.png";
 
 const SafetyFormsPage = () => {
   const navigate = useNavigate();
-  const [showPoster, setShowPoster] = useState(true);
+  const [posterConfig] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("hdsb_safety_poster_config") || "null") || { enabled: true, url: null };
+    } catch {
+      return { enabled: true, url: null };
+    }
+  });
+  const [showPoster, setShowPoster] = useState(posterConfig.enabled);
 
   return (
     <>
@@ -20,12 +27,12 @@ const SafetyFormsPage = () => {
             >
               <XCircle className="h-8 w-8" />
             </button>
-            <img src={safetyPoster} alt="Safety Awareness Poster" className="w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20" />
+            <img src={posterConfig.url || safetyPoster} alt="Safety Awareness Poster" className="w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20" />
           </div>
         </div>
       )}
 
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <button onClick={() => navigate("/home")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Home
       </button>

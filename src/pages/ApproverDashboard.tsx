@@ -121,7 +121,7 @@ const ApproverDashboard = () => {
   // Review detail view
   if (selectedSubmission) {
     return (
-      <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
         <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
         </button>
@@ -129,11 +129,11 @@ const ApproverDashboard = () => {
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-6">
           <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
+          <p className="text-sm text-muted-foreground mb-1">
+            Staff ID: {selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy}
+          </p>
           <p className="text-sm text-muted-foreground mb-3">
-            {selectedSubmission.data.staffId || // Car Rental
-              selectedSubmission.data.employeeInfo?.staffNo || // Leave Form
-              selectedSubmission.data.employeeInfo?.employeeNumber || // Claim Form
-              selectedSubmission.submittedBy}
+            Position: {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
           </p>
           <p className="text-sm font-medium text-primary">{selectedSubmission.department}</p>
         </div>
@@ -311,7 +311,7 @@ const ApproverDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Pending Approvals / Kelulusan Tertangguh</h1>
       </div>

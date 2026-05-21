@@ -168,7 +168,7 @@ const PpeRequestForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
@@ -335,7 +335,8 @@ const PpeRequestForm = () => {
                           min="1"
                           value={item.quantity} 
                           onChange={(e) => handleItemChange(i, "quantity", e.target.value)}
-                          className="h-10 border-0 bg-background/50 focus:bg-background"
+                          className="h-10 border-0 bg-background/50 focus:bg-background no-spinner"
+                          onWheel={(e) => (e.target as HTMLElement).blur()}
                           disabled={!item.selected}
                         />
                       </td>
