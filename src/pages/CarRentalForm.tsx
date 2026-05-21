@@ -72,17 +72,29 @@ const CarRentalForm = () => {
   const activeBookings = submissions
     .filter(s => s.formType === 'car_rental' && s.status === 'approved')
     .map(s => {
-      const assignedCar = cars.find(c => c.status === 'checked_out' && c.lastCheckedOutBy === s.employeeName);
+      const fromDate = new Date(s.data.fromDate);
+      const toDate = new Date(s.data.toDate);
+      
+      // Check if there is a car currently checked out for this specific booking
+      const assignedCar = cars.find(c => {
+        if (c.status !== 'checked_out' || c.lastCheckedOutBy !== s.employeeName) return false;
+        const now = new Date().getTime();
+        const start = fromDate.getTime();
+        const end = toDate.getTime();
+        // A booking is considered "checked out" if we are currently within its time window (with a 24h buffer)
+        return (now >= start - (24 * 60 * 60 * 1000)) && (now <= end + (24 * 60 * 60 * 1000));
+      });
+
       return {
         id: s.id,
         name: s.employeeName,
-        fromDate: new Date(s.data.fromDate),
-        toDate: new Date(s.data.toDate),
+        fromDate,
+        toDate,
         destination: s.data.destination,
         car: assignedCar ? `${assignedCar.model} (${assignedCar.plateNumber})` : null
       };
     })
-    .filter(b => b.toDate >= new Date()) // Keep all active and future bookings
+    .filter(b => b.toDate >= new Date(Date.now() - 24 * 60 * 60 * 1000)) // Keep active and future bookings (hide old past ones)
     .sort((a, b) => a.fromDate.getTime() - b.fromDate.getTime());
 
   // Setup 7-day timeline logic
@@ -101,11 +113,21 @@ const CarRentalForm = () => {
   });
 
   // Combine physical cars into rows for the calendar
+  const unassignedBookings = activeBookings.filter(b => !b.car);
+
   const timelineRows = [
     ...cars.map(car => {
       const currentBooking = activeBookings.find(b => b.car === `${car.model} (${car.plateNumber})`);
       return { type: 'car', id: car.id, title: car.model, subtitle: car.plateNumber, isAvailable: car.status === 'available', booking: currentBooking || null };
-    })
+    }),
+    ...unassignedBookings.map(b => ({
+      type: 'unassigned',
+      id: b.id,
+      title: 'Upcoming Booking',
+      subtitle: `Req: ${b.name.split(' ')[0]}`,
+      isAvailable: false,
+      booking: b
+    }))
   ];
 
   const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
@@ -267,8 +289,10 @@ const CarRentalForm = () => {
                         <div className="w-[180px] shrink-0 p-2.5 border-r border-border bg-background group-hover:bg-muted/5 transition-colors flex flex-col justify-center z-10 relative">
                           <div className="flex items-center justify-between gap-2">
                              <span className="font-bold text-sm text-foreground truncate" title={row.title}>{row.title}</span>
-                             {row.type === 'car' && (
+                           {row.type === 'car' ? (
                                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 shadow-sm ${row.isAvailable ? 'bg-emerald-500' : 'bg-amber-500'}`} title={row.isAvailable ? 'Available' : 'In Use'} />
+                           ) : (
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm bg-blue-500" title="Pending Car Assignment" />
                              )}
                           </div>
                           <div className="text-xs text-muted-foreground truncate mt-0.5" title={row.subtitle}>{row.subtitle}</div>
@@ -391,7 +415,12 @@ const CarRentalForm = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">License Expiry / Tamat Lesen <span className="text-destructive">*</span></Label>
-              <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
+                  <CalendarDays className="h-4 w-4" />
+                </div>
+                <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" required />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Upload Driving Licence </Label>
@@ -510,6 +539,18 @@ const CarRentalForm = () => {
             </div>
 
             <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Purpose of Journey / Tujuan perjalanan <span className="text-destructive">*</span></Label>
+              <Input
+                value={form.purpose}
+                onChange={e => handleChange("purpose", e.target.value)}
+                placeholder="State the reason for your request..."
+                className="h-11"
+                required
+              />
+              <p className="text-xs text-muted-foreground">Be as detailed as possible, include meeting details, client names etc.</p>
+            </div>
+
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Destination / Destinasi <span className="text-destructive">*</span></Label>
               <Input value={form.destination} onChange={e => handleChange("destination", e.target.value)} placeholder="e.g., Kuala Lumpur, Selangor" className="h-11" required />
               <div className="h-72 bg-muted rounded-lg overflow-hidden border border-border relative shadow-inner mt-2">
@@ -523,18 +564,6 @@ const CarRentalForm = () => {
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Purpose of Journey / Tujuan perjalanan <span className="text-destructive">*</span></Label>
-              <Input
-                value={form.purpose}
-                onChange={e => handleChange("purpose", e.target.value)}
-                placeholder="State the reason for your request..."
-                className="h-11"
-                required
-              />
-              <p className="text-xs text-muted-foreground">Be as detailed as possible, include meeting details, client names etc.</p>
             </div>
           </div>
         </div>

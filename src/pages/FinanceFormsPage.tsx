@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CircleDollarSign, ArrowLeft } from "lucide-react";
+import { DollarSign, ArrowLeft } from "lucide-react";
 
 const FinanceFormsPage = () => {
   const navigate = useNavigate();
@@ -21,7 +21,12 @@ const FinanceFormsPage = () => {
           className="dept-card group"
         >
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-accent to-accent/80 flex items-center justify-center mb-5">
-            <CircleDollarSign className="h-7 w-7 text-accent-foreground" strokeWidth={3} />
+            <DollarSign 
+              className="h-7 w-7 text-accent-foreground" 
+              strokeWidth={4} 
+              strokeLinecap="square" 
+              strokeLinejoin="miter"
+            />
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">Expense Claim</h2>
           <p className="text-muted-foreground text-sm">Submit expense claims for reimbursement</p>

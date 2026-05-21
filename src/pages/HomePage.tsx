@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { Users, CircleDollarSign, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
+import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
 
 const HomePage = () => {
   const { user } = useAuth();
@@ -23,15 +23,15 @@ const HomePage = () => {
       title: "Human Resource Department",
       description: "Car rental requests, pass exit forms, and more",
       icon: Users,
-      color: "from-primary to-primary/80",
-      iconColor: "text-primary-foreground",
+      color: "from-blue-500 to-blue-600",
+      iconColor: "text-white",
       path: "/hr",
     },
     {
       id: "finance",
       title: "Finance Department",
       description: "Submit expense claims and reimbursements",
-      icon: CircleDollarSign,
+      icon: DollarSign,
       color: "from-accent to-accent/80",
       iconColor: "text-accent-foreground",
       path: "/finance",
@@ -39,7 +39,7 @@ const HomePage = () => {
     {
       id: "safety",
       title: "Safety Department",
-      description: "Submit incident reports and safety forms",
+      description: "Submit water treatment logs and waste inventory records",
       icon: ShieldCheck,
       color: "from-red-500 to-red-600",
       iconColor: "text-white",
@@ -95,7 +95,12 @@ const HomePage = () => {
             className="dept-card group"
           >
             <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${dept.color} flex items-center justify-center mb-5`}>
-              <dept.icon className={`h-7 w-7 ${dept.iconColor}`} strokeWidth={dept.id === "finance" ? 3 : 2} />
+              <dept.icon 
+                className={`h-7 w-7 ${dept.iconColor}`} 
+                strokeWidth={dept.id === "finance" ? 4 : 2} 
+                strokeLinecap={dept.id === "finance" ? "square" : "round"}
+                strokeLinejoin={dept.id === "finance" ? "miter" : "round"}
+              />
             </div>
             <h2 className="text-xl font-bold text-foreground mb-2">{dept.title}</h2>
             <p className="text-muted-foreground text-sm">{dept.description}</p>

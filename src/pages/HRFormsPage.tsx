@@ -65,8 +65,8 @@ const HRFormsPage = () => {
             onClick={() => navigate(form.path)}
             className="dept-card group"
           >
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center mb-5">
-              <form.icon className="h-7 w-7 text-primary-foreground" />
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-5">
+              <form.icon className="h-7 w-7 text-white" />
             </div>
             <h2 className="text-xl font-bold text-foreground mb-2">{form.title}</h2>
             <p className="text-muted-foreground text-sm">{form.description}</p>

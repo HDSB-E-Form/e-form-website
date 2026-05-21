@@ -289,6 +289,7 @@ const LoginPage = () => {
                     id="remember" 
                     checked={rememberMe} 
                     onCheckedChange={(checked) => setRememberMe(checked === true)} 
+                    className="rounded-sm"
                   />
                   <Label htmlFor="remember" className="text-sm font-normal cursor-pointer text-muted-foreground">
                     Remember me on this device
