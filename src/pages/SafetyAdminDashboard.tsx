@@ -11,9 +11,9 @@ import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/Waste
 import { supabase } from "@/supabase";
 
 const parameterOptions = [
-    { id: "ph4", label: "pH", unit: "" },
-    { id: "cod", label: "COD", unit: "mg/L" },
-    { id: "flowrate", label: "Flowrate", unit: "m³" },
+    { id: "ph4", label: "Ph Value", unit: "" },
+    { id: "cod", label: "Chemical Oxygen Demand (COD)", unit: "mg/L" },
+    { id: "flowrate", label: "Flowrate (ACF)", unit: "m³" },
 ];
 
 const SafetyAdminDashboard = () => {
@@ -374,7 +374,7 @@ const SafetyAdminDashboard = () => {
                     </div>
                 </div>
                 <div className="card-elevated p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center"><span className="text-sm font-bold text-emerald-600 text-center leading-tight">{selectedParamInfo?.label.includes("pH") ? "pH" : selectedParamInfo?.label}</span></div>
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center"><span className="text-sm font-bold text-emerald-600 text-center leading-tight">{selectedParamInfo?.id === "ph4" ? "pH" : selectedParamInfo?.id === "cod" ? "COD" : "Flow"}</span></div>
                     <div>
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Average {selectedParamInfo?.label}</p>
                         <p className="text-3xl font-bold text-foreground">{stats.avgValue}</p>
@@ -469,7 +469,7 @@ const SafetyAdminDashboard = () => {
                                 {selectedParameter.toLowerCase().includes("ph") && (
                                     <>
                                         <ReferenceLine y={9} stroke="#ef4444" strokeDasharray="3 3" />
-                                        <ReferenceLine y={6} stroke="#ef4444" strokeDasharray="3 3" />
+                                        <ReferenceLine y={5.5} stroke="#ef4444" strokeDasharray="3 3" />
                                     </>
                                 )}
                                 <Line type="monotone" dataKey="value" name={`${selectedParamInfo?.label} (${selectedParamInfo?.unit})`} stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />

@@ -1,59 +1,46 @@
-import React, { useState } from "react";
-import { Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { PanelLeft, Sun, Moon } from "lucide-react";
-
-const CustomSidebarTrigger = () => {
-  const { toggleSidebar } = useSidebar();
-  return (
-    <button onClick={toggleSidebar} className="mr-4 p-1.5 rounded-lg text-foreground hover:bg-muted/80 transition-all flex items-center justify-center">
-      <PanelLeft className="h-6 w-6" />
-    </button>
-  );
-};
+import React, { useState, useEffect } from "react";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "./AppSidebar";
+import { Sun, Moon } from "lucide-react";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const [isDark, setIsDark] = useState(false);
 
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
 
   const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
+    const isCurrentlyDark = document.documentElement.classList.toggle("dark");
+    setIsDark(isCurrentlyDark);
   };
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-background text-foreground">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card">
-            <div className="flex items-center">
-              <CustomSidebarTrigger />
-              <span className="text-sm font-medium text-foreground">HICOM Diecastings Management System</span>
+        <div className="flex-1 flex flex-col min-w-0">
+          
+          {/* Safe & Modern Glassy Sticky Top Header */}
+          <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md px-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <div className="font-bold text-sm sm:text-base ml-2 tracking-wide">
+                HDSB Management System
+              </div>
             </div>
-            <button 
-              onClick={toggleTheme} 
-              className="p-2 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors" 
-              title="Toggle Theme"
-            >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+            
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-muted"
+              >
+                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+            </div>
           </header>
-          <main className="flex-1 bg-background overflow-auto">
+          
+          <main className="flex-1 relative">
             {children}
           </main>
         </div>

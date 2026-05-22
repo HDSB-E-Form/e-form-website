@@ -6,7 +6,7 @@ import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserCheck, Info, ShieldCheck, Shield, Send, Car, LogIn, LogOut } from "lucide-react";
+import { ArrowLeft, UserCheck, Info, ShieldCheck, Shield, Send, Car, LogIn, LogOut, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
@@ -49,6 +49,12 @@ const LeaveForm = () => {
 
   const [hosName, setHosName] = useState("");
   const [hodName, setHodName] = useState("");
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [estimatedTime, setEstimatedTime] = useState({ timeOut: "", timeIn: "" });
@@ -126,11 +132,28 @@ const LeaveForm = () => {
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
 
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
-          Gate Pass / Pas Keluar
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
+            Gate Pass / Pas Keluar
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+        </div>
+
+        {/* Live Clock */}
+        <div className="flex items-center gap-3 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-xl p-3 pr-5 rounded-2xl w-fit">
+          <div className="w-10 h-10 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-sm border border-white/50 dark:border-white/10 shadow-inner flex items-center justify-center shrink-0">
+            <Clock className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-lg font-mono font-bold text-foreground leading-none tracking-wider">
+              {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mt-1">
+              {currentTime.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+            </span>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

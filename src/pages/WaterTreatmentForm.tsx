@@ -66,7 +66,7 @@ const DailyOperationMonitoringForm = () => {
     ph4: "",
     cod: "",
     bod: "",
-    tss: "",
+    ss: "",
     og: "",
     flowrate: "",
     mg: "",
@@ -77,7 +77,8 @@ const DailyOperationMonitoringForm = () => {
     fluoride: "",
     silver: "",
     sulphide: "",
-    volumeDcm: "",
+    formaldehyde: "",
+    ammoniacalNitrogen: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -356,21 +357,22 @@ const DailyOperationMonitoringForm = () => {
           {/* Parameters Stack */}
           <div className="space-y-3">
             {[
-              { id: "ph4", label: "pH", hint: "6.0 ~ 8.0", step: "0.01" },
-              { id: "cod", label: "COD", hint: "<200" },
-              { id: "bod", label: "BOD", hint: "<50" },
-              { id: "tss", label: "TSS", hint: "<100" },
-              { id: "og", label: "O & G", hint: "<10" },
-              { id: "flowrate", label: "Flowrate", hint: "metercube", step: "0.001" },
-              { id: "mg", label: "Mg (Magnesium)", hint: "<1", step: "0.01" },
-              { id: "nickel", label: "Nickel", hint: "<1", step: "0.01" },
-              { id: "zink", label: "Zink", hint: "<2.0", step: "0.01" },
-              { id: "iron", label: "Iron", hint: "<5.0", step: "0.01" },
-              { id: "aluminum", label: "Aluminum", hint: "<15", step: "0.01" },
+              { id: "ph4", label: "Ph Value", hint: "5.5 ~ 9.0", step: "0.01" },
+              { id: "cod", label: "Chemical Oxygen Demand (COD)", hint: "<200" },
+              { id: "bod", label: "Biochemical Oxygen Demand (BOD)", hint: "<50" },
+              { id: "ss", label: "Suspended Solid (SS)", hint: "<100" },
+              { id: "og", label: "Oil&Grease (O&G)", hint: "<10" },
+              { id: "flowrate", label: "Flowrate (ACF)", hint: "metercube", step: "0.001" },
+              { id: "mg", label: "Magnesium (mg)", hint: "<1", step: "0.01" },
+              { id: "nickel", label: "Nickel(Ng)", hint: "<1", step: "0.01" },
+              { id: "zink", label: "Zink (Zn)", hint: "<2.0", step: "0.01" },
+              { id: "iron", label: "Iron(Fe)", hint: "<5.0", step: "0.01" },
+              { id: "aluminum", label: "Aluminum (Al)", hint: "<15", step: "0.01" },
               { id: "fluoride", label: "Fluoride", hint: "<5.0", step: "0.01" },
-              { id: "silver", label: "Silver", hint: "<1.0", step: "0.01" },
-              { id: "sulphide", label: "Sulphide", hint: "<0.50", step: "0.01" },
-              { id: "volumeDcm", label: "Volume DCM", hint: "—" },
+              { id: "silver", label: "Silver (Ag)", hint: "<1.0", step: "0.01" },
+              { id: "sulphide", label: "Sulphide (S²⁻)", hint: "<0.50", step: "0.01" },
+              { id: "formaldehyde", label: "Formaldehyde (HCHO / CH₂O)", hint: "<2", step: "0.01" },
+              { id: "ammoniacalNitrogen", label: "Ammoniacal Nitrogen (NH₃-N)", hint: "<20", step: "0.01" },
             ].map((param) => (
               <div
                 key={param.id}
@@ -439,11 +441,6 @@ const DailyOperationMonitoringForm = () => {
           {isSubmitting ? "Submitting Records..." : `Submit ${activeFormType === "mixing" ? "Mixing Log" : "Discharge Log"} / Hantar Rekod`}
           </button>
         </div>
-
-        {/* Footer Note */}
-        <p className="text-center text-xs text-muted-foreground pb-4">
-          This log entry updates environmental metrics immediately. No physical signature required.
-        </p>
       </form>
     </div>
   );
