@@ -30,7 +30,7 @@ const HomePage = () => {
     {
       id: "finance",
       title: "Finance Department",
-      description: "Submit expense claims and reimbursements",
+      description: "Submit petty cash claims and reimbursements",
       icon: DollarSign,
       color: "from-accent to-accent/80",
       iconColor: "text-accent-foreground",

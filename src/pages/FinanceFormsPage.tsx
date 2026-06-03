@@ -28,8 +28,8 @@ const FinanceFormsPage = () => {
               strokeLinejoin="miter"
             />
           </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Expense Claim</h2>
-          <p className="text-muted-foreground text-sm">Submit expense claims for reimbursement</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">Petty Cash Claim</h2>
+          <p className="text-muted-foreground text-sm">Submit petty cash claims for reimbursement</p>
           <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
             Open Form →
           </div>

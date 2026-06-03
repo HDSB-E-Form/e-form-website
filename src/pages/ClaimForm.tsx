@@ -186,7 +186,7 @@ const ClaimForm = () => {
               to: recipientEmails,
               subject: `New Claim Submission from ${employeeInfo.name}`,
               employeeName: employeeInfo.name,
-              formType: "Expense Claim / Miscellaneous Advance",
+              formType: "Petty Cash Claim",
               amount: totalAmount.toFixed(2),
               url: window.location.origin
             }
@@ -201,7 +201,7 @@ const ClaimForm = () => {
         console.error("Failed to prepare email notification", err);
       }
 
-      toast.success("Expense claim submitted successfully!");
+      toast.success("Petty cash claim submitted successfully!");
       navigate("/home");
     } else {
       setIsSubmitting(false);
@@ -216,7 +216,7 @@ const ClaimForm = () => {
 
       <div className="mb-8">
         <h1 className="text-2xl lg:text-2xl font-bold text-foreground uppercase tracking-wide">
-          Miscellaneous Advance Form / Borang Tuntutan Pelbagai
+          Petty Cash Claim Form / Borang Tuntutan Panjar Wang Runcit
         </h1>
         <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
       </div>

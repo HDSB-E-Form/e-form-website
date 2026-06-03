@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
-  claim: "Expense",
+  claim: "Petty Cash Claim",
   leave: "Gate Pass",
   ppe_request: "PPE / Uniform / Office",
 };
@@ -144,7 +144,7 @@ const AdminDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, remarks);
+    updateSubmissionStatus(id, status, { remarks });
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");

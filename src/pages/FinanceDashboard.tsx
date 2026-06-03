@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
 const formTypeLabels: Record<string, string> = {
-  claim: "TRAVEL CLAIM",
+  claim: "PETTY CASH CLAIM",
 };
 
 const statusBadge = (status: string) => {
@@ -89,7 +89,7 @@ const FinanceDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, remarks);
+    updateSubmissionStatus(id, status, { remarks });
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
@@ -319,7 +319,7 @@ const FinanceDashboard = () => {
                           <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-foreground">Expense</TableCell>
+                      <TableCell className="text-sm text-foreground">Petty Cash Claim</TableCell>
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>

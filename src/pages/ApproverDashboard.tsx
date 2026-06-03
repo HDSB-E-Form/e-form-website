@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 const formTypeLabels: Record<string, { en: string; ms: string }> = {
   car_rental: { en: "TRAVEL / PERJALANAN", ms: "Perjalanan" },
   leave: { en: "GATE PASS", ms: "Gate Pass" },
-  claim: { en: "EXPENSE / TUNTUTAN", ms: "Perbelanjaan" },
+  claim: { en: "PETTY CASH CLAIM", ms: "Tuntutan Panjar Wang Runcit" },
   ppe_request: { en: "PPE / UNIFORM", ms: "PPE" },
 };
 
@@ -112,7 +112,7 @@ const ApproverDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, remarks);
+    updateSubmissionStatus(id, status, { remarks });
     toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");

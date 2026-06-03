@@ -8,7 +8,7 @@ import logo from "@/assets/logo.png";
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request / Permintaan Kenderaan",
   leave: "Gate Pass",
-  claim: "Misc. Advance / Pendahuluan Pelbagai",
+  claim: "Petty Cash Claim / Tuntutan Panjar Wang Runcit",
   ppe_request: "PPE / Uniform / Office Supplies",
 };
 
@@ -19,7 +19,7 @@ const renderValue = (val: any): React.ReactNode => {
     if (val.length === 0) return "—";
     if (typeof val[0] === 'object' && val[0] !== null) {
       // Filter out rows that are entirely empty (e.g. empty passenger slots)
-      const validRows = val.filter(row => Object.values(row).some(v => v !== "" && v !== null));
+      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
       if (validRows.length === 0) return "—";
 
       const keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
@@ -40,7 +40,7 @@ const renderValue = (val: any): React.ReactNode => {
                 <TableRow key={i} className="border-b border-border print:border-gray-300 last:border-0 hover:bg-muted/20">
                   {keys.map((k, j) => (
                     <TableCell key={j} className="text-sm p-3 whitespace-nowrap print:text-black">
-                      {String(row[k] || "—")}
+                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -53,7 +53,7 @@ const renderValue = (val: any): React.ReactNode => {
     return val.join(", ");
   }
   
-  if (typeof val === 'object') {
+  if (typeof val === 'object' && val !== null) {
     const entries = Object.entries(val).filter(([k, v]) => v !== "" && v !== null && k !== 'avatar');
     if (entries.length === 0) return "—";
     return (
@@ -64,7 +64,7 @@ const renderValue = (val: any): React.ReactNode => {
               {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
             </span>
             <span className="text-sm font-semibold text-foreground print:text-black">
-              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+              {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
             </span>
           </div>
         ))}
@@ -171,7 +171,7 @@ const AllSubmissionsPage = () => {
 
           <div className="space-y-4 mb-8">
             {Object.entries(selectedSubmission.data)
-              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key))
+              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key) && !/^\d+$/.test(key))
               .map(([key, value]) => {
                 let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                 if (key === 'hosName') formattedKey = 'Head of Section';
@@ -233,13 +233,13 @@ const AllSubmissionsPage = () => {
             <div className="text-center border-r border-border print:border-gray-300 last:border-0">
               <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Section Head</p>
               <div className="hidden print:block font-bold text-sm">
-                {selectedSubmission.status !== "pending" ? "APPROVED" : "PENDING"}
+                {isApprovedHOS ? "APPROVED" : isRejected ? "REJECTED" : "PENDING"}
               </div>
             </div>
             <div className="text-center border-r border-border print:border-gray-300 last:border-0">
               <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Dept Head</p>
               <div className="hidden print:block font-bold text-sm">
-                {isApprovedHOD ? "APPROVED" : (isRejected && isApprovedHOS) ? "REJECTED" : "PENDING"}
+                {isApprovedHOD ? "APPROVED" : (isRejected && isApprovedHOS) ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
               </div>
             </div>
             <div className="text-center">

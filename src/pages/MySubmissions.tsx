@@ -10,7 +10,7 @@ import logo from "@/assets/logo.png";
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request / Permintaan Kenderaan",
   leave: "Gate Pass",
-  claim: "Misc. Advance / Pendahuluan Pelbagai",
+  claim: "Petty Cash Claim / Tuntutan Panjar Wang Runcit",
   ppe_request: "PPE / Uniform / Office Supplies",
 };
 
@@ -49,7 +49,7 @@ const renderValue = (val: any): React.ReactNode => {
     if (val.length === 0) return "—";
     if (typeof val[0] === 'object' && val[0] !== null) {
       // Filter out rows that are entirely empty (e.g. empty passenger slots)
-      const validRows = val.filter(row => Object.values(row).some(v => v !== "" && v !== null));
+      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
       if (validRows.length === 0) return "—";
 
       const keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
@@ -70,7 +70,7 @@ const renderValue = (val: any): React.ReactNode => {
                 <TableRow key={i} className="border-b border-border print:border-gray-300 last:border-0 hover:bg-muted/20">
                   {keys.map((k, j) => (
                     <TableCell key={j} className="text-sm p-3 whitespace-nowrap print:text-black">
-                      {String(row[k] || "—")}
+                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -83,7 +83,7 @@ const renderValue = (val: any): React.ReactNode => {
     return val.join(", ");
   }
   
-  if (typeof val === 'object') {
+  if (typeof val === 'object' && val !== null) {
     const entries = Object.entries(val).filter(([k, v]) => v !== "" && v !== null && k !== 'avatar');
     if (entries.length === 0) return "—";
     return (
@@ -94,7 +94,7 @@ const renderValue = (val: any): React.ReactNode => {
               {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
             </span>
             <span className="text-sm font-semibold text-foreground print:text-black">
-              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+              {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
             </span>
           </div>
         ))}
@@ -148,6 +148,11 @@ const MySubmissions = () => {
 
   if (selectedSubmission) {
     const overall = getOverallStatus(selectedSubmission);
+    
+    const isApprovedHOS = ["approved_hos", "approved_hod", "approved"].includes(selectedSubmission.status);
+    const isApprovedHOD = ["approved_hod", "approved"].includes(selectedSubmission.status);
+    const isRejected = selectedSubmission.status === "rejected";
+
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
         <div className="flex items-center justify-between mb-6 print:hidden">
@@ -216,7 +221,7 @@ const MySubmissions = () => {
             
             {/* Map the rest of the data, excluding duplicates and the name we just added */}
             {Object.entries(selectedSubmission.data)
-              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key))
+              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key) && !/^\d+$/.test(key))
               .map(([key, value]) => {
                 let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                 if (key === 'hosName') formattedKey = 'Head of Section';
@@ -277,19 +282,19 @@ const MySubmissions = () => {
             <div className="text-center border-r border-border print:border-gray-300 last:border-0">
               <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Section Head</p>
               <div className="print:hidden">
-                {selectedSubmission.status !== "pending" ? statusBadge("approved") : statusBadge("pending")}
+                {isApprovedHOS ? statusBadge("approved") : isRejected ? statusBadge("rejected") : statusBadge("pending")}
               </div>
               <div className="hidden print:block font-bold text-sm">
-                {selectedSubmission.status !== "pending" ? "APPROVED" : "PENDING"}
+                {isApprovedHOS ? "APPROVED" : isRejected ? "REJECTED" : "PENDING"}
               </div>
             </div>
             <div className="text-center border-r border-border print:border-gray-300 last:border-0">
               <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Dept Head</p>
               <div className="print:hidden">
-                {["approved_hod", "approved"].includes(selectedSubmission.status) ? statusBadge("approved") : selectedSubmission.status === "rejected" ? naStatus() : statusBadge("pending")}
+                {isApprovedHOD ? statusBadge("approved") : (isRejected && isApprovedHOS) ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
               </div>
               <div className="hidden print:block font-bold text-sm">
-                {["approved_hod", "approved"].includes(selectedSubmission.status) ? "APPROVED" : selectedSubmission.status === "rejected" ? "N/A" : "PENDING"}
+                {isApprovedHOD ? "APPROVED" : (isRejected && isApprovedHOS) ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
               </div>
             </div>
             <div className="text-center">
