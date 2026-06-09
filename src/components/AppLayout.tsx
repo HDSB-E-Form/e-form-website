@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { Sun, Moon } from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [isDark, setIsDark] = useState(false);
@@ -31,6 +32,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
             
             <div className="flex items-center gap-1 sm:gap-2">
+              <NotificationBell />
               <button
                 onClick={toggleTheme}
                 className="p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-muted"
