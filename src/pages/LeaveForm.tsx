@@ -348,7 +348,7 @@ const LeaveForm = () => {
                   type="time"
                   value={estimatedTime.timeOut}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeOut: e.target.value }))}
-                        className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]"
                   placeholder="--:--"
                 />
               </div>
@@ -363,7 +363,7 @@ const LeaveForm = () => {
                   type="time"
                   value={estimatedTime.timeIn}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeIn: e.target.value }))}
-                        className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0"
+                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]"
                   placeholder="--:--"
                 />
               </div>

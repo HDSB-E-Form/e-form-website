@@ -397,7 +397,7 @@ const SafetyAdminDashboard = () => {
                             type="date"
                             value={startDate} 
                             onChange={e => setStartDate(e.target.value)} 
-                            className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 ${!startDate ? 'text-transparent' : ''}`} 
+                                className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark] ${!startDate ? 'text-transparent' : ''}`} 
                         />
                         {!startDate && (
                             <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none text-muted-foreground text-sm font-medium">
@@ -413,7 +413,7 @@ const SafetyAdminDashboard = () => {
                             type="date"
                             value={endDate} 
                             onChange={e => setEndDate(e.target.value)} 
-                            className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 ${!endDate ? 'text-transparent' : ''}`} 
+                                className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark] ${!endDate ? 'text-transparent' : ''}`} 
                         />
                         {!endDate && (
                             <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none text-muted-foreground text-sm font-medium">
@@ -614,11 +614,11 @@ const SafetyAdminDashboard = () => {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
-                                    <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 text-xs" />
+                                    <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 text-xs [color-scheme:light_dark]" />
                                 </div>
                                 <div>
                                     <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">To Date</Label>
-                                    <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 text-xs" />
+                                    <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 text-xs [color-scheme:light_dark]" />
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2 pt-1">

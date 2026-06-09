@@ -462,7 +462,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                 <CalendarClock className="h-4 w-4" />
               </div>
-              <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" />
+              <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" />
             </div>
           </div>
         </div>
@@ -697,7 +697,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                 <CalendarClock className="h-4 w-4" />
               </div>
-              <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" />
+              <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" />
             </div>
           </div>
         </div>

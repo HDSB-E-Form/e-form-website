@@ -273,7 +273,7 @@ const ClaimForm = () => {
                 type="date"
                 value={employeeInfo.date}
                 onChange={e => setEmployeeInfo(p => ({ ...p, date: e.target.value }))}
-                className="h-11"
+                className="h-11 [color-scheme:light_dark]"
                 required
               />
             </div>
@@ -319,7 +319,7 @@ const ClaimForm = () => {
                         type="date"
                         value={row.date}
                         onChange={e => updateRow(i, "date", e.target.value)}
-                        className="h-10 border-0 shadow-none"
+                        className="h-10 border-0 shadow-none [color-scheme:light_dark]"
                       />
                     </td>
                     <td className="p-1.5 border border-border">

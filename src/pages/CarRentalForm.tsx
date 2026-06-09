@@ -419,7 +419,7 @@ const CarRentalForm = () => {
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                   <CalendarDays className="h-4 w-4" />
                 </div>
-                <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" required />
+                <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" required />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -524,7 +524,7 @@ const CarRentalForm = () => {
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                     <CalendarClock className="h-4 w-4" />
                   </div>
-                  <Input type="datetime-local" value={form.fromDate} onChange={e => handleChange("fromDate", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" required />
+                <Input type="datetime-local" value={form.fromDate} onChange={e => handleChange("fromDate", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" required />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -533,7 +533,7 @@ const CarRentalForm = () => {
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                     <CalendarClock className="h-4 w-4" />
                   </div>
-                  <Input type="datetime-local" value={form.toDate} onChange={e => handleChange("toDate", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-all [color-scheme:light_dark] cursor-pointer [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0" required />
+                <Input type="datetime-local" value={form.toDate} onChange={e => handleChange("toDate", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" required />
                 </div>
               </div>
             </div>
