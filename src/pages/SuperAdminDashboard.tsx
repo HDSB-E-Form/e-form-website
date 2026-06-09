@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
 import { supabase } from "@/supabase";
 import { useUsers } from "@/contexts/UsersContext";
-import { DEPARTMENTS } from "@/lib/departments";
 
 interface FirestoreUser {
   id: string;
@@ -83,41 +82,25 @@ const SuperAdminDashboard = () => {
   const [editRole, setEditRole] = useState<UserRole>("employee");
   const [editDepartment, setEditDepartment] = useState("");
   const [isViewAll, setIsViewAll] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const [departmentsList, setDepartmentsList] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem("hdsb_departments_v2");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return Array.from(new Set([...DEPARTMENTS, ...parsed]));
-        }
-      }
-    } catch (e) {
-      console.warn("Cleared corrupted departments from local storage");
-      localStorage.removeItem("hdsb_departments_v2");
-    }
-    return DEPARTMENTS;
-  });
+  const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
 
-  const [addSheetOpen, setAddSheetOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [addFormData, setAddFormData] = useState({
-    name: "",
-    email: "",
-    employeeId: "",
-    department: DEPARTMENTS[0],
-    position: "",
-    role: "employee" as UserRole,
-  });
 
   // Fetch users from Firestore
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
+        
+        // Fetch departments from database
+        const { data: deptData } = await supabase.from("departments").select("name").order("name");
+        if (deptData) {
+          setDepartmentsList(deptData.map((d: any) => d.name));
+        }
+
         const { data, error } = await supabase.from("users").select("*").order("name");
         if (error) throw error;
 
@@ -144,10 +127,6 @@ const SuperAdminDashboard = () => {
 
     fetchUsers();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("hdsb_departments_v2", JSON.stringify(departmentsList));
-  }, [departmentsList]);
 
   const filtered = users.filter(u => {
     // Role filter
@@ -235,52 +214,76 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  const handleAddUser = async () => {
-    if (!addFormData.name || !addFormData.email || !addFormData.employeeId) {
-      toast.error("Please fill all required fields (Name, Email, Employee ID)");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    try {
-      const newId = Math.random().toString(36).slice(2);
-      const userToSave = {
-        id: newId,
-        ...addFormData,
-        password: "password123", // Default password for admin-created accounts
-        createdAt: new Date().toISOString(),
-      };
-      
-      // Save to Supabase
-      const { error } = await supabase.from("users").insert([userToSave]);
-      if (error) throw error;
 
-      // Update local state to immediately show the new user
-      setUsers([...users, { ...userToSave, createdAt: new Date(userToSave.createdAt) }]);
-      toast.success("User successfully added! Default password is 'password123'");
-      setAddSheetOpen(false);
-      setAddFormData({ name: "", email: "", employeeId: "", department: DEPARTMENTS[0], position: "", role: "employee" });
-    } catch (error) {
-      console.error("Error adding user:", error);
-      toast.error("Failed to save new user to database");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleAddDepartmentSubmit = () => {
+  const handleAddDepartmentSubmit = async () => {
     if (!newDeptName.trim()) {
       toast.error("Department name cannot be empty");
       return;
     }
-    if (departmentsList.some(d => d.toLowerCase() === newDeptName.trim().toLowerCase())) {
+    const cleanName = newDeptName.trim();
+    if (departmentsList.some(d => d.toLowerCase() === cleanName.toLowerCase())) {
       toast.error("Department already exists");
       return;
     }
-    setDepartmentsList([...departmentsList, newDeptName.trim()]);
-    toast.success(`Department "${newDeptName.trim()}" added successfully`);
-    setAddDeptOpen(false);
-    setNewDeptName("");
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from("departments").insert([{ name: cleanName }]);
+      if (error) throw error;
+      
+      setDepartmentsList([...departmentsList, cleanName].sort());
+      toast.success(`Department "${cleanName}" added successfully`);
+      setAddDeptOpen(false);
+      setNewDeptName("");
+    } catch (err: any) {
+      console.error("Error adding department:", err);
+      toast.error("Failed to add department: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteDepartment = async (deptName: string) => {
+    if (!window.confirm(`Are you sure you want to delete the department "${deptName}"?`)) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from("departments").delete().eq("name", deptName);
+      if (error) throw error;
+      
+      setDepartmentsList(departmentsList.filter(d => d !== deptName));
+      toast.success(`Department "${deptName}" deleted successfully`);
+    } catch (err: any) {
+      console.error("Error deleting department:", err);
+      toast.error("Failed to delete department: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetAllForms = async () => {
+    const confirm1 = window.confirm("⚠️ WARNING: This will permanently delete ALL form submissions (Gate Passes, Claims, etc) across the entire system to prepare for launch. Are you absolutely sure?");
+    if (!confirm1) return;
+    
+    const confirm2 = window.prompt('To prevent accidental deletion, please type "RESET" in all caps to confirm:');
+    if (confirm2 !== "RESET") {
+      toast.info("System reset cancelled.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Delete all submissions safely by matching all records where id is not "0"
+      const { error } = await supabase.from("submissions").delete().neq("id", "0");
+      if (error) throw error;
+
+      toast.success("✅ System Reset Complete! All old forms are wiped.");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) {
+      console.error("Error wiping forms:", err);
+      toast.error("Failed to delete forms: " + err.message);
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -302,21 +305,29 @@ const SuperAdminDashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage all user accounts and permissions.</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-2">
+        <div className="relative w-full sm:w-[180px]">
           <button 
-            onClick={() => setAddDeptOpen(true)} 
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium whitespace-nowrap"
+            onClick={() => setIsMenuOpen(!isMenuOpen)} 
+            className="w-full h-10 px-4 flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold whitespace-nowrap shadow-sm"
           >
-            <Plus className="h-4 w-4" />
-            Add Department
+            <Settings className="h-4 w-4" />
+            Settings
           </button>
-          <button 
-            onClick={() => setAddSheetOpen(true)} 
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium whitespace-nowrap"
-          >
-            <Plus className="h-4 w-4" />
-            Add New User
-          </button>
+
+          {isMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+              <div className="absolute right-0 left-0 top-full mt-2 w-full bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                <button onClick={() => { setAddDeptOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
+                  <FolderPlus className="h-4 w-4 text-muted-foreground" /> Edit Department
+                </button>
+                <div className="h-px bg-border/50 my-1 mx-2" />
+                <button onClick={() => { handleResetAllForms(); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-destructive/10 text-destructive rounded-lg text-sm font-medium transition-colors">
+                  <Trash2 className="h-4 w-4 text-destructive/70" /> Wipe All Forms
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -345,7 +356,7 @@ const SuperAdminDashboard = () => {
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Select value={roleFilter} onValueChange={val => { setRoleFilter(val); setIsViewAll(false); }}>
-              <SelectTrigger className="h-9 w-full sm:w-[140px]">
+              <SelectTrigger className="h-9 w-full sm:w-[240px]">
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
@@ -355,7 +366,7 @@ const SuperAdminDashboard = () => {
               </SelectContent>
             </Select>
             <Select value={departmentFilter} onValueChange={val => { setDepartmentFilter(val); setIsViewAll(false); }}>
-              <SelectTrigger className="h-9 w-full sm:w-[180px]">
+              <SelectTrigger className="h-9 w-full sm:w-[240px]">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
@@ -528,83 +539,41 @@ const SuperAdminDashboard = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Add New User Sheet */}
-      <Sheet open={addSheetOpen} onOpenChange={setAddSheetOpen}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader className="pb-4 border-b border-border">
-            <SheetTitle className="text-xl font-bold text-foreground">Add New User</SheetTitle>
-            <p className="text-sm text-muted-foreground">Create a new user account manually.</p>
-          </SheetHeader>
-
-          <div className="mt-6 space-y-4 px-1">
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">FULL NAME <span className="text-red-500">*</span></p>
-              <Input placeholder="e.g. John Doe" value={addFormData.name} onChange={e => setAddFormData({...addFormData, name: e.target.value})} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">EMAIL <span className="text-red-500">*</span></p>
-              <Input type="email" placeholder="e.g. john@company.com" value={addFormData.email} onChange={e => setAddFormData({...addFormData, email: e.target.value})} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">STAFF ID <span className="text-red-500">*</span></p>
-              <Input placeholder="e.g. EMP-123" value={addFormData.employeeId} onChange={e => setAddFormData({...addFormData, employeeId: e.target.value})} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">POSITION</p>
-              <Input placeholder="e.g. Software Engineer" value={addFormData.position} onChange={e => setAddFormData({...addFormData, position: e.target.value})} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">DEPARTMENT</p>
-              <Select value={departmentsList.includes(addFormData.department) ? addFormData.department : undefined} onValueChange={val => setAddFormData({...addFormData, department: val})}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent>
-                {departmentsList.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">ROLE</p>
-              <Select value={addFormData.role} onValueChange={(val: UserRole) => setAddFormData({...addFormData, role: val})}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select role" /></SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-3 pt-6 border-t border-border mt-4">
-              <button onClick={() => setAddSheetOpen(false)} className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50" disabled={isSubmitting}>
-                Cancel
-              </button>
-              <button onClick={handleAddUser} className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Create User"}
-              </button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Add New Department Sheet */}
+      {/* Manage Departments Sheet */}
       <Sheet open={addDeptOpen} onOpenChange={setAddDeptOpen}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="pb-4 border-b border-border">
-            <SheetTitle className="text-xl font-bold text-foreground">Add New Department</SheetTitle>
-            <p className="text-sm text-muted-foreground">Create a new department in the system.</p>
+            <SheetTitle className="text-xl font-bold text-foreground">Manage Departments</SheetTitle>
+            <p className="text-sm text-muted-foreground">Add new departments or remove existing ones.</p>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4 px-1">
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-2">DEPARTMENT NAME <span className="text-red-500">*</span></p>
-              <Input placeholder="e.g. Research & Development" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} />
+          <div className="mt-6 space-y-6 px-1">
+            {/* Add New Section */}
+            <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
+              <p className="text-xs font-bold text-primary tracking-wider uppercase">Add New Department</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input placeholder="e.g. Research & Development" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="bg-background flex-1" />
+              </div>
+              <button onClick={handleAddDepartmentSubmit} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                <Plus className="h-4 w-4" /> Add Department
+              </button>
             </div>
 
-            <div className="flex gap-3 pt-6 border-t border-border mt-4">
-              <button onClick={() => setAddDeptOpen(false)} className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50">
-                Cancel
-              </button>
-              <button onClick={handleAddDepartmentSubmit} className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-                Create Department
-              </button>
+            {/* Existing List */}
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Existing Departments</p>
+              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                {departmentsList.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground text-center bg-muted/5">No departments found.</p>
+                ) : departmentsList.map(dept => (
+                  <div key={dept} className="p-3 flex items-center justify-between hover:bg-muted/10 transition-colors group bg-background">
+                    <span className="text-sm font-medium text-foreground truncate pr-4">{dept}</span>
+                    <button onClick={() => handleDeleteDepartment(dept)} className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors opacity-100 sm:opacity-0 group-hover:opacity-100" title="Delete Department">
+                      <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </SheetContent>

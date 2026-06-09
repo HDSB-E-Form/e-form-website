@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,28 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEPARTMENTS } from "@/lib/departments";
 
 const RegisterPage = () => {
   const [form, setForm] = useState({ name: "", email: "", employeeId: "", phone: "", department: "", position: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
   const [step, setStep] = useState<"register" | "verify">("register");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const { register, login, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Force light mode for auth pages to maintain a clean, standard look against the background image
+    document.documentElement.classList.remove("dark");
+
+    const fetchDepartments = async () => {
+      const { data } = await supabase.from("departments").select("name").order("name");
+      if (data) {
+        setDepartmentsList(data.map((d: any) => d.name));
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -26,7 +39,7 @@ const RegisterPage = () => {
     e.preventDefault();
     setError("");
     if (!form.name || !form.email || !form.employeeId || !form.phone || !form.department || !form.position || !form.password) {
-      setError("Please fill in all required fields");
+      setError("Please fill in all required fields!");
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -34,17 +47,14 @@ const RegisterPage = () => {
       return;
     }
 
-    // Domain Validation: Currently OPEN to all domains (including personal emails).
-    // To restrict to specific official domains later, uncomment the block below:
-    /*
+    // Domain Validation: Restrict to official company domains
     const allowedDomains = ["hidsb.com", "drb-hicom.com"];
     const emailDomain = form.email.split("@")[1];
     
     if (!emailDomain || !allowedDomains.includes(emailDomain.toLowerCase())) {
-      setError("Please use an official registered email address (e.g., john@hidsb.com).");
+      setError("Please use an official registered email address (sara@hidsb.com)");
       return;
     }
-    */
 
     const success = await register(form);
     if (success) {
@@ -150,12 +160,12 @@ const RegisterPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-email">Email Address <span className="text-destructive">*</span></Label>
-                  <Input id="reg-email" type="email" value={form.email} onChange={e => handleChange("email", e.target.value)} placeholder="john@hidsb.com" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                  <Input id="reg-email" type="email" value={form.email} onChange={e => handleChange("email", e.target.value)} placeholder="sara@hidsb.com" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="employeeId">Staff ID <span className="text-destructive">*</span></Label>
-                    <Input id="employeeId" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="e.g. EMP-123" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <Input id="employeeId" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="e.g. 100202" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone No. <span className="text-destructive">*</span></Label>
@@ -165,12 +175,12 @@ const RegisterPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
-                    <Select value={DEPARTMENTS.includes(form.department) ? form.department : undefined} onValueChange={val => handleChange("department", val)}>
+                    <Select value={departmentsList.includes(form.department) ? form.department : undefined} onValueChange={val => handleChange("department", val)}>
                       <SelectTrigger className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow">
                         <SelectValue placeholder="Select Department" />
                       </SelectTrigger>
                       <SelectContent>
-                        {DEPARTMENTS.map(dept => (
+                        {departmentsList.map(dept => (
                           <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                         ))}
                       </SelectContent>

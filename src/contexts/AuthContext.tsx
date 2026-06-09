@@ -203,7 +203,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         department: newUser.department,
         position: newUser.position,
         role: newUser.role,
-        // Note: phone is intentionally omitted here to prevent schema cache errors if the column doesn't exist
+        phone: newUser.phone,
+        avatar: newUser.avatar,
         createdAt: new Date().toISOString(),
       }]);
       
@@ -259,8 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       delete (updates as Partial<User>).role;
     }
 
-    // Extract phone and avatar to prevent Supabase schema cache errors if the columns don't exist in the users table
-    const { phone, avatar, ...dbUpdates } = updates;
+    const dbUpdates = { ...updates };
 
     try {
       if (Object.keys(dbUpdates).length > 0) {
@@ -273,10 +273,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Save the phone number and avatar securely in Supabase Auth user_metadata
-      if (phone !== undefined || avatar !== undefined) {
+      if (updates.phone !== undefined || updates.avatar !== undefined) {
         const metaUpdates: any = {};
-        if (phone !== undefined) metaUpdates.phone = phone;
-        if (avatar !== undefined) metaUpdates.avatar = avatar;
+        if (updates.phone !== undefined) metaUpdates.phone = updates.phone;
+        if (updates.avatar !== undefined) metaUpdates.avatar = updates.avatar;
         await supabase.auth.updateUser({ data: metaUpdates });
       }
 

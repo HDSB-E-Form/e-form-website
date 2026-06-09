@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera } from "lucide-react";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEPARTMENTS } from "@/lib/departments";
 
 const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
@@ -35,6 +34,7 @@ const ProfilePage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [departmentsList, setDepartmentsList] = useState<string[]>([]);
 
   const [profile, setProfile] = useState({
     name: user?.name || "",
@@ -56,6 +56,17 @@ const ProfilePage = () => {
       setAvatarFile(null);
     }
   }, [user]);
+
+  // Fetch live departments from database
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      const { data } = await supabase.from("departments").select("name").order("name");
+      if (data) {
+        setDepartmentsList(data.map((d: any) => d.name));
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   // Listen for Supabase's PASSWORD_RECOVERY event
   useEffect(() => {
@@ -337,12 +348,12 @@ const ProfilePage = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Department</Label>
-                    <Select value={DEPARTMENTS.includes(profile.department) ? profile.department : undefined} onValueChange={val => handleProfileChange("department", val)}>
+                  <Select value={departmentsList.includes(profile.department) ? profile.department : undefined} onValueChange={val => handleProfileChange("department", val)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select Department" />
                       </SelectTrigger>
                       <SelectContent>
-                        {DEPARTMENTS.map(dept => (
+                      {departmentsList.map(dept => (
                           <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                         ))}
                       </SelectContent>

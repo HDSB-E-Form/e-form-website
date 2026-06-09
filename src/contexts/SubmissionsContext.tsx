@@ -76,9 +76,23 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
+    // Get the most recent sequential ID from the database
+    const { data: latestSub } = await supabase
+      .from('submissions')
+      .select('id')
+      .filter('id', 'like', 'HDSB-%')
+      .order('submittedAt', { ascending: false })
+      .limit(1);
+
+    let nextNum = 1;
+    if (latestSub && latestSub.length > 0) {
+      nextNum = (parseInt(latestSub[0].id.replace('HDSB-', '')) || 0) + 1;
+    }
+    const newId = `HDSB-${String(nextNum).padStart(4, '0')}`;
+
     const newSub = {
       ...sub,
-      id: `sub_${Math.random().toString(36).slice(2)}`,
+      id: newId,
       submittedAt: new Date().toISOString()
     }
     const { data, error } = await supabase.from('submissions').insert([newSub]).select();

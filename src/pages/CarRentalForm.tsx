@@ -212,7 +212,6 @@ const CarRentalForm = () => {
 
           if (invokeError) {
             console.error("Edge Function Error:", invokeError);
-            toast.error("Form saved, but failed to send email notification. Check browser console.");
           }
         }
       } catch (err) {

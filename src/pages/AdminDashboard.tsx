@@ -139,6 +139,7 @@ const AdminDashboard = () => {
   };
 
   const generateRefNo = (sub: Submission) => {
+    if (sub.id.startsWith("HDSB-")) return sub.id;
     const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
     return `HDSB-${num}`;
   };
