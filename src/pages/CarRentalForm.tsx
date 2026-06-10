@@ -405,7 +405,7 @@ const CarRentalForm = () => {
           {/* Input Fields (Require filling) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">I/C No. / No. K/P <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary">IC Number / No. K/P <span className="text-destructive">*</span></Label>
               <Input value={form.icNo} onChange={e => handleChange("icNo", e.target.value)} placeholder="e.g. 900101-01-1111" className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
             </div>
             <div className="space-y-1.5">
@@ -414,15 +414,10 @@ const CarRentalForm = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">License Expiry / Tamat Lesen <span className="text-destructive">*</span></Label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                  <CalendarDays className="h-4 w-4" />
-                </div>
-                <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" required />
-              </div>
+              <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Upload Driving Licence </Label>
+              <Label className="text-xs font-semibold text-primary">Upload Driving Licence <span className="text-destructive">*</span></Label>
               {licenseFile ? (
                 <div className="flex items-center justify-between h-11 px-3 border border-border rounded-lg bg-muted/10">
                   <div className="flex items-center gap-2 overflow-hidden">
@@ -519,21 +514,11 @@ const CarRentalForm = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-primary">From Date & Time / Dari Tarikh & Masa <span className="text-destructive">*</span></Label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                    <CalendarClock className="h-4 w-4" />
-                  </div>
-                <Input type="datetime-local" value={form.fromDate} onChange={e => handleChange("fromDate", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" required />
-                </div>
+                <Input type="datetime-local" value={form.fromDate} onChange={e => handleChange("fromDate", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-primary">To Date & Time / Kepada Tarikh & Masa <span className="text-destructive">*</span></Label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                    <CalendarClock className="h-4 w-4" />
-                  </div>
-                <Input type="datetime-local" value={form.toDate} onChange={e => handleChange("toDate", e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" required />
-                </div>
+                <Input type="datetime-local" value={form.toDate} onChange={e => handleChange("toDate", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
               </div>
             </div>
 
@@ -652,45 +637,45 @@ const CarRentalForm = () => {
           </div>
         </div>
 
-        {/* Section 5: Policy Acknowledgement */}
+        {/* Section 5: Company Vehicles Policy */}
         <div className="card-elevated p-6">
           <div className="flex items-center gap-2 mb-5">
             <FileText className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm">
-              Policy Acknowledgement / <span className="font-normal">Perakuan Polisi</span>
+              Company Vehicles Policy / <span className="font-normal">Polisi Kenderaan Syarikat</span>
             </h2>
           </div>
 
-          <div className="bg-muted/50 rounded-xl p-6 space-y-4 border border-border h-48 overflow-y-auto mb-4">
-            <div>
-              <h3 className="font-bold text-primary underline text-sm">1. General Policy Statement</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                I hereby acknowledge that I have read, understand and agree to the terms of the Company Vehicle
-                Policy including safety regulations, maintenance responsibilities, and reporting procedures for any
-                incidents or damages.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold text-primary underline text-sm">2. Safety and Usage</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Vehicles are to be used strictly for company business. Personal use is prohibited unless specifically
-                authorized in writing. Drivers must ensure the vehicle is in roadworthy condition at all times, adhere to all traffic
-                laws, and report any mechanical issues immediately. Seatbelts must be worn at all times by all occupants.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold text-primary underline text-sm">3. Fuel and Maintenance</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                All fuel expenses must be documented with receipts. Regular maintenance schedules must be followed.
-                Any damage or wear beyond normal use must be reported within 24 hours.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold text-primary underline text-sm">4. Liability</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                The driver is responsible for any fines, penalties, or damages resulting from negligence or violation
-                of traffic laws during the use of the company vehicle.
-              </p>
+          <div className="bg-muted/50 rounded-xl p-6 space-y-4 border border-border h-32 overflow-y-auto mb-4">
+            <div className="text-sm text-muted-foreground space-y-4">
+              <p>The employee is required to report the loss of or damage to the Company vehicle to the police in the first instance and then to Human Capital Department. The employee must drive within the law, including:-</p>
+              
+              <ul className="list-disc pl-5 space-y-1">
+                <li>ensuring that a valid road tax is displayed, as provided by the Company;</li>
+                <li>ensuring that traffic signs and statutory speed limits are observed at all times;</li>
+                <li>ensuring that prohibited areas of the road are avoided such as; bus or bicycle lanes;</li>
+                <li>ensuring that the vehicle is sensibly parked and not in breach of any regulations;</li>
+                <li>ensuring that mobile phones are not used whilst driving a company vehicle.</li>
+              </ul>
+              
+              <p>The Company does not condone the use mobile phones or any associated ‘Bluetooth Technology’ whilst driving a Company vehicle. If fees or traffic fines are imposed, these are the responsibility of the employee and, unless otherwise agreed, will be deducted from the employee’s wages.</p>
+              
+              <p>The Company will not accept responsibility for the payment of any penalty which may be imposed upon the user. Due to that, the Company will provide ‘Vehicle Mileage Log Books’ for all Company vehicles. It is the responsibility of all employees to ensure that these books are updated should an occasion arise where two employees are sharing the use of a vehicle.</p>
+              
+              <p>Should a traffic fine, fee or police offence come to the attention of the Company, at a later date, the Company will use the Log Book to assess who was driving at the time and consequently who is responsible for the fine. If the Log Book has not been completed it is the responsibility of the employee who has been ultimately assigned to the vehicle in question to pay the fine.</p>
+              
+              <p>Company vehicles have been fitted with trackers which show all movements of the vehicle, including when it is stationary. If evidence provided by the trackers shows that employees are using the vehicle for private use or not working to agreed hours, disciplinary action will be taken, which could result in dismissal. The vehicle may be used in connection with Company business only. The vehicle may not be used for:-</p>
+              
+              <ul className="list-disc pl-5 space-y-1">
+                <li>any business purposes other than those undertaken on behalf of the Company;</li>
+                <li>hire or reward (either goods or passengers);</li>
+                <li>driving tuition of any nature; or</li>
+                <li>any personal use.</li>
+              </ul>
+              
+              <p>If the vehicle is used in contravention of these conditions any resulting damage will be the absolute responsibility of the employee. Further, such use will render the employee liable to disciplinary proceedings, which may result in banned from using Company vehicle and suspended. In addition, the employee is responsible for the excess which is required to be paid and which is not recoverable from the insurance company should the vehicle be involved in an accident, irrespective of the responsibility of the accident. The employee accepts that the Company shall be entitled to deduct the cost of repair of such damage and/or the cost of the insurance excess from his/her wages, in line with the deductions clause set out in the employee's terms and conditions of employment.</p>
+              
+              <p>In the event of the vehicle being return, the vehicle must be returned to the Company in a clean and roadworthy condition. If the vehicle requires valet cleaning the Company will deduct this fee from the employee’s wages.</p>
             </div>
           </div>
 
@@ -723,11 +708,6 @@ const CarRentalForm = () => {
             {isSubmitting ? "Submitting..." : "Submit Request / Hantar Permohonan"}
           </button>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground pb-4">
-          This is computer generated and no signature is required.
-        </p>
       </form>
     </div>
   );

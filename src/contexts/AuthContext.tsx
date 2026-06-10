@@ -68,9 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const updatedUser = {
                   ...parsedUser,
                   name: data.name || parsedUser.name,
-                  employeeId: data.employeeId || data.employeeid || parsedUser.employeeId,
-                  department: data.department || parsedUser.department,
-                  position: data.position || parsedUser.position,
+                  employeeId: data.employeeId || data.employeeid || authData?.user?.user_metadata?.employeeId || parsedUser.employeeId,
+                  department: data.department || authData?.user?.user_metadata?.department || parsedUser.department,
+                  position: data.position || authData?.user?.user_metadata?.position || parsedUser.position,
                   role: dbRole as UserRole,
                   phone: data.phone || authData?.user?.user_metadata?.phone || parsedUser.phone || "",
                   avatar: data.avatar || authData?.user?.user_metadata?.avatar || parsedUser.avatar || "",
@@ -118,14 +118,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: authData.user.email || email,
           employeeId: authData.user.user_metadata?.employeeId || "EMP-000",
           department: authData.user.user_metadata?.department || "General",
-          position: authData.user.user_metadata?.position || "Employee",
+          position: authData.user.user_metadata?.position || "",
           role: authData.user.user_metadata?.role || "employee",
           phone: authData.user.user_metadata?.phone || "",
           avatar: authData.user.user_metadata?.avatar || ""
         };
 
         // Try to insert the missing profile now that the user is authenticated
-        await supabase.from("users").insert([{ ...userData, createdAt: new Date().toISOString() }]);
+        await supabase.from("users").upsert([{ ...userData, createdAt: new Date().toISOString() }]);
       } else {
         // Clean up the role just in case there's a trailing space in the DB
         const dbRole = (userProfile.role || "employee").toString().trim().toLowerCase();
@@ -134,9 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: userProfile.id,
           name: userProfile.name,
           email: userProfile.email,
-          employeeId: userProfile.employeeId || userProfile.employeeid || authData.user.user_metadata?.employeeId || "",
-          department: userProfile.department || authData.user.user_metadata?.department || "",
-          position: userProfile.position,
+          employeeId: userProfile.employeeId || userProfile.employeeid || authData.user.user_metadata?.employeeId || "EMP-000",
+          department: userProfile.department || authData.user.user_metadata?.department || "General",
+          position: userProfile.position || authData.user.user_metadata?.position || "",
           role: dbRole as UserRole,
           phone: userProfile.phone || authData.user.user_metadata?.phone || "",
           avatar: userProfile.avatar || authData.user.user_metadata?.avatar || "",
@@ -180,37 +180,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!authData.user) {
         throw new Error("No user returned from Supabase Auth.");
-      }
-
-      // 2. Save their profile to the custom "users" table
-      const newUser: User = {
-        id: authData.user.id, // Use the real Auth ID!
-        name: data.name || "New User",
-        email: data.email || "",
-        employeeId: data.employeeId || `EMP-${Math.floor(Math.random() * 900 + 100)}`,
-        department: data.department || "General",
-        position: data.position || "Employee",
-        role: "employee",
-        phone: data.phone || "",
-        avatar: data.avatar || "",
-      };
-
-      const { error: dbError } = await supabase.from("users").insert([{
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        employeeId: newUser.employeeId,
-        department: newUser.department,
-        position: newUser.position,
-        role: newUser.role,
-        phone: newUser.phone,
-        avatar: newUser.avatar,
-        createdAt: new Date().toISOString(),
-      }]);
-      
-      if (dbError) {
-        console.error("Profile insert error:", dbError);
-        // Ignore RLS errors if they occur because the user isn't fully verified yet.
       }
 
       setIsLoading(false);
@@ -272,11 +241,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Save the phone number and avatar securely in Supabase Auth user_metadata
-      if (updates.phone !== undefined || updates.avatar !== undefined) {
+      // Save the profile fields securely in Supabase Auth user_metadata
+      if (updates.phone !== undefined || updates.avatar !== undefined || updates.position !== undefined || updates.department !== undefined) {
         const metaUpdates: any = {};
         if (updates.phone !== undefined) metaUpdates.phone = updates.phone;
         if (updates.avatar !== undefined) metaUpdates.avatar = updates.avatar;
+        if (updates.position !== undefined) metaUpdates.position = updates.position;
+        if (updates.department !== undefined) metaUpdates.department = updates.department;
         await supabase.auth.updateUser({ data: metaUpdates });
       }
 

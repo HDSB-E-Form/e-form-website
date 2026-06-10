@@ -133,10 +133,10 @@ const ApproverDashboard = () => {
           <p className="text-sm text-muted-foreground mb-1">
             Staff ID: {selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy}
           </p>
-          <p className="text-sm text-muted-foreground mb-3">
+        <p className="text-sm text-muted-foreground mb-1">Department: {selectedSubmission.department}</p>
+        <p className="text-sm text-muted-foreground mb-3">
             Position: {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
           </p>
-          <p className="text-sm font-medium text-primary">{selectedSubmission.department}</p>
         </div>
 
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
@@ -171,7 +171,7 @@ const ApproverDashboard = () => {
         <div className="mb-4">
           <p className="text-xs text-muted-foreground">Journey Dates / Tarikh Perjalanan</p>
           <p className="text-sm font-bold text-foreground mt-1">
-            {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+            {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
           </p>
         </div>
       )}

@@ -109,8 +109,8 @@ const FinanceDashboard = () => {
         <div className="bg-muted/30 rounded-xl p-5 mb-6">
           <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
           <p className="text-sm text-muted-foreground mb-1">Staff ID: {selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-1">Department: {selectedSubmission.department}</p>
           <p className="text-sm text-muted-foreground mb-3">Position: {selectedSubmission.data.employeeInfo?.position || selectedSubmission.data.position || "—"}</p>
-          <p className="text-sm font-medium text-primary">{selectedSubmission.department}</p>
         </div>
 
         {/* Submission Summary */}

@@ -382,7 +382,7 @@ const WasteInventoryForm = () => {
           </button>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground pb-4 print:text-gray-400 print:mt-12">
+        <p className="hidden print:block text-center text-xs text-muted-foreground pb-4 print:text-gray-400 print:mt-12">
           This is computer generated and no signature is required.
         </p>
       </div>

@@ -458,12 +458,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">Date & Time Out / Masa Keluar</label>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                <CalendarClock className="h-4 w-4" />
-              </div>
-              <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" />
-            </div>
+            <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
           </div>
         </div>
 
@@ -693,12 +688,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Date & Time In</label>
             <p className="text-xs text-muted-foreground mb-2">Tarikh & Masa Masuk</p>
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                <CalendarClock className="h-4 w-4" />
-              </div>
-              <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]" />
-            </div>
+            <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
           </div>
         </div>
 

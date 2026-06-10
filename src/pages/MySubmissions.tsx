@@ -196,7 +196,7 @@ const MySubmissions = () => {
               <h2 className="text-2xl font-bold text-foreground print:text-black">
                 {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType}
               </h2>
-              <p className="text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)} · {selectedSubmission.department}</p>
+              <p className="text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
             </div>
             <div className="flex items-center gap-2 print:hidden">
               <div className={`w-16 h-2 rounded-full ${overall.color}`} />
@@ -206,45 +206,165 @@ const MySubmissions = () => {
 
           <div className="space-y-4 mb-8">
             {/* Explicitly place Employee Name at the top */}
-            <div className="py-4 border-b border-border print:border-gray-300 flex justify-between items-center">
-              <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Employee Name</span>
-              <div className="text-sm font-medium text-foreground print:text-black text-right">
+            <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
+              <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                 {selectedSubmission.employeeName}
               </div>
             </div>
             
-            <div className="py-4 border-b border-border print:border-gray-300 flex justify-between items-center">
-              <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Position</span>
-              <div className="text-sm font-medium text-foreground print:text-black text-right">
-                {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
-              </div>
-            </div>
-            
-            {/* Map the rest of the data, excluding duplicates and the name we just added */}
-            {Object.entries(selectedSubmission.data)
-              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key) && !/^\d+$/.test(key))
-              .map(([key, value]) => {
-                let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
-                if (key === 'hosName') formattedKey = 'Head of Section';
-                if (key === 'hodName') formattedKey = 'Head of Department';
-                if (key === 'staffId') formattedKey = 'Staff ID';
-                if (key === 'icNo') formattedKey = 'I/C No.';
-                if (key === 'employeeInfo') formattedKey = 'Employee Info';
-                if (key === 'companyDetails') formattedKey = 'Company Details';
-                if (key === 'personalDetails') formattedKey = 'Personal Details';
-                if (key === 'securityLog') formattedKey = 'Security Log';
-                if (key === 'claimRows') formattedKey = 'Claim Details';
-                if (key === 'purposeType') formattedKey = 'Purpose Type';
-
-                return (
-                  <div key={key} className={`py-4 border-b border-border print:border-gray-300 last:border-0 ${typeof value === 'object' && value !== null ? 'flex flex-col items-start gap-2' : 'flex justify-between items-center'}`}>
-                    <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">{formattedKey}</span>
-                    <div className={`text-sm font-medium text-foreground print:text-black ${typeof value === 'object' && value !== null ? 'w-full' : 'text-right'}`}>
-                      {renderValue(value)}
+            {selectedSubmission.formType === 'car_rental' ? (
+              <>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">IC No.</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.icNo || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Mobile Number</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.mobileNumber || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.drivingLicenseNo || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.drivingLicenseExpiry ? new Date(selectedSubmission.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
+                  </div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Destination</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.destination || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Journey Type</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2 uppercase">{selectedSubmission.data.journeyType || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.purpose || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                  </div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hos || selectedSubmission.data.hosName || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hod || selectedSubmission.data.hodName || "—"}</div>
+                </div>
+                
+                {selectedSubmission.data.passengers && selectedSubmission.data.passengers.some((p: any) => p.name) && (
+                  <div className="py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
+                    <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Passengers</span>
+                    <div className="w-full text-sm font-medium text-foreground print:text-black">
+                      {renderValue(selectedSubmission.data.passengers.filter((p: any) => p.name))}
                     </div>
                   </div>
-                );
-              })}
+                )}
+              </>
+            ) : selectedSubmission.formType === 'leave' ? (
+              <>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.submittedBy || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.position || selectedSubmission.data.position || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.purposeType === 'company' ? 'Company Business' : selectedSubmission.data.purposeType === 'personal' ? 'Personal Matter' : '—'}
+                  </div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Location</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.purposeType === 'company' ? (selectedSubmission.data.companyDetails?.location || "—") : (selectedSubmission.data.personalDetails?.location || "—")}
+                  </div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.purposeType === 'company' ? (selectedSubmission.data.companyDetails?.purpose || "—") : (selectedSubmission.data.personalDetails?.purpose || "—")}
+                  </div>
+                </div>
+                {selectedSubmission.data.estimatedTime && (
+                  <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                    <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Estimated Time</span>
+                    <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                      Out: {selectedSubmission.data.estimatedTime.timeOut || "—"} &nbsp;|&nbsp; In: {selectedSubmission.data.estimatedTime.timeIn || "—"}
+                    </div>
+                  </div>
+                )}
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}</div>
+                </div>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
+                  </div>
+                </div>
+                
+                {Object.entries(selectedSubmission.data)
+                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key) && !/^\d+$/.test(key))
+                  .map(([key, value]) => {
+                    let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
+                    if (key === 'hosName') formattedKey = 'Head of Section';
+                    if (key === 'hodName') formattedKey = 'Head of Department';
+                    if (key === 'staffId') formattedKey = 'Staff ID';
+                    if (key === 'icNo') formattedKey = 'IC No.';
+                    if (key === 'employeeInfo') formattedKey = 'Employee Info';
+                    if (key === 'companyDetails') formattedKey = 'Company Details';
+                    if (key === 'personalDetails') formattedKey = 'Personal Details';
+                    if (key === 'securityLog') formattedKey = 'Security Log';
+                    if (key === 'claimRows') formattedKey = 'Claim Details';
+                    if (key === 'purposeType') formattedKey = 'Purpose Type';
+
+                    return (
+                      <div key={key} className={`py-4 border-b border-border print:border-gray-300 last:border-0 ${typeof value === 'object' && value !== null ? 'flex flex-col items-start gap-2' : 'grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start'}`}>
+                        <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{formattedKey}</span>
+                        <div className={`text-sm font-medium text-foreground print:text-black ${typeof value === 'object' && value !== null ? 'w-full' : 'text-left break-words sm:col-span-2 print:col-span-2'}`}>
+                          {renderValue(value)}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </>
+            )}
 
         {selectedSubmission.data.securityLog && (
           <div className="py-4 border-b border-border print:border-gray-300">
@@ -263,9 +383,9 @@ const MySubmissions = () => {
         )}
 
         {selectedSubmission.data.licenseAttachment && (
-          <div className="py-4 border-b border-border print:border-gray-300 flex justify-between items-center">
-            <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Driving License</span>
-            <a href={selectedSubmission.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-right print:text-black">
+          <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start print:hidden">
+            <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License</span>
+            <a href={selectedSubmission.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2 print:col-span-2 print:text-black">
               <FileText className="h-4 w-4" /> View Document
             </a>
           </div>
@@ -279,9 +399,9 @@ const MySubmissions = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 print:bg-transparent print:border print:border-gray-300 rounded-lg mt-8">
-            <div className="text-center border-r border-border print:border-gray-300 last:border-0">
-              <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Section Head</p>
+          <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 print:hidden rounded-lg mt-8">
+            <div className="text-center border-r border-border last:border-0">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Section Head</p>
               <div className="print:hidden">
                 {isApprovedHOS ? statusBadge("approved") : isRejected ? statusBadge("rejected") : statusBadge("pending")}
               </div>
@@ -289,8 +409,8 @@ const MySubmissions = () => {
                 {isApprovedHOS ? "APPROVED" : isRejected ? "REJECTED" : "PENDING"}
               </div>
             </div>
-            <div className="text-center border-r border-border print:border-gray-300 last:border-0">
-              <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Dept Head</p>
+            <div className="text-center border-r border-border last:border-0">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Dept Head</p>
               <div className="print:hidden">
                 {isApprovedHOD ? statusBadge("approved") : (isRejected && isApprovedHOS) ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
               </div>
@@ -299,7 +419,7 @@ const MySubmissions = () => {
               </div>
             </div>
             <div className="text-center">
-              <p className="text-xs text-muted-foreground print:text-gray-500 uppercase tracking-wider font-bold mb-2">Admin</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Admin</p>
               <div className="print:hidden">
                 {selectedSubmission.status === "approved" ? statusBadge("approved") : selectedSubmission.status === "rejected" ? naStatus() : statusBadge("pending")}
               </div>

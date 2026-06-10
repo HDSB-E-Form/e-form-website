@@ -208,8 +208,8 @@ const AdminDashboard = () => {
 
   const renderCarRentalDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
-    const startDate = sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
-    const endDate = sub.data.toDate ? new Date(sub.data.toDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+    const startDate = sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+    const endDate = sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
     return (
       <>
@@ -224,8 +224,8 @@ const AdminDashboard = () => {
         <div className="bg-muted/30 rounded-xl p-5 mb-8">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
           <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.staffId || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
           <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.position || sub.data.employeeInfo?.position || "—"}</p>
-          <p className="text-sm font-medium text-primary">{sub.department}</p>
         </div>
 
         <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
@@ -290,8 +290,9 @@ const AdminDashboard = () => {
         </div>
         <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-1">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
-          <p className="text-sm font-medium text-primary mb-3">{sub.department}</p>
+          <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
+          <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
           <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold uppercase w-fit">
             {sub.data.requestCategory || "PPE"} Collection
           </Badge>

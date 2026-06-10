@@ -272,7 +272,7 @@ const ClaimForm = () => {
                 type="date"
                 value={employeeInfo.date}
                 onChange={e => setEmployeeInfo(p => ({ ...p, date: e.target.value }))}
-                className="h-11 [color-scheme:light_dark]"
+                className="h-11 dark:[color-scheme:dark]"
                 required
               />
             </div>
@@ -318,7 +318,7 @@ const ClaimForm = () => {
                         type="date"
                         value={row.date}
                         onChange={e => updateRow(i, "date", e.target.value)}
-                        className="h-10 border-0 shadow-none [color-scheme:light_dark]"
+                        className="h-10 border-0 shadow-none dark:[color-scheme:dark]"
                       />
                     </td>
                     <td className="p-1.5 border border-border">
@@ -528,11 +528,6 @@ const ClaimForm = () => {
             {isSubmitting ? "Submitting..." : "Submit / Hantar"}
           </button>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground pb-4">
-          This is computer generated and no signature is required.
-        </p>
       </form>
     </div>
   );

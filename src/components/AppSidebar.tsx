@@ -22,8 +22,8 @@ const employeeNav = [
 ];
 
 const hrAdminNav = [
-  { title: "Dashboard / Papan Pemuka", url: "/admin/hr", icon: LayoutDashboard },
-  { title: "Cars Overview / Gambaran Keseluruhan Kereta", url: "/admin/cars", icon: Car },
+  { title: "Dashboard", url: "/admin/hr", icon: LayoutDashboard },
+  { title: "Car Management", url: "/admin/cars", icon: Car },
 ];
 
 const financeAdminNav = [
@@ -116,7 +116,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
+    <Sidebar collapsible="icon" className="border-r-0 print:hidden">
       <div className="p-4 flex items-center gap-3 border-b border-white">
         <img src={logo} alt="HICOM Diecasting" className="h-8 brightness-200" />
         {!collapsed && (

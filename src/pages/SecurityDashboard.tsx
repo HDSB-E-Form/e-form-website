@@ -131,8 +131,8 @@ const SecurityDashboard = () => {
         <div className="bg-muted/30 rounded-xl p-5 mb-8">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
           <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
+          <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
           <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
-          <p className="text-sm font-medium text-primary">{sub.department}</p>
         </div>
 
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
@@ -211,7 +211,7 @@ const SecurityDashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs font-semibold text-primary">Actual Time Out</Label>
-                  <Input type="time" value={securityLog.actualTimeOut} onChange={e => setSecurityLog(p => ({...p, actualTimeOut: e.target.value}))} className="h-11 mt-1 [color-scheme:light_dark]" />
+                  <Input type="time" value={securityLog.actualTimeOut} onChange={e => setSecurityLog(p => ({...p, actualTimeOut: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" />
                 </div>
                 <div>
                   <Label className="text-xs font-semibold text-primary">Vehicle No.</Label>
@@ -246,7 +246,7 @@ const SecurityDashboard = () => {
               </div>
               <div>
                 <Label className="text-xs font-semibold text-primary">Actual Time In</Label>
-                <Input type="time" value={securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)} onChange={e => setSecurityLog(p => ({...p, actualTimeIn: e.target.value}))} className="h-11 mt-1 [color-scheme:light_dark]" />
+                <Input type="time" value={securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)} onChange={e => setSecurityLog(p => ({...p, actualTimeIn: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" />
               </div>
               <div>
                 <Label className="text-xs font-semibold text-primary">Remarks (Optional)</Label>

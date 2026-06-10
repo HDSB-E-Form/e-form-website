@@ -347,7 +347,7 @@ const LeaveForm = () => {
                   type="time"
                   value={estimatedTime.timeOut}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeOut: e.target.value }))}
-                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]"
+                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]"
                   placeholder="--:--"
                 />
               </div>
@@ -362,7 +362,7 @@ const LeaveForm = () => {
                   type="time"
                   value={estimatedTime.timeIn}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeIn: e.target.value }))}
-                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors [color-scheme:light_dark]"
+                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]"
                   placeholder="--:--"
                 />
               </div>
@@ -381,11 +381,6 @@ const LeaveForm = () => {
             {isSubmitting ? "Submitting..." : "Submit Gate Pass / Hantar Pas Keluar"}
           </button>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground pb-4">
-          This is computer generated and no signature is required.
-        </p>
       </form>
     </div>
   );

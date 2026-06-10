@@ -38,7 +38,7 @@ const RegisterPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!form.name || !form.email || !form.employeeId || !form.phone || !form.department || !form.position || !form.password) {
+    if (!form.name || !form.email || !form.employeeId || !form.department || !form.password) {
       setError("Please fill in all required fields!");
       return;
     }
@@ -85,9 +85,9 @@ const RegisterPage = () => {
       return;
     }
 
-    // Save all user details to the public 'users' table so it appears in the Table Editor
+    // 1. OTP is confirmed! Now safely save the exact details to the public 'users' table
     if (data?.user) {
-      const { error: dbError } = await supabase.from("users").insert([
+      const { error: dbError } = await supabase.from("users").upsert([
         {
           id: data.user.id,
           name: form.name,
@@ -102,11 +102,12 @@ const RegisterPage = () => {
       ]);
 
       if (dbError) {
+        toast.error(`Database Error: ${dbError.message}`);
         console.error("Error saving user to database:", dbError);
       }
     }
 
-    // Establish the session in AuthContext & safely save the profile
+    // 2. Establish the session in the local Auth Context to prepare for redirect
     await login(form.email, form.password, true);
 
     // Success! Supabase automatically establishes the session.
@@ -168,7 +169,7 @@ const RegisterPage = () => {
                     <Input id="employeeId" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="e.g. 100202" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone No. <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="phone">Phone No. <span className="text-muted-foreground text-[10px] font-normal ml-1">(Optional)</span></Label>
                     <Input id="phone" value={form.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="01x-xxxxxxx" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>
@@ -187,7 +188,7 @@ const RegisterPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="position">Position <span className="text-destructive">*</span></Label>
+                  <Label htmlFor="position">Position <span className="text-muted-foreground text-[10px] font-normal ml-1">(Optional)</span></Label>
                     <Input id="position" value={form.position} onChange={e => handleChange("position", e.target.value)} placeholder="e.g. Executive" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>
