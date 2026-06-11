@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
@@ -8,16 +7,13 @@ import bgImage from "@/assets/digital.jpg";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const RegisterPage = () => {
   const [form, setForm] = useState({ name: "", email: "", employeeId: "", phone: "", department: "", position: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
-  const [step, setStep] = useState<"register" | "verify">("register");
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
-  const { register, login, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,63 +52,31 @@ const RegisterPage = () => {
       return;
     }
 
-    const success = await register(form);
-    if (success) {
-      toast.success("Verification code sent! Please check your email.");
-      setStep("verify");
-    } else {
-      setError("Failed to create account. Please try again.");
-    }
-  };
+      setIsRegistering(true);
 
-  const handleVerifyOTP = async (code: string) => {
-    // Wait until they type exactly 8 digits
-    if (code.length !== 8) return;
-    
-    setIsVerifying(true);
-    setError("");
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            name: form.name,
+            employeeId: form.employeeId,
+            department: form.department,
+            phone: form.phone,
+            position: form.position,
+          }
+        }
+      });
 
-    // Verify the OTP against Supabase
-    const { data, error: verifyError } = await supabase.auth.verifyOtp({
-      email: form.email,
-      token: code,
-      type: "signup",
-    });
-
-    if (verifyError) {
-      setError(verifyError.message);
-      setIsVerifying(false);
+      if (signUpError) {
+        setError(signUpError.message);
+        setIsRegistering(false);
       return;
     }
 
-    // 1. OTP is confirmed! Now safely save the exact details to the public 'users' table
-    if (data?.user) {
-      const { error: dbError } = await supabase.from("users").upsert([
-        {
-          id: data.user.id,
-          name: form.name,
-          email: form.email,
-          employeeId: form.employeeId,
-          phone: form.phone,
-          department: form.department,
-          position: form.position,
-          role: "employee", // Default role for new signups
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      if (dbError) {
-        toast.error(`Database Error: ${dbError.message}`);
-        console.error("Error saving user to database:", dbError);
-      }
-    }
-
-    // 2. Establish the session in the local Auth Context to prepare for redirect
-    await login(form.email, form.password, true);
-
-    // Success! Supabase automatically establishes the session.
-    toast.success("Account verified successfully!");
-    navigate("/home");
+      toast.success("Account created successfully! Please log in.");
+      navigate("/login");
+      setIsRegistering(false);
   };
 
   return (
@@ -124,23 +88,6 @@ const RegisterPage = () => {
         backgroundPosition: "center"
       }}
     >
-      {/* Modern Centered Loading Overlay for Verification */}
-      {isVerifying && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-md transition-all">
-          <div className="flex flex-col items-center gap-5 bg-background/60 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-border/50 animate-in fade-in zoom-in duration-300">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <div className="space-y-1 text-center">
-              <p className="text-lg font-semibold text-foreground animate-pulse">
-                Verifying Code
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Please wait a moment...
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Subtle dark overlay without blur to keep the background crisp */}
       <div className="absolute inset-0 bg-black/35 z-0"></div>
 
@@ -152,8 +99,6 @@ const RegisterPage = () => {
         </div>
 
         <div className="bg-background/60 backdrop-blur-xl border border-border/50 shadow-2xl px-8 py-6 rounded-[2rem]">
-          {step === "register" ? (
-            <>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
@@ -205,10 +150,10 @@ const RegisterPage = () => {
                 {error && <p className="text-destructive text-sm">{error}</p>}
                 <button 
                   type="submit" 
-                  disabled={isLoading}
+                  disabled={isRegistering}
                   className="btn-gold w-full text-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
                 >
-                  {isLoading ? (
+                  {isRegistering ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Creating Account...</>
                   ) : (
                     "Create Account"
@@ -223,51 +168,6 @@ const RegisterPage = () => {
                 <p className="font-medium text-foreground/80 mb-1">Management System v2.4</p>
                 <p>© 2026 HICOM Diecastings Sdn Bhd. All rights reserved.</p>
               </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center space-y-6 text-center py-6">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">Check your email</h2>
-                <p className="text-sm text-muted-foreground mt-2">
-                  We've sent an 8-digit verification code to<br/>
-                  <span className="font-bold text-foreground">{form.email}</span>
-                </p>
-              </div>
-
-              <InputOTP 
-                maxLength={8} 
-                disabled={isVerifying}
-                onChange={(val) => {
-                  if(val.length === 8) handleVerifyOTP(val);
-                }}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                  <InputOTPSlot index={6} />
-                  <InputOTPSlot index={7} />
-                </InputOTPGroup>
-              </InputOTP>
-
-              {error && <p className="text-destructive text-sm">{error}</p>}
-              
-              <button 
-                onClick={() => { setStep("register"); setError(""); }} 
-                className="text-sm text-blue-500 font-bold hover:underline mt-4"
-                disabled={isVerifying}
-              >
-                Entered the wrong email? Go back
-              </button>
-              <div className="mt-8 text-xs text-muted-foreground text-center w-full pt-4 border-t border-border/50">
-                <p className="font-medium text-foreground/80 mb-1">Management System v2.4</p>
-                <p>© 2026 HICOM Diecastings Sdn Bhd. All rights reserved.</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

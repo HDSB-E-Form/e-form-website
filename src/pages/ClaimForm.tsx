@@ -23,8 +23,8 @@ const ClaimForm = () => {
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
   const { getUsersByRole } = useUsers();
-  const hosUsers = getUsersByRole("HOS");
-  const hodUsers = getUsersByRole("HOD");
+  const hosUsers = getUsersByRole("HOS").sort((a, b) => a.name.localeCompare(b.name));
+  const hodUsers = getUsersByRole("HOD").sort((a, b) => a.name.localeCompare(b.name));
   const financeAdmins = getUsersByRole("finance_admin");
 
   const [employeeInfo, setEmployeeInfo] = useState({

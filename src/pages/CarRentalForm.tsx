@@ -17,8 +17,8 @@ const CarRentalForm = () => {
   const { user } = useAuth();
   const { addSubmission, submissions, cars } = useSubmissions();
   const { getUsersByRole } = useUsers();
-  const hosUsers = getUsersByRole("HOS");
-  const hodUsers = getUsersByRole("HOD");
+  const hosUsers = getUsersByRole("HOS").sort((a, b) => a.name.localeCompare(b.name));
+  const hodUsers = getUsersByRole("HOD").sort((a, b) => a.name.localeCompare(b.name));
   const hrAdmins = getUsersByRole("hr_admin");
   const [policyAgreed, setPolicyAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
