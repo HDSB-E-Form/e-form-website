@@ -370,7 +370,7 @@ const ProfilePage = () => {
                   <button type="button" onClick={handleCancel} className="px-5 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted/50 transition-colors">
                     Cancel
                   </button>
-                  <button type="submit" className="btn-gold px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2" disabled={isProfileSaving}>
+              <button type="submit" className="btn-gold px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300" disabled={isProfileSaving}>
                     <Save className="h-4 w-4" />
                     {isProfileSaving ? "Saving..." : "Save Changes"}
                   </button>
@@ -413,7 +413,7 @@ const ProfilePage = () => {
                 </div>
               </div>
               <div className="mt-6 border-t border-border pt-4 flex justify-end">
-                <button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-md text-sm font-bold" disabled={isPasswordSaving}>
+                <button type="submit" className="btn-gold w-full h-11 rounded-lg text-sm font-bold disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300" disabled={isPasswordSaving}>
                   {isPasswordSaving ? "Updating..." : "Update Password"}
                 </button>
               </div>

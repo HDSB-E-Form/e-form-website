@@ -235,14 +235,14 @@ const SecurityDashboard = () => {
           <div className="card-elevated p-6 mt-6">
             <h3 className="font-bold text-foreground text-lg mb-4">Log Employee Entry</h3>
             <div className="space-y-4">
-              <div className="bg-muted/20 p-4 rounded-lg border border-border/50 grid grid-cols-2 gap-4 mb-2">
-                <div>
-                  <p className="text-xs text-muted-foreground font-bold">LOGGED OUT AT</p>
-                  <p className="text-sm font-semibold text-foreground">{selectedSubmission.data.securityLog?.actualTimeOut || 'N/A'}</p>
+              <div className="bg-muted/20 p-3 sm:p-4 rounded-lg border border-border/50 flex mb-2">
+                <div className="flex-1 border-r border-border/50 pr-3 sm:pr-4">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider">LOGGED OUT AT</p>
+                  <p className="text-xs sm:text-sm font-semibold text-foreground mt-0.5">{selectedSubmission.data.securityLog?.actualTimeOut || 'N/A'}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-bold">VEHICLE NO.</p>
-                  <p className="text-sm font-semibold text-foreground">{selectedSubmission.data.securityLog?.vehicleNo || 'N/A'}</p>
+                <div className="flex-1 pl-3 sm:pl-4">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider">VEHICLE NO.</p>
+                  <p className="text-xs sm:text-sm font-semibold text-foreground mt-0.5">{selectedSubmission.data.securityLog?.vehicleNo || 'N/A'}</p>
                 </div>
               </div>
               <div>

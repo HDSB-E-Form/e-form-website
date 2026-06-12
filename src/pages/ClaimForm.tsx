@@ -512,20 +512,20 @@ const ClaimForm = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex justify-center gap-4 pt-4 pb-8">
-          <button
-            type="button"
-            onClick={() => navigate("/finance")}
-            className="px-10 py-3 rounded-full border-2 border-foreground text-foreground font-bold text-sm hover:bg-muted transition-colors"
-          >
-            Cancel / Batal
-          </button>
+        <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold px-10 py-3 rounded-full text-sm font-bold disabled:opacity-70 disabled:cursor-not-allowed"
+            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
-            {isSubmitting ? "Submitting..." : "Submit / Hantar"}
+            {isSubmitting ? "Submitting..." : "Submit"}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/finance")}
+            className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
+          >
+            Cancel
           </button>
         </div>
       </form>

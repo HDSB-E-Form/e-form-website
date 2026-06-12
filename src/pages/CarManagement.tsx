@@ -554,7 +554,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
             }
           }}
           disabled={isSubmitting}
-          className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
+          className="btn-gold w-full py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
           <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit"}
         </button>
         <button onClick={onCancel} disabled={isSubmitting} className="w-full py-3 rounded-lg bg-muted text-foreground font-medium text-sm hover:bg-muted/70 transition-colors disabled:opacity-50">
@@ -764,7 +764,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
             }
           }} 
           disabled={isSubmitting}
-          className="px-8 py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center gap-2 disabled:opacity-70">
+          className="btn-gold px-8 py-3 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
           <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Confirm Check-In"}
         </button>
       </div>
@@ -990,7 +990,7 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
             <button type="button" onClick={onClose} disabled={isUploading} className="flex-1 py-2.5 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-muted/50 transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={isUploading} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
+          <button type="submit" disabled={isUploading} className="btn-gold flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
               {isUploading ? "Saving..." : (
                 <>
                   {initialData ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}

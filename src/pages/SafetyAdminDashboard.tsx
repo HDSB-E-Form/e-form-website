@@ -389,37 +389,23 @@ const SafetyAdminDashboard = () => {
                     <p className="text-xs text-muted-foreground">Selected dates apply to all charts below.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative group w-full sm:w-40">
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                            <CalendarDays className="h-4 w-4" />
-                        </div>
+                    <div className="w-full sm:w-40">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
                         <Input 
                             type="date"
                             value={startDate} 
                             onChange={e => setStartDate(e.target.value)} 
-                            className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark] ${!startDate ? 'text-transparent' : ''}`} 
+                            className="h-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" 
                         />
-                        {!startDate && (
-                            <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none text-muted-foreground text-sm font-medium">
-                                From Date
-                            </div>
-                        )}
                     </div>
-                    <div className="relative group w-full sm:w-40">
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
-                            <CalendarDays className="h-4 w-4" />
-                        </div>
+                    <div className="w-full sm:w-40">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">To Date</Label>
                         <Input 
                             type="date"
                             value={endDate} 
                             onChange={e => setEndDate(e.target.value)} 
-                            className={`h-10 pl-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark] ${!endDate ? 'text-transparent' : ''}`} 
+                            className="h-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" 
                         />
-                        {!endDate && (
-                            <div className="absolute inset-y-0 left-0 pl-10 flex items-center pointer-events-none text-muted-foreground text-sm font-medium">
-                                To Date
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

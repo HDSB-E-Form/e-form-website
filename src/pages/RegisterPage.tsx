@@ -151,7 +151,7 @@ const RegisterPage = () => {
                 <button 
                   type="submit" 
                   disabled={isRegistering}
-                  className="btn-gold w-full text-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="btn-gold w-full text-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 py-3 rounded-full shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
                 >
                   {isRegistering ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Creating Account...</>

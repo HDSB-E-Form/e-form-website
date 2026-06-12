@@ -375,7 +375,7 @@ const LeaveForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-                className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit Gate Pass / Hantar Pas Keluar"}

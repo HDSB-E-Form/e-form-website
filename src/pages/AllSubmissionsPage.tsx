@@ -57,10 +57,10 @@ const renderValue = (val: any): React.ReactNode => {
     const entries = Object.entries(val).filter(([k, v]) => v !== "" && v !== null && k !== 'avatar');
     if (entries.length === 0) return "—";
     return (
-      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 bg-muted/5 print:bg-transparent p-4 rounded-lg border border-border print:border-gray-400">
+      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mt-2 sm:mt-3 bg-muted/5 print:bg-transparent p-3 sm:p-4 rounded-lg border border-border print:border-gray-400">
         {entries.map(([k, v]) => (
-          <div key={k} className="flex flex-col border-b border-border/50 print:border-gray-300 pb-2 last:border-0 last:pb-0 sm:last:pb-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-1">
+          <div key={k} className="flex flex-col border-b border-border/50 print:border-gray-300 pb-1.5 last:border-0 last:pb-0 sm:last:pb-2">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1">
               {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
             </span>
             <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black">
@@ -89,12 +89,12 @@ const statusBadge = (status: string) => {
     case "approved":
     case "approved_hos":
     case "approved_hod":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">APPROVED</Badge>;
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">APPROVED</Badge>;
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[10px] font-bold">REJECTED</Badge>;
+      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">REJECTED</Badge>;
     case "pending":
     default:
-      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[10px] font-bold">PENDING</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">PENDING</Badge>;
   }
 };
 
@@ -153,7 +153,7 @@ const AllSubmissionsPage = () => {
           </div>
         </div>
 
-        <div className="card-elevated p-6 print:border-none print:shadow-none print:p-0">
+        <div className="card-elevated p-4 sm:p-6 print:border-none print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
@@ -331,13 +331,13 @@ const AllSubmissionsPage = () => {
         {selectedSubmission.data.securityLog && (
           <div className="py-4 border-b border-border print:border-gray-300">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Gate Log</span>
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 bg-muted/5 print:bg-transparent p-4 rounded-lg border border-border print:border-gray-400">
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-1">Time Out</span>
+            <div className="w-full flex mt-2 sm:mt-3 bg-muted/5 print:bg-transparent p-3 sm:p-4 rounded-lg border border-border print:border-gray-400">
+              <div className="flex-1 border-r border-border/50 print:border-gray-300 pr-3 sm:pr-4">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Time Out</span>
                 <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeOut || '—'}</span>
               </div>
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-1">Time In</span>
+              <div className="flex-1 pl-3 sm:pl-4">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Time In</span>
                 <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeIn || '—'}</span>
               </div>
             </div>
@@ -361,31 +361,31 @@ const AllSubmissionsPage = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 print:hidden rounded-lg mt-8">
-            <div className="text-center border-r border-border last:border-0">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Section Head</p>
-              <div className="print:hidden">
+          <div className="grid grid-cols-3 gap-1 sm:gap-4 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
+            <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
+              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Section Head</p>
+              <div className="print:hidden w-full flex justify-center">
                 {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
               </div>
-              <div className="hidden print:block font-bold text-xs sm:text-sm">
+              <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                 {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : "PENDING"}
               </div>
             </div>
-            <div className="text-center border-r border-border last:border-0">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Dept Head</p>
-              <div className="print:hidden">
-                {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">N/A</Badge> : statusBadge("pending")}
+            <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
+              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Dept Head</p>
+              <div className="print:hidden w-full flex justify-center">
+                {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? <Badge className="bg-muted text-muted-foreground border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">N/A</Badge> : statusBadge("pending")}
               </div>
-              <div className="hidden print:block font-bold text-xs sm:text-sm">
+              <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                 {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && rejectedStage === "hos") ? "N/A" : "PENDING"}
               </div>
             </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Admin</p>
-              <div className="print:hidden">
-                {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">N/A</Badge> : statusBadge("pending")}
+            <div className="text-center flex flex-col items-center justify-between">
+              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Admin</p>
+              <div className="print:hidden w-full flex justify-center">
+                {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? <Badge className="bg-muted text-muted-foreground border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">N/A</Badge> : statusBadge("pending")}
               </div>
-              <div className="hidden print:block font-bold text-xs sm:text-sm">
+              <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                 {selectedSubmission.status === "approved" ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
               </div>
             </div>

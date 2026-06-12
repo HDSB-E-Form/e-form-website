@@ -108,10 +108,10 @@ const renderValue = (val: any): React.ReactNode => {
     const entries = Object.entries(val).filter(([k, v]) => v !== "" && v !== null && k !== 'avatar');
     if (entries.length === 0) return "—";
     return (
-      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 bg-background/50 p-4 rounded-lg border border-border">
+      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mt-2 sm:mt-3 bg-background/50 p-3 sm:p-4 rounded-lg border border-border">
         {entries.map(([k, v]) => (
-          <div key={k} className="flex flex-col border-b border-border/50 pb-2 last:border-0 last:pb-0 sm:last:pb-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
+          <div key={k} className="flex flex-col border-b border-border/50 pb-1.5 last:border-0 last:pb-0 sm:last:pb-2">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-0.5 sm:mb-1">
               {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
             </span>
             <span className="text-xs sm:text-sm font-semibold text-foreground">
@@ -318,11 +318,11 @@ const AdminDashboard = () => {
 
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50 space-y-0">
-          <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start first:pt-0">
+          <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start first:pt-0">
             <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Ref No</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{refNo}</div>
           </div>
-          <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
             <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Form Type</span>
             <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
               <Badge className="bg-sky-100 text-sky-800 border-0 text-xs font-bold">{formTypeLabels[sub.formType] || sub.formType}</Badge>
@@ -331,53 +331,53 @@ const AdminDashboard = () => {
 
           {sub.formType === 'car_rental' ? (
             <>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">IC No.</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.icNo || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Mobile Number</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.mobileNumber || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.drivingLicenseNo || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">
                   {sub.data.drivingLicenseExpiry ? new Date(sub.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
                 </div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Destination</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.destination || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Journey Type</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words uppercase">{sub.data.journeyType || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Purpose</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.purpose || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">
                   {sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                 </div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.hos || sub.data.hosName || "—"}</div>
               </div>
-              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.hod || sub.data.hodName || "—"}</div>
               </div>
               
               {sub.data.passengers && sub.data.passengers.some((p: any) => p.name) && (
-                <div className="py-4 border-b border-border/50 flex flex-col items-start gap-2">
+                <div className="py-2 sm:py-4 border-b border-border/50 flex flex-col items-start gap-2">
                   <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold">Passengers</span>
                   <div className="w-full text-xs sm:text-sm font-medium text-foreground">
                     {renderValue(sub.data.passengers.filter((p: any) => p.name))}
@@ -386,7 +386,7 @@ const AdminDashboard = () => {
               )}
 
               {sub.data.licenseAttachment && (
-                <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License</span>
                   <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2">
                     <FileText className="h-4 w-4" /> View Document
@@ -410,7 +410,7 @@ const AdminDashboard = () => {
                 if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return null;
 
                 return (
-                  <div key={key} className={`py-4 border-b border-border/50 last:border-0 ${typeof value === 'object' && value !== null && !Array.isArray(value) ? 'flex flex-col items-start gap-2' : Array.isArray(value) && typeof value[0] === 'object' ? 'flex flex-col items-start gap-2' : 'grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start'}`}>
+                  <div key={key} className={`py-2 sm:py-4 border-b border-border/50 last:border-0 ${typeof value === 'object' && value !== null && !Array.isArray(value) ? 'flex flex-col items-start gap-2' : Array.isArray(value) && typeof value[0] === 'object' ? 'flex flex-col items-start gap-2' : 'grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start'}`}>
                     <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">{formattedKey}</span>
                     <div className={`text-xs sm:text-sm font-medium text-foreground ${typeof value === 'object' && value !== null && !Array.isArray(value) ? 'w-full' : Array.isArray(value) && typeof value[0] === 'object' ? 'w-full' : 'sm:col-span-2 text-left break-words'}`}>
                       {renderValue(value)}
