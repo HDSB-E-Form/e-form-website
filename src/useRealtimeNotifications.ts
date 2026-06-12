@@ -56,6 +56,9 @@ export function useRealtimeNotifications() {
           // Don't notify the person who actually submitted the form
           if (submittedBy === user.id) return;
 
+          // Exclude inventory actions from realtime notifications
+          if (['inventory_addition', 'ppe_request'].includes(formType)) return;
+
           let shouldNotify = false;
 
           // 1. Notify HOS if their name was selected

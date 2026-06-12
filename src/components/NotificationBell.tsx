@@ -52,6 +52,9 @@ export function NotificationBell() {
     const notifs: AppNotification[] = [];
     
     submissions.forEach(s => {
+      // Exclude inventory actions from notifications entirely
+      if (['inventory_addition', 'ppe_request'].includes(s.formType)) return;
+
       let isRelevant = false;
       let path = "";
       
@@ -130,7 +133,7 @@ export function NotificationBell() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-background/95 backdrop-blur-xl rounded-xl shadow-2xl border border-border/50 z-50 flex flex-col max-h-[32rem] overflow-hidden animate-in fade-in slide-in-from-top-2">
+        <div className="absolute -right-[3rem] sm:right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 bg-background/95 backdrop-blur-xl rounded-2xl sm:rounded-xl shadow-2xl border border-border/50 z-50 flex flex-col max-h-[80vh] sm:max-h-[32rem] overflow-hidden animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/30">
             <h3 className="font-semibold text-foreground">Notifications</h3>
             <div className="flex gap-3">

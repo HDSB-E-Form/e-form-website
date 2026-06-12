@@ -253,11 +253,12 @@ const ProfilePage = () => {
         <div className="lg:col-span-2">
           {!isEditing ? (
             <div className="card-elevated p-6 relative overflow-hidden">
-              <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Edit Profile">
+              <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 hidden sm:flex p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Edit Profile">
                 <Pencil className="h-4 w-4" />
               </button>
               
-              <div className="flex items-center gap-5 mb-8">
+              <div className="flex items-start sm:items-center justify-between gap-4 mb-8">
+                <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold shadow-sm overflow-hidden flex-shrink-0 border border-border">
                   {user?.avatar ? (
                     <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -266,9 +267,14 @@ const ProfilePage = () => {
                   )}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">{user?.name}</h2>
-                <p className="text-sm font-medium text-muted-foreground mt-0.5">{user?.role ? roleLabels[user.role] || user.role : ""}</p>
+                    <h2 className="text-xl font-bold text-foreground leading-tight">{user?.name}</h2>
+                    <p className="text-sm font-medium text-muted-foreground mt-1">{user?.role ? roleLabels[user.role] || user.role : ""}</p>
+                  </div>
                 </div>
+                
+                <button onClick={() => setIsEditing(true)} className="sm:hidden flex items-center justify-center p-2.5 bg-muted/60 text-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors border border-border/50 shadow-sm shrink-0 mt-1" title="Edit Profile">
+                  <Pencil className="h-4 w-4" />
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">

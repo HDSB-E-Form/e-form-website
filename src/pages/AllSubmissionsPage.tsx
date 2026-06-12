@@ -29,7 +29,7 @@ const renderValue = (val: any): React.ReactNode => {
             <TableHeader className="bg-muted/50 print:bg-gray-100">
               <TableRow>
                 {keys.map(k => (
-                  <TableHead key={k} className="text-xs uppercase font-bold p-3 text-muted-foreground print:text-gray-600 whitespace-nowrap">
+                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground print:text-gray-600 whitespace-nowrap">
                     {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
                   </TableHead>
                 ))}
@@ -39,7 +39,7 @@ const renderValue = (val: any): React.ReactNode => {
               {validRows.map((row, i) => (
                 <TableRow key={i} className="border-b border-border print:border-gray-300 last:border-0 hover:bg-muted/20">
                   {keys.map((k, j) => (
-                    <TableCell key={j} className="text-sm p-3 whitespace-nowrap print:text-black">
+                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap print:text-black">
                       {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
                     </TableCell>
                   ))}
@@ -63,7 +63,7 @@ const renderValue = (val: any): React.ReactNode => {
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-1">
               {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
             </span>
-            <span className="text-sm font-semibold text-foreground print:text-black">
+            <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black">
               {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
             </span>
           </div>
@@ -75,7 +75,7 @@ const renderValue = (val: any): React.ReactNode => {
   // Format URL strings beautifully as clickable links
   if (typeof val === 'string' && val.startsWith('http')) {
     return (
-      <a href={val} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline inline-flex items-center gap-1.5">
+      <a href={val} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5">
          <FileText className="h-4 w-4" /> View Attachment
       </a>
     );
@@ -99,7 +99,8 @@ const statusBadge = (status: string) => {
 };
 
 const AllSubmissionsPage = () => {
-  const { submissions } = useSubmissions();
+  const { submissions: allSubmissions } = useSubmissions();
+  const submissions = allSubmissions.filter(s => !["inventory_addition", "ppe_request"].includes(s.formType));
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
 
@@ -110,14 +111,16 @@ const AllSubmissionsPage = () => {
   };
 
   if (selectedSubmission) {
-    const isApprovedHOS = ["approved_hos", "approved_hod", "approved"].includes(selectedSubmission.status);
-    const isApprovedHOD = ["approved_hod", "approved"].includes(selectedSubmission.status);
+    const rejectedStage = selectedSubmission.data.rejectedStage || (selectedSubmission.status === "rejected" ? "hos" : null);
+
+    const isApprovedHOS = ["approved_hos", "approved_hod", "approved"].includes(selectedSubmission.status) || rejectedStage === "hod" || rejectedStage === "admin";
+    const isApprovedHOD = ["approved_hod", "approved"].includes(selectedSubmission.status) || rejectedStage === "admin";
     const isRejected = selectedSubmission.status === "rejected";
 
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
-        <div className="flex items-center justify-between mb-6 print:hidden">
-          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
+          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to All Submissions
           </button>
           <button onClick={() => {
@@ -136,7 +139,7 @@ const AllSubmissionsPage = () => {
               window.print();
               setTimeout(() => { document.title = originalTitle; }, 2000);
             }, 50);
-          }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm">
+          }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm">
             <Printer className="h-4 w-4" /> Print
           </button>
         </div>
@@ -151,12 +154,12 @@ const AllSubmissionsPage = () => {
         </div>
 
         <div className="card-elevated p-6 print:border-none print:shadow-none print:p-0">
-          <div className="flex items-center justify-between mb-6 print:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-foreground print:text-black">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
                 {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType.replace("_", " ").toUpperCase()}
               </h2>
-              <p className="text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
             </div>
             <div className="print:hidden">
               {statusBadge(selectedSubmission.status)}
@@ -165,8 +168,8 @@ const AllSubmissionsPage = () => {
 
           <div className="space-y-4 mb-8">
             <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
-              <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                 {selectedSubmission.employeeName}
               </div>
             </div>
@@ -174,66 +177,66 @@ const AllSubmissionsPage = () => {
             {selectedSubmission.formType === 'car_rental' ? (
               <>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">IC No.</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.icNo || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">IC No.</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.icNo || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Mobile Number</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.mobileNumber || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Mobile Number</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.mobileNumber || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.drivingLicenseNo || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.drivingLicenseNo || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.drivingLicenseExpiry ? new Date(selectedSubmission.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
                   </div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Destination</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.destination || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Destination</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.destination || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Journey Type</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2 uppercase">{selectedSubmission.data.journeyType || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Journey Type</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2 uppercase">{selectedSubmission.data.journeyType || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Purpose</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.purpose || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.purpose || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                   </div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hos || selectedSubmission.data.hosName || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hos || selectedSubmission.data.hosName || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hod || selectedSubmission.data.hodName || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hod || selectedSubmission.data.hodName || "—"}</div>
                 </div>
                 
                 {selectedSubmission.data.passengers && selectedSubmission.data.passengers.some((p: any) => p.name) && (
                   <div className="py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
-                    <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Passengers</span>
-                    <div className="w-full text-sm font-medium text-foreground print:text-black">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Passengers</span>
+                    <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
                       {renderValue(selectedSubmission.data.passengers.filter((p: any) => p.name))}
                     </div>
                   </div>
@@ -242,57 +245,57 @@ const AllSubmissionsPage = () => {
             ) : selectedSubmission.formType === 'leave' ? (
               <>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.submittedBy || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.submittedBy || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.position || selectedSubmission.data.position || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.position || selectedSubmission.data.position || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.purposeType === 'company' ? 'Company Business' : selectedSubmission.data.purposeType === 'personal' ? 'Personal Matter' : '—'}
                   </div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Location</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Location</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.purposeType === 'company' ? (selectedSubmission.data.companyDetails?.location || "—") : (selectedSubmission.data.personalDetails?.location || "—")}
                   </div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Purpose</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.purposeType === 'company' ? (selectedSubmission.data.companyDetails?.purpose || "—") : (selectedSubmission.data.personalDetails?.purpose || "—")}
                   </div>
                 </div>
                 {selectedSubmission.data.estimatedTime && (
                   <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                    <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Estimated Time</span>
-                    <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Estimated Time</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                       Out: {selectedSubmission.data.estimatedTime.timeOut || "—"} &nbsp;|&nbsp; In: {selectedSubmission.data.estimatedTime.timeIn || "—"}
                     </div>
                   </div>
                 )}
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}</div>
                 </div>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
                 </div>
               </>
             ) : (
               <>
                 <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
-                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
                   </div>
                 </div>
@@ -315,8 +318,8 @@ const AllSubmissionsPage = () => {
 
                     return (
                       <div key={key} className={`py-4 border-b border-border print:border-gray-300 last:border-0 ${typeof value === 'object' && value !== null ? 'flex flex-col items-start gap-2' : 'grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start'}`}>
-                        <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{formattedKey}</span>
-                        <div className={`text-sm font-medium text-foreground print:text-black ${typeof value === 'object' && value !== null ? 'w-full' : 'text-left break-words sm:col-span-2 print:col-span-2'}`}>
+                        <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{formattedKey}</span>
+                        <div className={`text-xs sm:text-sm font-medium text-foreground print:text-black ${typeof value === 'object' && value !== null ? 'w-full' : 'text-left break-words sm:col-span-2 print:col-span-2'}`}>
                           {renderValue(value)}
                         </div>
                       </div>
@@ -327,15 +330,15 @@ const AllSubmissionsPage = () => {
 
         {selectedSubmission.data.securityLog && (
           <div className="py-4 border-b border-border print:border-gray-300">
-            <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Gate Log</span>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Gate Log</span>
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 bg-muted/5 print:bg-transparent p-4 rounded-lg border border-border print:border-gray-400">
               <div>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-1">Time Out</span>
-                <span className="text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeOut || '—'}</span>
+                <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeOut || '—'}</span>
               </div>
               <div>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-1">Time In</span>
-                <span className="text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeIn || '—'}</span>
+                <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeIn || '—'}</span>
               </div>
             </div>
           </div>
@@ -343,8 +346,8 @@ const AllSubmissionsPage = () => {
 
         {selectedSubmission.data.licenseAttachment && (
           <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start print:hidden">
-            <span className="text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License</span>
-            <a href={selectedSubmission.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2 print:col-span-2 print:text-black">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License</span>
+            <a href={selectedSubmission.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2 print:col-span-2 print:text-black">
               <FileText className="h-4 w-4" /> View Document
             </a>
           </div>
@@ -352,29 +355,38 @@ const AllSubmissionsPage = () => {
           </div>
 
           {selectedSubmission.data.remarks && (
-            <div className={`p-4 rounded-xl border mb-8 print:border-gray-300 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-              <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Approver Remarks</p>
-              <p className="text-sm font-medium print:text-black">"{selectedSubmission.data.remarks}"</p>
+            <div className={`p-3 sm:p-4 rounded-xl border mb-8 print:border-gray-300 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Remarks / Ulasan</p>
+              <p className="text-xs sm:text-sm font-medium print:text-black">"{selectedSubmission.data.remarks}"</p>
             </div>
           )}
 
           <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 print:hidden rounded-lg mt-8">
             <div className="text-center border-r border-border last:border-0">
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Section Head</p>
-              <div className="hidden print:block font-bold text-sm">
-                {isApprovedHOS ? "APPROVED" : isRejected ? "REJECTED" : "PENDING"}
+              <div className="print:hidden">
+                {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
+              </div>
+              <div className="hidden print:block font-bold text-xs sm:text-sm">
+                {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : "PENDING"}
               </div>
             </div>
             <div className="text-center border-r border-border last:border-0">
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Dept Head</p>
-              <div className="hidden print:block font-bold text-sm">
-                {isApprovedHOD ? "APPROVED" : (isRejected && isApprovedHOS) ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
+              <div className="print:hidden">
+                {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">N/A</Badge> : statusBadge("pending")}
+              </div>
+              <div className="hidden print:block font-bold text-xs sm:text-sm">
+                {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && rejectedStage === "hos") ? "N/A" : "PENDING"}
               </div>
             </div>
             <div className="text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">Admin</p>
-              <div className="hidden print:block font-bold text-sm">
-                {selectedSubmission.status === "approved" ? "APPROVED" : isRejected ? "REJECTED" : "PENDING"}
+              <div className="print:hidden">
+                {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">N/A</Badge> : statusBadge("pending")}
+              </div>
+              <div className="hidden print:block font-bold text-xs sm:text-sm">
+                {selectedSubmission.status === "approved" ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
               </div>
             </div>
           </div>
@@ -399,6 +411,7 @@ const AllSubmissionsPage = () => {
         <div className="p-5 border-b border-border">
           <h2 className="font-bold text-foreground">All System Submissions</h2>
         </div>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
@@ -418,7 +431,7 @@ const AllSubmissionsPage = () => {
                 <TableCell>{statusBadge(sub.status)}</TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-3">
-                    <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary transition-colors">
+                    <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
                       View Details
                     </button>
                     <button 
@@ -451,6 +464,7 @@ const AllSubmissionsPage = () => {
             ))}
           </TableBody>
         </Table>
+        </div>
         {submissions.length === 0 && (
           <div className="p-8 text-center text-muted-foreground">
             <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
@@ -458,7 +472,7 @@ const AllSubmissionsPage = () => {
           </div>
         )}
         {submissions.length > 0 && (
-          <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">
             <p className="text-sm text-muted-foreground">Showing {Math.min(submissions.length, isViewAll ? submissions.length : 10)} of {submissions.length} entries</p>
             {submissions.length > 10 && (
               <button 

@@ -378,6 +378,7 @@ const SuperAdminDashboard = () => {
             </Select>
           </div>
         </div>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
@@ -422,6 +423,7 @@ const SuperAdminDashboard = () => {
             ))}
           </TableBody>
         </Table>
+        </div>
         {filtered.length === 0 && (
           <div className="p-8 text-center">
             <p className="text-muted-foreground">No users found</p>

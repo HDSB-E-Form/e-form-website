@@ -90,7 +90,7 @@ const FinanceDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks });
+    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? "admin" : undefined });
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
@@ -163,7 +163,7 @@ const FinanceDashboard = () => {
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks</p>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks / Ulasan Terdahulu</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
         )}
@@ -171,9 +171,9 @@ const FinanceDashboard = () => {
         {/* Remarks & Actions - only when HOD has approved */}
         {selectedSubmission.status === "approved_hod" && (
           <>
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
             <Input
-              placeholder="Sila masukkan ulasan jika ada..."
+              placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
               className="mb-6 h-12 bg-muted/20"
@@ -183,17 +183,15 @@ const FinanceDashboard = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                className="flex-1 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
+                className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
               >
-                <span className="block text-base">Tolak</span>
-                <span className="block text-xs font-medium opacity-70">REJECT</span>
+                REJECT / TOLAK
               </button>
               <button
                 onClick={() => handleAction(selectedSubmission.id, "approved")}
-                className="flex-1 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
+                className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
               >
-                <span className="block text-base">Terima</span>
-                <span className="block text-xs font-medium opacity-80">ACCEPT</span>
+                APPROVE / LULUS
               </button>
             </div>
           </>
@@ -291,6 +289,7 @@ const FinanceDashboard = () => {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -331,7 +330,7 @@ const FinanceDashboard = () => {
                       </TableCell>
                       <TableCell>{statusBadge(sub.status)}</TableCell>
                       <TableCell className="text-center">
-                        <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary">
+                        <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
                           {sub.status === "approved_hod" ? "Review" : "Details"}
                         </button>
                       </TableCell>
@@ -340,6 +339,7 @@ const FinanceDashboard = () => {
                 })}
               </TableBody>
             </Table>
+            </div>
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>
               {tabFiltered.length > 10 && (

@@ -419,13 +419,13 @@ const DailyOperationMonitoringForm = () => {
           <div className="flex items-center gap-2 mb-4">
             <MessageSquare className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
-              Remarks / <span className="font-normal text-muted-foreground">Catatan (Optional)</span>
+              Remarks / <span className="font-normal text-muted-foreground">Ulasan</span>
             </h2>
           </div>
           <Input
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            placeholder="Add any optional remarks or notes here..."
+            placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
             className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors"
           />
         </div>

@@ -64,11 +64,74 @@ const PPE_ITEMS = ["Goggle", "Helmet", "Safety Boot", "Safety Shoe", "Safety Ins
 const UNIFORM_ITEMS = ["Company T-Shirt (Short Sleeve)", "Company T-Shirt (Long Sleeve)", "Company Shirt", "Company Shirt (Long Sleeve)", "Cargo Pants"];
 const OFFICE_ITEMS = ["Ball Pen", "Permanent Marker", "Highlighter", "Pencil", "Eraser", "Correction Tape", "A4 Paper", "Notebook", "Stapler", "Staple Pin", "Paper Clip", "Binder Clip", "File Folder", "Ring File", "Sticky Notes", "Scissors", "Glue Stick", "Clear Tape", "Calculator", "Whiteboard Marker", "A3 Paper", "A5 Paper"];
 
-const getItemCategory = (name: string) => {
-  if (PPE_ITEMS.includes(name)) return "ppe";
-  if (UNIFORM_ITEMS.includes(name)) return "uniform";
-  if (OFFICE_ITEMS.includes(name)) return "office";
-  return "other";
+const renderValue = (val: any): React.ReactNode => {
+  if (val === null || val === undefined || val === "") return "—";
+  
+  if (Array.isArray(val)) {
+    if (val.length === 0) return "—";
+    if (typeof val[0] === 'object' && val[0] !== null) {
+      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
+      if (validRows.length === 0) return "—";
+
+      const keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+      return (
+        <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto">
+          <Table className="w-full text-left border-collapse bg-background/50">
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                {keys.map(k => (
+                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground whitespace-nowrap">
+                    {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {validRows.map((row, i) => (
+                <TableRow key={i} className="border-b border-border last:border-0 hover:bg-muted/20">
+                  {keys.map((k, j) => (
+                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap">
+                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    return val.join(", ");
+  }
+  
+  if (typeof val === 'object' && val !== null) {
+    const entries = Object.entries(val).filter(([k, v]) => v !== "" && v !== null && k !== 'avatar');
+    if (entries.length === 0) return "—";
+    return (
+      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 bg-background/50 p-4 rounded-lg border border-border">
+        {entries.map(([k, v]) => (
+          <div key={k} className="flex flex-col border-b border-border/50 pb-2 last:border-0 last:pb-0 sm:last:pb-2">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
+              {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
+            </span>
+            <span className="text-xs sm:text-sm font-semibold text-foreground">
+              {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  
+  if (typeof val === 'string' && val.startsWith('http')) {
+    return (
+      <a href={val} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
+         <FileText className="h-4 w-4" /> View Attachment
+      </a>
+    );
+  }
+
+  return String(val);
 };
 
 // HR Admin Dashboard - sees leave and car_rental forms only
@@ -96,12 +159,29 @@ const AdminDashboard = () => {
   const [isStockSheetOpen, setIsStockSheetOpen] = useState(false);
   const [stockForm, setStockForm] = useState({ itemName: "", quantity: "" });
   const [customItem, setCustomItem] = useState("");
-  const [inventoryTab, setInventoryTab] = useState<"all" | "ppe" | "uniform" | "office">("all");
+  const [inventoryTab, setInventoryTab] = useState<"ppe" | "uniform" | "office">("ppe");
   const [inventorySearch, setInventorySearch] = useState("");
-  const [stockSheetCategory, setStockSheetCategory] = useState<"ppe" | "uniform" | "office" | "other">("ppe");
+  const [stockSheetCategory, setStockSheetCategory] = useState<"ppe" | "uniform" | "office">("ppe");
+
+  const itemCategoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    PPE_ITEMS.forEach(item => map[item] = "ppe");
+    UNIFORM_ITEMS.forEach(item => map[item] = "uniform");
+    OFFICE_ITEMS.forEach(item => map[item] = "office");
+    
+    submissions.filter(s => s.formType === "inventory_addition").forEach(sub => {
+      const { itemName, category } = sub.data;
+      if (itemName && category && category !== "other") {
+        map[itemName] = category;
+      }
+    });
+    return map;
+  }, [submissions]);
+
+  const getItemCategory = (name: string) => itemCategoryMap[name] || "ppe";
 
   // Separate standard approvals from instant-record inventory forms
-  const approvalSubmissions = submissions.filter(s => ["car_rental", "leave"].includes(s.formType));
+  const approvalSubmissions = submissions.filter(s => s.formType === "car_rental");
   const inventorySubmissions = submissions.filter(s => s.formType === "ppe_request");
 
   const filtered = approvalSubmissions
@@ -145,7 +225,7 @@ const AdminDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks });
+    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? "admin" : undefined });
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
@@ -191,10 +271,16 @@ const AdminDashboard = () => {
   });
 
   // Combine all known inventory items
-  const allInventoryKeys = Array.from(new Set([...Object.keys(inventoryStock), ...Object.keys(distributedItems)])).sort();
+  const allInventoryKeys = Array.from(new Set([
+    ...PPE_ITEMS,
+    ...UNIFORM_ITEMS,
+    ...OFFICE_ITEMS,
+    ...Object.keys(inventoryStock), 
+    ...Object.keys(distributedItems)
+  ])).sort();
 
   const filteredInventoryKeys = allInventoryKeys.filter(item => {
-    const matchesTab = inventoryTab === "all" || getItemCategory(item) === inventoryTab;
+    const matchesTab = getItemCategory(item) === inventoryTab;
     const matchesSearch = item.toLowerCase().includes(inventorySearch.toLowerCase());
     return matchesTab && matchesSearch;
   });
@@ -206,73 +292,132 @@ const AdminDashboard = () => {
       .slice(0, 30);
   }, [submissions]);
 
-  const renderCarRentalDetail = (sub: Submission) => {
+  const renderFormDetails = (sub: Submission) => {
     const refNo = generateRefNo(sub);
-    const startDate = sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
-    const endDate = sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
     return (
       <>
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center justify-center w-12 h-12 text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group print:hidden">
+          <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
           </button>
-          <h2 className="text-xl font-bold text-foreground">Semakan Permohonan / Review Submission</h2>
+          <h2 className="text-xl font-bold text-foreground">Review Submission / Semakan Permohonan</h2>
         </div>
 
-        <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-8">
-          <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.staffId || sub.submittedBy}</p>
-          <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
-          <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.position || sub.data.employeeInfo?.position || "—"}</p>
+        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
+        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50">
+          <p className="text-base sm:text-lg font-bold text-foreground">{sub.employeeName}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1 mt-3">
+            Staff ID: {sub.data.staffId || sub.data.employeeInfo?.staffNo || sub.data.employeeInfo?.employeeNumber || sub.submittedBy || "—"}
+          </p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Department: {sub.department || "—"}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+            Position: {sub.data.position || sub.data.employeeInfo?.position || "—"}
+          </p>
         </div>
 
-        <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl divide-y divide-border mb-8">
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Ref No</span>
-            <span className="text-sm font-bold text-foreground">{refNo}</span>
+        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
+        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50 space-y-0">
+          <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start first:pt-0">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Ref No</span>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{refNo}</div>
           </div>
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Form Type</span>
-            <Badge className="bg-sky-100 text-sky-800 border-0 text-xs font-bold">RENT CAR FORM</Badge>
-          </div>
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Journey Dates</span>
-            <span className="text-sm font-bold text-foreground">{startDate} - {endDate}</span>
-          </div>
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Destination</span>
-            <span className="text-sm font-bold text-foreground">{sub.data.destination || "—"}</span>
-          </div>
-          <div className="flex justify-between items-start px-5 py-3">
-            <span className="text-sm text-primary shrink-0 mr-4">Purpose</span>
-            <span className="text-sm font-bold text-foreground text-right">{sub.data.purpose || "No purpose provided"}</span>
-          </div>
-          {sub.data.licenseAttachment && (
-            <div className="flex justify-between items-center px-5 py-3">
-              <span className="text-sm text-primary shrink-0 mr-4">Attachment</span>
-              <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-right">
-                <FileText className="h-4 w-4" /> View Driving License
-              </a>
+          <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Form Type</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+              <Badge className="bg-sky-100 text-sky-800 border-0 text-xs font-bold">{formTypeLabels[sub.formType] || sub.formType}</Badge>
             </div>
-          )}
-          {sub.data.passengers && sub.data.passengers.some((p: any) => p.name) && (
-            <div className="px-5 py-4 border-t border-border/50 bg-background/30">
-              <span className="text-sm text-primary font-bold block mb-3">Passengers / Penumpang</span>
-              <div className="space-y-2">
-                {sub.data.passengers.filter((p: any) => p.name).map((p: any, i: number) => (
-                  <div key={i} className="flex justify-between items-center bg-background/50 p-2.5 rounded-lg border border-border/50">
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{p.department} {p.position ? `• ${p.position}` : ''}</p>
-                    </div>
-                    <span className="text-xs font-bold text-foreground bg-muted px-2 py-1 rounded">{p.staffId}</span>
-                  </div>
-                ))}
+          </div>
+
+          {sub.formType === 'car_rental' ? (
+            <>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">IC No.</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.icNo || "—"}</div>
               </div>
-            </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Mobile Number</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.mobileNumber || "—"}</div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.drivingLicenseNo || "—"}</div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">
+                  {sub.data.drivingLicenseExpiry ? new Date(sub.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
+                </div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Destination</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.destination || "—"}</div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Journey Type</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words uppercase">{sub.data.journeyType || "—"}</div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.purpose || "—"}</div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">
+                  {sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                </div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.hos || sub.data.hosName || "—"}</div>
+              </div>
+              <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.hod || sub.data.hodName || "—"}</div>
+              </div>
+              
+              {sub.data.passengers && sub.data.passengers.some((p: any) => p.name) && (
+                <div className="py-4 border-b border-border/50 flex flex-col items-start gap-2">
+                  <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold">Passengers</span>
+                  <div className="w-full text-xs sm:text-sm font-medium text-foreground">
+                    {renderValue(sub.data.passengers.filter((p: any) => p.name))}
+                  </div>
+                </div>
+              )}
+
+              {sub.data.licenseAttachment && (
+                <div className="py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License</span>
+                  <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2">
+                    <FileText className="h-4 w-4" /> View Document
+                  </a>
+                </div>
+              )}
+            </>
+          ) : (
+            Object.entries(sub.data)
+              .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'securityLog', 'position', 'staffId', 'employeeInfo', 'hosName', 'hodName'].includes(key) && !/^\d+$/.test(key))
+              .map(([key, value]) => {
+                let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
+                if (key === 'companyDetails') formattedKey = 'Company Details';
+                if (key === 'personalDetails') formattedKey = 'Personal Details';
+                if (key === 'purposeType') formattedKey = 'Purpose Type';
+                if (key === 'licenseAttachment') formattedKey = 'Driving License Attachment';
+
+                if (value === null || value === undefined || value === "") return null;
+                if (Array.isArray(value) && value.length === 0) return null;
+                if (Array.isArray(value) && typeof value[0] === 'object' && value.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null)).length === 0) return null;
+                if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return null;
+
+                return (
+                  <div key={key} className={`py-4 border-b border-border/50 last:border-0 ${typeof value === 'object' && value !== null && !Array.isArray(value) ? 'flex flex-col items-start gap-2' : Array.isArray(value) && typeof value[0] === 'object' ? 'flex flex-col items-start gap-2' : 'grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start'}`}>
+                    <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">{formattedKey}</span>
+                    <div className={`text-xs sm:text-sm font-medium text-foreground ${typeof value === 'object' && value !== null && !Array.isArray(value) ? 'w-full' : Array.isArray(value) && typeof value[0] === 'object' ? 'w-full' : 'sm:col-span-2 text-left break-words'}`}>
+                      {renderValue(value)}
+                    </div>
+                  </div>
+                );
+              })
           )}
         </div>
       </>
@@ -280,20 +425,22 @@ const AdminDashboard = () => {
   };
 
   const renderPpeDetail = (sub: Submission) => {
+    const isOffice = sub.data.requestCategory === "office";
     return (
       <>
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center justify-center w-12 h-12 text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
+          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
           </button>
           <h2 className="text-xl font-bold text-foreground">Collection Record / Rekod Kutipan</h2>
         </div>
+        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
         <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50">
-          <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
-          <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
-          <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
-          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold uppercase w-fit">
+          <p className="text-base sm:text-lg font-bold text-foreground">{sub.employeeName}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1 mt-3">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Department: {sub.department || "—"}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
+          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold uppercase w-fit mt-1">
             {sub.data.requestCategory || "PPE"} Collection
           </Badge>
         </div>
@@ -303,16 +450,16 @@ const AdminDashboard = () => {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead className="text-xs font-bold text-muted-foreground">Item Name</TableHead>
-                <TableHead className="text-xs font-bold text-muted-foreground">Size</TableHead>
+                {!isOffice && <TableHead className="text-xs font-bold text-muted-foreground">Size</TableHead>}
                 <TableHead className="text-xs font-bold text-muted-foreground text-right">Qty</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(sub.data.items || []).map((item: any, i: number) => (
                 <TableRow key={i}>
-                  <TableCell className="font-semibold text-sm">{item["Item Name"]}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{item.Size || "—"}</TableCell>
-                  <TableCell className="text-right font-bold">{item.Quantity}</TableCell>
+                  <TableCell className="font-semibold text-xs sm:text-sm">{item["Item Name"]}</TableCell>
+                  {!isOffice && <TableCell className="text-xs sm:text-sm text-muted-foreground">{item.Size || "—"}</TableCell>}
+                  <TableCell className="text-right font-bold text-xs sm:text-sm">{item.Quantity}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -324,7 +471,7 @@ const AdminDashboard = () => {
 
   // Review detail view
   if (selectedSubmission) {
-    const isCarRental = selectedSubmission.formType === "car_rental";
+    const isApprovalForm = selectedSubmission.formType === "car_rental";
     const isPpe = selectedSubmission.formType === "ppe_request";
     // Enforce strict 3-step approval: HOS -> HOD -> HR
     const canApprove = selectedSubmission.status === "approved_hod";
@@ -332,13 +479,13 @@ const AdminDashboard = () => {
 
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-        {isCarRental && renderCarRentalDetail(selectedSubmission)}
+        {isApprovalForm && renderFormDetails(selectedSubmission)}
         {isPpe && renderPpeDetail(selectedSubmission)}
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks</p>
-            <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks / Ulasan Terdahulu</p>
+            <p className="text-xs sm:text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
         )}
 
@@ -354,25 +501,25 @@ const AdminDashboard = () => {
 
         {canApprove && (
           <>
-            <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">ULASAN / REMARKS (OPTIONAL)</p>
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
             <Input
-              placeholder={isCarRental ? "Enter any additional comments or reasons here..." : "Sila masukkan ulasan jika ada / Please enter remarks if any..."}
+              placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
-              className="mb-8 h-12 bg-muted/20"
+              className="mb-8 h-12 bg-muted/20 text-base sm:text-sm"
             />
-            <div className="flex gap-4">
+            <div className="flex flex-row gap-3 sm:gap-4">
               <button
                 onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                className="flex-1 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
+                className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base"
               >
-                TOLAK / REJECT
+                REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
               </button>
               <button
                 onClick={() => handleAction(selectedSubmission.id, "approved")}
-                className="flex-1 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
+                className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors text-xs sm:text-base"
               >
-                TERIMA / ACCEPT
+                APPROVE<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>LULUS
               </button>
             </div>
           </>
@@ -461,7 +608,7 @@ const AdminDashboard = () => {
               placeholder="Search by name, date, or type..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
-              className="pl-9 w-full sm:w-72 h-9 text-sm" 
+              className="pl-9 w-full sm:w-72 h-9 text-base sm:text-sm" 
             />
           </div>
         </div>
@@ -473,6 +620,7 @@ const AdminDashboard = () => {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -513,7 +661,7 @@ const AdminDashboard = () => {
                     </TableCell>
                     <TableCell>{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary">
+                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
                         {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
                       </button>
                     </TableCell>
@@ -522,6 +670,7 @@ const AdminDashboard = () => {
             })}
               </TableBody>
             </Table>
+            </div>
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>
               {tabFiltered.length > 10 && (
@@ -589,7 +738,6 @@ const AdminDashboard = () => {
                 <div className="flex flex-col sm:flex-row gap-3 justify-between">
                   <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                     {[
-                      { id: "all", label: "All Items" },
                       { id: "ppe", label: "PPE" },
                       { id: "uniform", label: "Uniforms" },
                       { id: "office", label: "Office Supplies" },
@@ -609,12 +757,12 @@ const AdminDashboard = () => {
                       placeholder="Search inventory..."
                       value={inventorySearch}
                       onChange={e => setInventorySearch(e.target.value)}
-                      className="h-8 pl-8 text-xs bg-background"
+                      className="h-8 pl-8 text-base sm:text-xs bg-background"
                     />
                   </div>
                 </div>
               </div>
-              <div className="overflow-y-auto flex-1">
+              <div className="overflow-auto flex-1">
                 <Table>
                   <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-md z-10">
                     <TableRow>
@@ -714,23 +862,21 @@ const AdminDashboard = () => {
           <div className="space-y-5">
             <div>
               <Label className="text-xs font-bold text-primary uppercase tracking-wider block mb-2">1. Select Category</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button type="button" onClick={() => { setStockSheetCategory("ppe"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'ppe' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>PPE</button>
                 <button type="button" onClick={() => { setStockSheetCategory("uniform"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'uniform' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Uniforms</button>
                 <button type="button" onClick={() => { setStockSheetCategory("office"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'office' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Office</button>
-                <button type="button" onClick={() => { setStockSheetCategory("other"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'other' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Custom</button>
               </div>
             </div>
 
             <div className="space-y-2 animate-in fade-in slide-in-from-right-2 duration-300">
               <Label className="text-xs font-bold text-primary uppercase tracking-wider">2. Select Item</Label>
               <Select value={stockForm.itemName} onValueChange={val => setStockForm(p => ({...p, itemName: val}))}>
-                <SelectTrigger className="h-11">
+                <SelectTrigger className="h-11 text-base sm:text-sm">
                   <SelectValue placeholder={
                     stockSheetCategory === "ppe" ? "Choose a PPE item..." :
                     stockSheetCategory === "uniform" ? "Choose a Uniform..." :
-                    stockSheetCategory === "office" ? "Choose an Office Supply..." :
-                    "Choose a Custom Item..."
+                    "Choose an Office Supply..."
                   } />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -738,27 +884,25 @@ const AdminDashboard = () => {
                     ...(stockSheetCategory === "ppe" ? PPE_ITEMS : []),
                     ...(stockSheetCategory === "uniform" ? UNIFORM_ITEMS : []),
                     ...(stockSheetCategory === "office" ? OFFICE_ITEMS : []),
-                    ...allInventoryKeys.filter(k => getItemCategory(k) === stockSheetCategory)
+                    ...allInventoryKeys.filter(k => itemCategoryMap[k] === stockSheetCategory)
                   ])).sort().map(k => (
                     <SelectItem key={k} value={k}>{k}</SelectItem>
                   ))}
-                  {stockSheetCategory === "other" && (
-                    <SelectItem value="other" className="font-bold text-primary italic">+ Add New Custom Item</SelectItem>
-                  )}
+                  <SelectItem value="other" className="font-bold text-primary italic">+ Add New Item to {stockSheetCategory.toUpperCase()}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
-            {stockForm.itemName === "other" && stockSheetCategory === "other" && (
+            {stockForm.itemName === "other" && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                 <Label className="text-xs font-bold text-primary uppercase tracking-wider">New Item Name</Label>
-                <Input value={customItem} onChange={e => setCustomItem(e.target.value)} placeholder="e.g. Safety Glasses" className="h-11" />
+                <Input value={customItem} onChange={e => setCustomItem(e.target.value)} placeholder="e.g. Safety Glasses" className="h-11 text-base sm:text-sm" />
               </div>
             )}
 
             <div className="space-y-2">
               <Label className="text-xs font-bold text-primary uppercase tracking-wider">3. Quantity to Add</Label>
-              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="e.g. 50" className="h-11 no-spinner" onWheel={(e) => (e.target as HTMLElement).blur()} />
+              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="e.g. 50" className="h-11 no-spinner text-base sm:text-sm" onWheel={(e) => (e.target as HTMLElement).blur()} />
               <p className="text-[10px] text-muted-foreground">This amount will be added to the total historical stock.</p>
             </div>
             

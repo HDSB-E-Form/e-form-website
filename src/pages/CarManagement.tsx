@@ -384,7 +384,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
       
       // 12MB file size limit (12 * 1024 * 1024 bytes)
       if (file.size > 12 * 1024 * 1024) {
-        toast.error("File size must be less than 12MB. / Saiz fail mestilah kurang daripada 12MB.");
+        toast.error("File size must be less than 12MB.");
         e.target.value = ""; // Reset input
         return;
       }
@@ -395,13 +395,13 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   };
 
   const renderPhotoUpload = (side: string, label: string) => (
-    <label className="relative w-28 h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden bg-background shadow-sm group">
+    <label className="relative w-full aspect-video sm:aspect-auto sm:h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden bg-background shadow-sm group">
       {photos[side].url ? (
         <img src={photos[side].url!} alt={label} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
       ) : (
         <>
-          <Camera className="h-6 w-6 text-muted-foreground mb-2" />
-          <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+          <Camera className="h-6 w-6 text-muted-foreground mb-1 sm:mb-2" />
+          <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">{label}</span>
         </>
       )}
       <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
@@ -412,20 +412,19 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
     <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-Out</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-Out Form</h1>
-      <p className="text-muted-foreground text-sm">Borang Keluar Kenderaan</p>
 
       {/* Car Info */}
       <div className="card-elevated p-5 mt-6">
         <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">
-          <Car className="h-4 w-4 text-primary" /> Car Info / Maklumat Kenderaan
+          <Car className="h-4 w-4 text-primary" /> Car Info
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Vehicle Model / Model</p>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Vehicle Model</p>
             <p className="font-semibold text-foreground">{car.model}</p>
           </div>
           <div>
-            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Plate Number / No. Plat</p>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Plate Number</p>
             <p className="font-semibold text-foreground">{car.plateNumber}</p>
           </div>
         </div>
@@ -433,11 +432,11 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
 
       {/* Employee Selection */}
       <div className="card-elevated p-5 mt-4">
-        <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">👤 Employee Selection / Pilihan Pekerja</h3>
-        <p className="text-xs text-muted-foreground mb-2">Who is taking the car? / Siapa yang mengambil kenderaan?</p>
+        <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">👤 Employee Selection</h3>
+        <p className="text-xs text-muted-foreground mb-2">Who is taking the car?</p>
         <Select value={employee} onValueChange={setEmployee}>
-          <SelectTrigger className="h-11">
-            <SelectValue placeholder="Select Employee / Pilih Pekerja" />
+          <SelectTrigger className="h-11 text-base sm:text-sm">
+            <SelectValue placeholder="Select Employee" />
           </SelectTrigger>
           <SelectContent>
             {requesters.map(name => (
@@ -449,23 +448,23 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
 
       {/* Rent Details */}
       <div className="card-elevated p-5 mt-4">
-        <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Rent Details / Butiran Sewaan</h3>
+        <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Rent Details</h3>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-4 mb-4">
           <div>
-            <label className="text-sm font-medium text-foreground block mb-1.5">Current Mileage (km) / Perbatuan</label>
-            <input type="text" placeholder="Enter current mileage" value={mileage} onChange={e => setMileage(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
+            <label className="text-sm font-medium text-foreground block mb-1.5">Current Mileage (km)</label>
+            <input type="text" placeholder="Enter current mileage" value={mileage} onChange={e => setMileage(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground block mb-1.5">Date & Time Out / Masa Keluar</label>
-            <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
+            <label className="text-sm font-medium text-foreground block mb-1.5">Date & Time Out</label>
+            <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
           </div>
         </div>
 
         {/* Fuel Level */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-foreground block mb-2">Fuel Level / Aras Bahan Api</label>
-          <div className="flex gap-2">
+          <label className="text-sm font-medium text-foreground block mb-2">Fuel Level</label>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {fuelOptions.map(opt => {
               const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[opt] || 0;
               const isSelected = fuelLevel === opt;
@@ -485,7 +484,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
 
         {/* Petrol Card */}
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-foreground">Petrol Card / Kad Petrol</label>
+          <label className="text-sm font-medium text-foreground">Petrol Card</label>
           <div className="flex gap-1">
             <button onClick={() => setPetrolCard(false)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${!petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>NO</button>
             <button onClick={() => setPetrolCard(true)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>YES</button>
@@ -494,7 +493,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         {petrolCard && (
           <div className="mt-2">
             <label className="text-xs text-primary font-medium">Petrol Card Serial No (If YES)</label>
-            <input type="text" placeholder="e.g. 7088 1234 5678" value={petrolSerial} onChange={e => setPetrolSerial(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm mt-1" />
+            <input type="text" placeholder="e.g. 7088 1234 5678" value={petrolSerial} onChange={e => setPetrolSerial(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-background px-3 text-base sm:text-sm mt-1" />
           </div>
         )}
 
@@ -519,8 +518,8 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
 
         {/* Condition Remarks */}
         <div className="mt-5">
-          <label className="text-sm font-medium text-foreground block mb-1">Condition Remarks / Catatan Keadaan</label>
-          <textarea placeholder="Note any scratches, dents, or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[80px] resize-none" />
+          <label className="text-sm font-medium text-foreground block mb-1">Condition Remarks</label>
+          <textarea placeholder="Note any scratches, dents, or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base sm:text-sm min-h-[80px] resize-none" />
         </div>
       </div>
 
@@ -556,10 +555,10 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
           }}
           disabled={isSubmitting}
           className="w-full py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
-          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit / Hantar"}
+          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit"}
         </button>
         <button onClick={onCancel} disabled={isSubmitting} className="w-full py-3 rounded-lg bg-muted text-foreground font-medium text-sm hover:bg-muted/70 transition-colors disabled:opacity-50">
-          Cancel / Batal
+          Cancel
         </button>
       </div>
     </div>
@@ -586,7 +585,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
       
       // 12MB file size limit (12 * 1024 * 1024 bytes)
       if (file.size > 12 * 1024 * 1024) {
-        toast.error("File size must be less than 12MB. / Saiz fail mestilah kurang daripada 12MB.");
+        toast.error("File size must be less than 12MB.");
         e.target.value = ""; // Reset input
         return;
       }
@@ -597,13 +596,13 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   };
 
   const renderPhotoUpload = (side: string, label: string) => (
-    <label className="relative w-28 h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden bg-background shadow-sm group">
+    <label className="relative w-full aspect-video sm:aspect-auto sm:h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden bg-background shadow-sm group">
       {photos[side].url ? (
         <img src={photos[side].url!} alt={label} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
       ) : (
         <>
-          <Camera className="h-6 w-6 text-muted-foreground mb-2" />
-          <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+          <Camera className="h-6 w-6 text-muted-foreground mb-1 sm:mb-2" />
+          <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">{label}</span>
         </>
       )}
       <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
@@ -614,13 +613,11 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
     <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-In</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-In Form</h1>
-      <p className="text-muted-foreground text-sm">Borang Pulang Kenderaan</p>
 
       {/* Section 1: Rental Summary */}
       <div className="card-elevated p-5 mt-6">
         <div className="border-b border-border pb-3 mb-4">
           <h3 className="font-bold text-primary">Section 1: Rental Summary</h3>
-          <p className="text-[10px] text-primary font-bold uppercase tracking-wider">RINGKASAN SEWAAN</p>
         </div>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -673,30 +670,26 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
       <div className="card-elevated p-5 mt-4">
         <div className="border-b border-border pb-3 mb-4">
           <h3 className="font-bold text-primary">Section 2: Check-In Details</h3>
-          <p className="text-[10px] text-primary font-bold uppercase tracking-wider">BUTIRAN DAFTAR MASUK</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Current Mileage (Return)</label>
-            <p className="text-xs text-muted-foreground mb-2">Perbatuan Semasa (Pulang)</p>
-            <div className="relative group">
-              <input type="text" placeholder="Enter current mileage" value={mileageIn} onChange={e => setMileageIn(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pr-10 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
+            <div className="relative group mt-1.5">
+              <input type="text" placeholder="Enter current mileage" value={mileageIn} onChange={e => setMileageIn(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pr-10 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">km</span>
             </div>
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Date & Time In</label>
-            <p className="text-xs text-muted-foreground mb-2">Tarikh & Masa Masuk</p>
-            <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
+            <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 mt-1.5 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
           </div>
         </div>
 
         {/* Fuel Level */}
         <div className="mb-5">
           <label className="text-sm font-medium text-foreground block mb-0.5">Fuel Level (Return)</label>
-          <p className="text-xs text-muted-foreground mb-2">Aras Bahan Api (Pulang)</p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-1.5">
             {fuelOptions.map(opt => {
               const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[opt] || 0;
               const isSelected = fuelLevel === opt;
@@ -718,7 +711,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
         <div className="mb-5">
           <label className="text-sm font-medium text-foreground block mb-0.5">Condition Remarks</label>
           <p className="text-xs text-muted-foreground mb-1">Catatan Keadaan</p>
-          <textarea placeholder="State any new scratches, cleaning required or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[80px] resize-none" />
+          <textarea placeholder="State any new scratches, cleaning required or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base sm:text-sm min-h-[80px] resize-none" />
         </div>
 
         {/* Vehicle Condition Photos */}
@@ -772,7 +765,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           }} 
           disabled={isSubmitting}
           className="px-8 py-3 rounded-lg bg-accent text-accent-foreground font-bold text-sm hover:bg-accent/90 transition-colors flex items-center gap-2 disabled:opacity-70">
-          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Confirm Check-In / Sahkan Daftar Masuk"}
+          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Confirm Check-In"}
         </button>
       </div>
     </div>
@@ -801,7 +794,7 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
         {history.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No booking history found.</p>
         ) : (
-          <div className="max-h-[60vh] overflow-y-auto border border-border rounded-lg">
+          <div className="max-h-[60vh] overflow-auto border border-border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -957,17 +950,17 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
 
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">Car Model / Model Kereta <span className="text-destructive">*</span></label>
-            <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. Proton X50" className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm" required autoFocus={!initialData} disabled={isUploading} />
+            <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. Proton X50" className="w-full h-10 rounded-lg border border-border bg-background px-3 text-base sm:text-sm" required autoFocus={!initialData} disabled={isUploading} />
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">Plate Number / No. Plat <span className="text-destructive">*</span></label>
-            <input type="text" value={plateNumber} onChange={e => setPlateNumber(e.target.value)} placeholder="e.g. VCA 1234" className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm uppercase" required disabled={isUploading} />
+            <input type="text" value={plateNumber} onChange={e => setPlateNumber(e.target.value)} placeholder="e.g. VCA 1234" className="w-full h-10 rounded-lg border border-border bg-background px-3 text-base sm:text-sm uppercase" required disabled={isUploading} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">Car Type <span className="text-destructive">*</span></label>
               <Select value={type} onValueChange={setType} disabled={isUploading}>
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 text-base sm:text-sm">
                   <SelectValue placeholder="Select car type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -981,7 +974,7 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">Status <span className="text-destructive">*</span></label>
               <Select value={status} onValueChange={setStatus} disabled={isUploading || status === 'checked_out'}>
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 text-base sm:text-sm">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>

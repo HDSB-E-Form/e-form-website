@@ -351,7 +351,7 @@ const PpeRequestForm = () => {
               <Input
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
-                placeholder="Add any remarks..."
+                placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
                 className="h-11"
               />
             </div>

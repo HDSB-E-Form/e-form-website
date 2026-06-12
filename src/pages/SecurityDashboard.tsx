@@ -115,7 +115,8 @@ const SecurityDashboard = () => {
     
     updateSubmissionStatus(id, newStatus, { 
       securityLog: updatedSecurityLog,
-      remarks: securityLog.remarks 
+      remarks: logData?.remarks || securityLog.remarks,
+      rejectedStage: newStatus === "rejected" ? "admin" : undefined
     });
     toast.success(`Submission status updated to "${newStatus.replace('_', ' ')}".`);
     setSelectedSubmission(null);
@@ -189,7 +190,7 @@ const SecurityDashboard = () => {
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks</p>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks / Ulasan Pelulus</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
         )}
@@ -219,8 +220,8 @@ const SecurityDashboard = () => {
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-primary">Remarks (Optional)</Label>
-                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Add any notes..." className="h-11 mt-1" />
+                <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
+                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..." className="h-11 mt-1" />
               </div>
               <div className="flex gap-4 pt-4 border-t border-border">
                 <button onClick={() => handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors">REJECT</button>
@@ -249,8 +250,8 @@ const SecurityDashboard = () => {
                 <Input type="time" value={securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)} onChange={e => setSecurityLog(p => ({...p, actualTimeIn: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" />
               </div>
               <div>
-                <Label className="text-xs font-semibold text-primary">Remarks (Optional)</Label>
-                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Add any notes..." className="h-11 mt-1" />
+                <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
+                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..." className="h-11 mt-1" />
               </div>
               <div className="pt-4 border-t border-border">
                 <button 
@@ -341,6 +342,7 @@ const SecurityDashboard = () => {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -381,7 +383,7 @@ const SecurityDashboard = () => {
                     </TableCell>
                     <TableCell>{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary transition-colors">
+                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
                         {sub.status === "approved_hod" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
                       </button>
                     </TableCell>
@@ -390,6 +392,7 @@ const SecurityDashboard = () => {
             })}
               </TableBody>
             </Table>
+            </div>
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>
               {tabFiltered.length > 10 && (

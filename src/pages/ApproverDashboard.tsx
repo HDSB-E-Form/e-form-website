@@ -113,7 +113,7 @@ const ApproverDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks });
+    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? (isHOS ? "hos" : "hod") : undefined });
     toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
@@ -224,7 +224,7 @@ const ApproverDashboard = () => {
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks</p>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks / Ulasan Terdahulu</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
         )}
@@ -278,7 +278,7 @@ const ApproverDashboard = () => {
           }
           return (
             <>
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS (OPTIONAL) / ULASAN</p>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
               <Input
                 placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
                 value={remarks}
@@ -288,20 +288,18 @@ const ApproverDashboard = () => {
               <div className="flex gap-4">
                 <button
                   onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                  className="flex-1 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
+                  className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
                 >
-                  <span className="block text-base">Reject</span>
-                  <span className="block text-xs font-medium opacity-70">TOLAK</span>
+                  REJECT / TOLAK
                 </button>
                 <button
                   onClick={() => {
                     const nextStatus = isHOS ? "approved_hos" : "approved_hod";
                     handleAction(selectedSubmission.id, nextStatus);
                   }}
-                  className="flex-1 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
+                  className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
                 >
-                  <span className="block text-base">Accept</span>
-                  <span className="block text-xs font-medium opacity-80">TERIMA</span>
+                  APPROVE / LULUS
                 </button>
               </div>
             </>
@@ -395,6 +393,7 @@ const ApproverDashboard = () => {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
@@ -441,7 +440,7 @@ const ApproverDashboard = () => {
                     </TableCell>
                     <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-sm font-bold text-foreground hover:text-primary">
+                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
                         View Details
                       </button>
                     </TableCell>
@@ -450,6 +449,7 @@ const ApproverDashboard = () => {
             })}
               </TableBody>
             </Table>
+            </div>
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} entries</p>
               {tabFiltered.length > 10 && (

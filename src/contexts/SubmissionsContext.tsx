@@ -3,7 +3,7 @@ import { supabase } from "@/supabase";
 import { toast } from "sonner";
 
 export type SubmissionStatus = "pending" | "approved_hos" | "approved_hod" | "on_leave" | "approved" | "rejected";
-export type FormType = "car_rental" | "leave" | "claim";
+export type FormType = "car_rental" | "leave" | "claim" | "ppe_request" | "inventory_addition" | "waste_inventory" | "mixing_chemical_stages" | "final_discharge" | string;
 
 export interface Submission {
   id: string;
@@ -76,19 +76,26 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
-    // Get the most recent sequential ID from the database
-    const { data: latestSub } = await supabase
-      .from('submissions')
-      .select('id')
-      .filter('id', 'like', 'HDSB-%')
-      .order('submittedAt', { ascending: false })
-      .limit(1);
-
-    let nextNum = 1;
-    if (latestSub && latestSub.length > 0) {
-      nextNum = (parseInt(latestSub[0].id.replace('HDSB-', '')) || 0) + 1;
+    let newId = "";
+    
+    // Inventory actions bypass the standard HDSB- sequence
+    if (sub.formType === "inventory_addition" || sub.formType === "ppe_request") {
+      newId = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    } else {
+      // Get the most recent sequential ID from the database
+      const { data: latestSub } = await supabase
+        .from('submissions')
+        .select('id')
+        .filter('id', 'like', 'HDSB-%')
+        .order('submittedAt', { ascending: false })
+        .limit(1);
+  
+      let nextNum = 1;
+      if (latestSub && latestSub.length > 0) {
+        nextNum = (parseInt(latestSub[0].id.replace('HDSB-', '')) || 0) + 1;
+      }
+      newId = `HDSB-${String(nextNum).padStart(4, '0')}`;
     }
-    const newId = `HDSB-${String(nextNum).padStart(4, '0')}`;
 
     const newSub = {
       ...sub,

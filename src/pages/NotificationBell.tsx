@@ -58,7 +58,7 @@ export const NotificationBell = () => {
     const notifs: Notification[] = [];
     
     // Look at recent submissions (last 14 days) to avoid performance issues
-    const recentSubmissions = submissions.filter(s => {
+    const recentSubmissions = submissions.filter(s => !["inventory_addition", "ppe_request"].includes(s.formType)).filter(s => {
       const daysOld = (new Date().getTime() - new Date(s.submittedAt).getTime()) / (1000 * 60 * 60 * 24);
       return daysOld < 14;
     });
@@ -85,10 +85,6 @@ export const NotificationBell = () => {
         if (['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
           isRelevant = true;
           message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
-          path = "/admin/hr";
-        } else if (s.formType === 'ppe_request' && s.status === 'approved') {
-          isRelevant = true;
-          message = `New PPE/Uniform request from ${s.employeeName}.`;
           path = "/admin/hr";
         }
       }
