@@ -506,7 +506,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
             {renderPhotoUpload('front', 'Front View')}
             
             {/* Left and Right */}
-            <div className="flex w-full justify-between px-4 sm:px-16 md:px-24">
+            <div className="flex w-full gap-6 sm:gap-16 md:gap-24 px-2 sm:px-8 md:px-16">
               {renderPhotoUpload('left', 'Left Side')}
               {renderPhotoUpload('right', 'Right Side')}
             </div>
@@ -723,7 +723,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
             {renderPhotoUpload('front', 'Front View')}
             
             {/* Left and Right */}
-            <div className="flex w-full justify-between px-4 sm:px-16 md:px-24">
+            <div className="flex w-full gap-6 sm:gap-16 md:gap-24 px-2 sm:px-8 md:px-16">
               {renderPhotoUpload('left', 'Left Side')}
               {renderPhotoUpload('right', 'Right Side')}
             </div>
