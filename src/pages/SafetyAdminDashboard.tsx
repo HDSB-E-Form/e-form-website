@@ -4,7 +4,7 @@ import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Scale } from "lucide-react";
+import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Scale, Layers } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
@@ -19,13 +19,32 @@ const parameterOptions = [
 const SafetyAdminDashboard = () => {
     const { submissions } = useSubmissions();
     const [selectedParameter, setSelectedParameter] = useState("ph4");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+    const [dischargeStartDate, setDischargeStartDate] = useState("");
+    const [dischargeEndDate, setDischargeEndDate] = useState("");
+    const [mixingStartDate, setMixingStartDate] = useState("");
+    const [mixingEndDate, setMixingEndDate] = useState("");
+    const [wasteStartDate, setWasteStartDate] = useState("");
+    const [wasteEndDate, setWasteEndDate] = useState("");
+    const [exportStartDate, setExportStartDate] = useState("");
+    const [exportEndDate, setExportEndDate] = useState("");
     const [isRemarksOpen, setIsRemarksOpen] = useState(false);
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [wastePlantFilter, setWastePlantFilter] = useState<"All" | "Plant 1" | "Plant 2">("All");
+    const [dashboardView, setDashboardView] = useState<"discharge" | "mixing" | "waste">("discharge");
     
+    // Mixing Parameter State
+    const mixingParameterOptions = [
+        { id: "causticSodaPH1", label: "Caustic Soda (pH 1)", unit: "" },
+        { id: "coagulationPH2", label: "Coagulation (pH 2)", unit: "" },
+        { id: "flocculationPH3", label: "Flocculation (pH 3)", unit: "" },
+        { id: "causticSodaLitres", label: "Caustic Soda (L)", unit: "L" },
+        { id: "coagulationLitres", label: "Coagulation (L)", unit: "L" },
+        { id: "flocculationLitres", label: "Flocculation (L)", unit: "L" },
+    ];
+    const [selectedMixingParameter, setSelectedMixingParameter] = useState("causticSodaPH1");
+    const selectedMixingParamInfo = mixingParameterOptions.find(p => p.id === selectedMixingParameter);
+
     // Poster Management State
     const [isPosterSettingsOpen, setIsPosterSettingsOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -84,11 +103,11 @@ const SafetyAdminDashboard = () => {
     }, [submissions]);
 
     const chartData = useMemo(() => {
-        const start = startDate || "0000-00-00";
-        const end = endDate || "9999-12-31";
+        const start = dischargeStartDate || "0000-00-00";
+        const end = dischargeEndDate || "9999-12-31";
 
         const data = monitoringSubmissions
-            .filter(s => s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
+            .filter(s => s.formType === "final_discharge" && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
             .map(s => ({
                 date: s.data.metaInfo.date,
                 value: parseFloat(s.data.finalDischarge?.[selectedParameter]) || 0,
@@ -109,16 +128,44 @@ const SafetyAdminDashboard = () => {
             date: new Date(d.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
             value: parseFloat((d.totalValue / d.count).toFixed(2)),
         }));
-    }, [monitoringSubmissions, selectedParameter, startDate, endDate]);
+    }, [monitoringSubmissions, selectedParameter, dischargeStartDate, dischargeEndDate]);
+
+    const mixingChartData = useMemo(() => {
+        const start = mixingStartDate || "0000-00-00";
+        const end = mixingEndDate || "9999-12-31";
+
+        const data = monitoringSubmissions
+            .filter(s => (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
+            .map(s => ({
+                date: s.data.metaInfo.date,
+                value: parseFloat(s.data.processInfo?.[selectedMixingParameter]) || 0,
+            }))
+            .filter(d => d.value > 0)
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        const groupedData = data.reduce((acc, curr) => {
+            if (!acc[curr.date]) {
+                acc[curr.date] = { date: curr.date, totalValue: 0, count: 0 };
+            }
+            acc[curr.date].totalValue += curr.value;
+            acc[curr.date].count++;
+            return acc;
+        }, {} as Record<string, { date: string, totalValue: number, count: number }>);
+
+        return Object.values(groupedData).map(d => ({
+            date: new Date(d.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+            value: parseFloat((d.totalValue / d.count).toFixed(2)),
+        }));
+    }, [monitoringSubmissions, selectedMixingParameter, mixingStartDate, mixingEndDate]);
 
     const selectedParamInfo = parameterOptions.find(p => p.id === selectedParameter);
 
-    const stats = useMemo(() => {
-        const start = startDate || "0000-00-00";
-        const end = endDate || "9999-12-31";
+    const dischargeStats = useMemo(() => {
+        const start = dischargeStartDate || "0000-00-00";
+        const end = dischargeEndDate || "9999-12-31";
 
         const filteredSubmissions = monitoringSubmissions.filter(s => {
-            return s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
+            return s.formType === "final_discharge" && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
         });
         
         let phTotal = 0, phCount = 0;
@@ -141,11 +188,41 @@ const SafetyAdminDashboard = () => {
             avgCod: codCount > 0 ? (codTotal / codCount).toFixed(2) : "0.00",
             avgFlow: flowCount > 0 ? (flowTotal / flowCount).toFixed(2) : "0.00",
         };
-    }, [monitoringSubmissions, startDate, endDate]);
+    }, [monitoringSubmissions, dischargeStartDate, dischargeEndDate]);
+
+    const mixingStats = useMemo(() => {
+        const start = mixingStartDate || "0000-00-00";
+        const end = mixingEndDate || "9999-12-31";
+
+        const filteredSubmissions = monitoringSubmissions.filter(s => {
+            return (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
+        });
+        
+        let ph1Total = 0, ph1Count = 0;
+        let ph2Total = 0, ph2Count = 0;
+        let ph3Total = 0, ph3Count = 0;
+
+        filteredSubmissions.forEach(s => {
+            const ph1 = parseFloat(s.data.processInfo?.causticSodaPH1);
+            const ph2 = parseFloat(s.data.processInfo?.coagulationPH2);
+            const ph3 = parseFloat(s.data.processInfo?.flocculationPH3);
+
+            if (!isNaN(ph1) && ph1 > 0) { ph1Total += ph1; ph1Count++; }
+            if (!isNaN(ph2) && ph2 > 0) { ph2Total += ph2; ph2Count++; }
+            if (!isNaN(ph3) && ph3 > 0) { ph3Total += ph3; ph3Count++; }
+        });
+
+        return {
+            totalReports: filteredSubmissions.length,
+            avgPh1: ph1Count > 0 ? (ph1Total / ph1Count).toFixed(2) : "0.00",
+            avgPh2: ph2Count > 0 ? (ph2Total / ph2Count).toFixed(2) : "0.00",
+            avgPh3: ph3Count > 0 ? (ph3Total / ph3Count).toFixed(2) : "0.00",
+        };
+    }, [monitoringSubmissions, mixingStartDate, mixingEndDate]);
 
     const wasteChartData = useMemo(() => {
-        const start = startDate || "0000-00-00";
-        const end = endDate || "9999-12-31";
+        const start = wasteStartDate || "0000-00-00";
+        const end = wasteEndDate || "9999-12-31";
 
         const filtered = wasteSubmissions.filter(s => {
             const subDate = s.data.recordDate || new Date(s.submittedAt).toISOString().split('T')[0];
@@ -187,7 +264,7 @@ const SafetyAdminDashboard = () => {
             pieData, sellData, payData,
             stats: { sell: totalSell, pay: totalPay, total: totalSell + totalPay }
         };
-    }, [wasteSubmissions, startDate, endDate, wastePlantFilter]);
+    }, [wasteSubmissions, wasteStartDate, wasteEndDate, wastePlantFilter]);
 
     const handleAddWasteType = () => {
         if (!newTypeName.trim()) return toast.error("Waste type name cannot be empty");
@@ -256,8 +333,8 @@ const SafetyAdminDashboard = () => {
         // Fallback for older submissions that might be saved under "daily_operation_monitoring"
         let dataToExport = submissions.filter(s => s.formType === formTypeFilter || (targetForm === "mixing" && s.formType === "daily_operation_monitoring"));
 
-        const start = startDate || "0000-00-00";
-        const end = endDate || "9999-12-31";
+        const start = exportStartDate || "0000-00-00";
+        const end = exportEndDate || "9999-12-31";
         dataToExport = dataToExport.filter(s => {
             const subDate = s.data.metaInfo?.date || new Date(s.submittedAt).toISOString().split('T')[0];
             return subDate >= start && subDate <= end;
@@ -382,59 +459,101 @@ const SafetyAdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="card-elevated p-5 border-l-4 border-l-primary/50">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Monitoring Reports</p>
-                    <p className="text-3xl font-bold text-foreground">{stats.totalReports}</p>
-                </div>
-                <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average pH</p>
-                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.avgPh}</p>
-                </div>
-                <div className="card-elevated p-5 border-l-4 border-l-blue-500">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average COD</p>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.avgCod} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
-                </div>
-                <div className="card-elevated p-5 border-l-4 border-l-amber-500">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average Flowrate</p>
-                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{stats.avgFlow} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
-                </div>
+            {/* Dashboard Tabs */}
+            <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mt-6 mb-8 border-b border-border pb-1">
+                {[
+                    { id: "discharge", label: "Final Discharge", icon: Droplet },
+                    { id: "mixing", label: "Mixing & Chemical", icon: Layers },
+                    { id: "waste", label: "Waste Inventory", icon: Scale },
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setDashboardView(tab.id as any)}
+                        className={`flex items-center gap-2 whitespace-nowrap px-5 py-3 rounded-t-lg text-sm font-bold transition-colors border-b-2 ${
+                            dashboardView === tab.id
+                                ? "border-primary text-primary bg-primary/5"
+                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                        }`}
+                    >
+                        <tab.icon className="h-4 w-4" /> {tab.label}
+                    </button>
+                ))}
             </div>
 
-            {/* Global Date Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-8 mb-6 bg-muted/20 p-4 rounded-2xl border border-border/50">
-                <div>
-                    <h2 className="font-bold text-foreground text-sm">Dashboard Filters</h2>
-                    <p className="text-xs text-muted-foreground">Selected dates apply to all charts below.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="w-full sm:w-40">
-                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
-                        <Input 
-                            type="date"
-                            value={startDate} 
-                            onChange={e => setStartDate(e.target.value)} 
-                            className="h-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" 
-                        />
+            {/* Stats Cards - Discharge */}
+            {dashboardView === "discharge" && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="card-elevated p-5 border-l-4 border-l-primary/50">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Monitoring Reports</p>
+                        <p className="text-3xl font-bold text-foreground">{dischargeStats.totalReports}</p>
                     </div>
-                    <div className="w-full sm:w-40">
-                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">To Date</Label>
-                        <Input 
-                            type="date"
-                            value={endDate} 
-                            onChange={e => setEndDate(e.target.value)} 
-                            className="h-10 w-full rounded-xl border border-border/50 bg-background/80 hover:bg-background focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" 
-                        />
+                    <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average pH</p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{dischargeStats.avgPh}</p>
+                    </div>
+                    <div className="card-elevated p-5 border-l-4 border-l-blue-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average COD</p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dischargeStats.avgCod} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
+                    </div>
+                    <div className="card-elevated p-5 border-l-4 border-l-amber-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average Flowrate</p>
+                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{dischargeStats.avgFlow} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* Stats Cards - Mixing */}
+            {dashboardView === "mixing" && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="card-elevated p-5 border-l-4 border-l-primary/50">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Mixing Reports</p>
+                        <p className="text-3xl font-bold text-foreground">{mixingStats.totalReports}</p>
+                    </div>
+                    <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Avg pH 1 (Caustic)</p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{mixingStats.avgPh1}</p>
+                    </div>
+                    <div className="card-elevated p-5 border-l-4 border-l-blue-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Avg pH 2 (Coagulation)</p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{mixingStats.avgPh2}</p>
+                    </div>
+                    <div className="card-elevated p-5 border-l-4 border-l-amber-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Avg pH 3 (Flocculation)</p>
+                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{mixingStats.avgPh3}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Date Filters - Discharge & Mixing */}
+            {(dashboardView === "discharge" || dashboardView === "mixing") && (
+                <div className="flex items-center justify-end gap-4 mb-6">
+                    <div className="flex items-center gap-2">
+                        <Label className="text-xs font-medium text-muted-foreground">From:</Label>
+                        <Input 
+                            type="date"
+                            value={dashboardView === "discharge" ? dischargeStartDate : mixingStartDate} 
+                            onChange={e => dashboardView === "discharge" ? setDischargeStartDate(e.target.value) : setMixingStartDate(e.target.value)} 
+                            className="h-9 w-36 text-xs dark:[color-scheme:dark]" 
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Label className="text-xs font-medium text-muted-foreground">To:</Label>
+                        <Input 
+                            type="date"
+                            value={dashboardView === "discharge" ? dischargeEndDate : mixingEndDate} 
+                            onChange={e => dashboardView === "discharge" ? setDischargeEndDate(e.target.value) : setMixingEndDate(e.target.value)} 
+                            className="h-9 w-36 text-xs dark:[color-scheme:dark]" 
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Discharge Monitoring Chart */}
-            <div className="card-elevated p-6 mb-8">
+            {dashboardView === "discharge" && (
+                <div className="card-elevated p-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                         <div>
-                            <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Water Treatment Monitoring</h2>
+                            <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><Droplet className="h-5 w-5 text-primary" /> Final Discharge Graph</h2>
                             <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
                         </div>
                         <div className="w-full sm:w-48">
@@ -483,9 +602,53 @@ const SafetyAdminDashboard = () => {
                         </ResponsiveContainer>
                     </div>
                 </div>
+            )}
+
+            {/* Mixing Monitoring Chart */}
+            {dashboardView === "mixing" && (
+                <div className="card-elevated p-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><Layers className="h-5 w-5 text-primary" /> Mixing Graph</h2>
+                            <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
+                        </div>
+                        <div className="w-full sm:w-56">
+                            <Select value={selectedMixingParameter} onValueChange={setSelectedMixingParameter}>
+                                <SelectTrigger className="h-10 rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 transition-all shadow-sm text-sm font-medium">
+                                    <SelectValue placeholder="Select Parameter" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {mixingParameterOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={mixingChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                <YAxis 
+                                    tick={{ fontSize: 12 }} 
+                                    tickLine={false} 
+                                    axisLine={false} 
+                                    domain={selectedMixingParameter.toLowerCase().includes("ph") ? [(dataMin: number) => Math.min(dataMin - 0.5, 5.5), (dataMax: number) => Math.max(dataMax + 0.5, 9.5)] : ['dataMin - 1', 'dataMax + 1']} 
+                                />
+                                <Tooltip contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
+                                <Legend />
+                                {selectedMixingParameter.toLowerCase().includes("ph") && (
+                                    <><ReferenceLine y={9} stroke="#ef4444" strokeDasharray="3 3" /><ReferenceLine y={5.5} stroke="#ef4444" strokeDasharray="3 3" /></>
+                                )}
+                                <Line type="monotone" dataKey="value" name={`${selectedMixingParamInfo?.label} ${selectedMixingParamInfo?.unit ? `(${selectedMixingParamInfo.unit})` : ''}`} stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
 
             {/* Waste Inventory Section */}
-            <div className="mt-12 mb-8">
+            {dashboardView === "waste" && (
+                <div className="mb-8 animate-in fade-in slide-in-from-bottom-4">
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
                     <div>
                         <h2 className="font-bold text-foreground text-xl flex items-center gap-2">
@@ -493,16 +656,39 @@ const SafetyAdminDashboard = () => {
                         </h2>
                         <p className="text-xs text-muted-foreground mt-1">Track scheduled waste generation, recycling, and disposal.</p>
                     </div>
-                    <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50 w-fit">
-                        {["All", "Plant 1", "Plant 2"].map(plant => (
-                            <button 
-                                key={plant} 
-                                onClick={() => setWastePlantFilter(plant as any)} 
-                                className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${wastePlantFilter === plant ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                                {plant === "All" ? "All Plants" : plant}
-                            </button>
-                        ))}
+                    <div className="flex flex-col items-end gap-4">
+                        {/* Date Filters - Waste */}
+                        <div className="flex items-center justify-end gap-4">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-xs font-medium text-muted-foreground">From:</Label>
+                                <Input 
+                                    type="date"
+                                    value={wasteStartDate} 
+                                    onChange={e => setWasteStartDate(e.target.value)} 
+                                    className="h-9 w-36 text-xs dark:[color-scheme:dark]" 
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Label className="text-xs font-medium text-muted-foreground">To:</Label>
+                                <Input 
+                                    type="date"
+                                    value={wasteEndDate} 
+                                    onChange={e => setWasteEndDate(e.target.value)} 
+                                    className="h-9 w-36 text-xs dark:[color-scheme:dark]" 
+                                />
+                            </div>
+                        </div>
+                        <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50 w-fit">
+                            {["All", "Plant 1", "Plant 2"].map(plant => (
+                                <button 
+                                    key={plant} 
+                                    onClick={() => setWastePlantFilter(plant as any)} 
+                                    className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${wastePlantFilter === plant ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                                >
+                                    {plant === "All" ? "All Plants" : plant}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -583,6 +769,7 @@ const SafetyAdminDashboard = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* Remarks Sheet */}
             <Sheet open={isRemarksOpen} onOpenChange={setIsRemarksOpen}>
@@ -630,35 +817,35 @@ const SafetyAdminDashboard = () => {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
-                                    <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                                    <Input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
                                 </div>
                                 <div>
                                     <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">To Date</Label>
-                                    <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                                    <Input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2 pt-1">
                                 <button onClick={() => {
                                     const today = new Date().toISOString().split('T')[0];
-                                    setStartDate(today);
-                                    setEndDate(today);
+                                    setExportStartDate(today);
+                                    setExportEndDate(today);
                                 }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Today</button>
                                 <button onClick={() => {
                                     const today = new Date();
                                     const lastWeek = new Date(today);
                                     lastWeek.setDate(today.getDate() - 7);
-                                    setStartDate(lastWeek.toISOString().split('T')[0]);
-                                    setEndDate(today.toISOString().split('T')[0]);
+                                    setExportStartDate(lastWeek.toISOString().split('T')[0]);
+                                    setExportEndDate(today.toISOString().split('T')[0]);
                                 }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Last 7 Days</button>
                                 <button onClick={() => {
                                     const today = new Date();
                                     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                                    setStartDate(firstDay.toISOString().split('T')[0]);
-                                    setEndDate(today.toISOString().split('T')[0]);
+                                    setExportStartDate(firstDay.toISOString().split('T')[0]);
+                                    setExportEndDate(today.toISOString().split('T')[0]);
                                 }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">This Month</button>
                                 <button onClick={() => {
-                                    setStartDate("");
-                                    setEndDate("");
+                                    setExportStartDate("");
+                                    setExportEndDate("");
                                 }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Clear</button>
                             </div>
                         </div>
