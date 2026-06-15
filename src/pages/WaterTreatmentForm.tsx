@@ -46,8 +46,8 @@ const DailyOperationMonitoringForm = () => {
 
   // --- FORM STATE ---
   const [metaInfo, setMetaInfo] = useState({
-    date: "",
-    time: "",
+    date: new Date().toISOString().split("T")[0],
+    time: new Date().toTimeString().slice(0, 5),
     shift: "", // Dropdown (Day / Night)
   });
 
@@ -96,16 +96,14 @@ const DailyOperationMonitoringForm = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    const now = new Date();
+    // Use the user-selected date/time instead of auto-generating it
     const finalMetaInfo = {
       ...metaInfo,
-      date: now.toISOString().split("T")[0],
-      time: now.toTimeString().slice(0, 5),
     };
 
     const success = await addSubmission({
       formType: activeFormType === "mixing" ? "mixing_chemical_stages" : "final_discharge",
-      status: "pending",
+      status: "approved",
       submittedBy: user?.id || "",
       employeeName: user?.name || "Unknown User",
       department: user?.department || "Unknown Dept",
@@ -178,34 +176,43 @@ const DailyOperationMonitoringForm = () => {
           </div>
         </div>
 
-        {activeFormType === "discharge" && (
-          <>
-            {/* SECTION 1: Meta Information */}
-            <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-              <div className="flex items-center gap-2 mb-5">
-                <Calendar className="h-5 w-5 text-primary" />
-                <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
-                  Log Identification / <span className="font-normal text-muted-foreground">Maklumat Log</span>
-                </h2>
-              </div>
+        {/* SECTION 1: Meta Information (Unified for both forms) */}
+        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
+          <div className="flex items-center gap-2 mb-5">
+            <Calendar className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+              Record Details / <span className="font-normal text-muted-foreground">Butiran Rekod</span>
+            </h2>
+          </div>
 
-              <div className="max-w-xs">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-primary">Shift <span className="text-destructive">*</span></Label>
-                  <Select value={metaInfo.shift} onValueChange={(val) => setMetaInfo(p => ({ ...p, shift: val }))}>
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select Shift" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Day">Day</SelectItem>
-                      <SelectItem value="Night">Night</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Shift <span className="text-destructive">*</span></Label>
+              <Select value={metaInfo.shift} onValueChange={(val) => setMetaInfo(p => ({ ...p, shift: val }))}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select Shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Day">Day</SelectItem>
+                  <SelectItem value="Night">Night</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Record Date <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <Input type="date" value={metaInfo.date} onChange={e => setMetaInfo(p => ({ ...p, date: e.target.value }))} className="h-11 w-full dark:[color-scheme:dark]" />
               </div>
             </div>
-          </>
-        )}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Record Time <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <Input type="time" value={metaInfo.time} onChange={e => setMetaInfo(p => ({ ...p, time: e.target.value }))} className="h-11 w-full dark:[color-scheme:dark]" />
+              </div>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-3">You can backdate these fields if you are entering historical or missed records.</p>
+        </div>
 
       {activeFormType === "mixing" && (
         <>
@@ -222,18 +229,6 @@ const DailyOperationMonitoringForm = () => {
             {/* Mixing Tank Unit */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
               <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Mixing Tank Details</div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Shift <span className="text-destructive">*</span></Label>
-                <Select value={metaInfo.shift} onValueChange={(val) => setMetaInfo(p => ({ ...p, shift: val }))}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select Shift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Day">Day</SelectItem>
-                    <SelectItem value="Night">Night</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter) <span className="text-destructive">*</span></Label>
                 <Select value={processInfo.mixingTankVolume} onValueChange={(val) => setProcessInfo(p => ({ ...p, mixingTankVolume: val }))}>
@@ -438,7 +433,7 @@ const DailyOperationMonitoringForm = () => {
             className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-          {isSubmitting ? "Submitting Records..." : `Submit ${activeFormType === "mixing" ? "Mixing Log" : "Discharge Log"} / Hantar Rekod`}
+          {isSubmitting ? "Submitting Records..." : activeFormType === "mixing" ? "Submit Mixing Log" : "Submit Discharge Log"}
           </button>
         </div>
       </form>

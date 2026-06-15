@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
@@ -106,10 +106,23 @@ const ApproverDashboard = () => {
     resolved: filtered.filter(s => s.status === "approved" || s.status === "rejected").length,
   };
 
+  const refNoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+    const standardForms = submissions
+      .filter(s => !excludedForms.includes(s.formType))
+      .sort((a, b) => {
+        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
+      });
+    standardForms.forEach((s, idx) => {
+      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
+    });
+    return map;
+  }, [submissions]);
+
   const generateRefNo = (sub: Submission) => {
-    if (sub.id.startsWith("HDSB-")) return sub.id;
-    const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
-    return `HDSB-${num}`;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
@@ -412,7 +425,7 @@ const ApproverDashboard = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-1 h-12 rounded-full bg-primary" />
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
+                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
                       {avatarUrl ? (
                         <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
                       ) : (

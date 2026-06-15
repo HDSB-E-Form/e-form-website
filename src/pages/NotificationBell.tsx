@@ -58,7 +58,8 @@ export const NotificationBell = () => {
     const notifs: Notification[] = [];
     
     // Look at recent submissions (last 14 days) to avoid performance issues
-    const recentSubmissions = submissions.filter(s => !["inventory_addition", "ppe_request"].includes(s.formType)).filter(s => {
+    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+    const recentSubmissions = submissions.filter(s => !excludedForms.includes(s.formType)).filter(s => {
       const daysOld = (new Date().getTime() - new Date(s.submittedAt).getTime()) / (1000 * 60 * 60 * 24);
       return daysOld < 14;
     });

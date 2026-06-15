@@ -10,7 +10,8 @@ const HomePage = () => {
   const { submissions } = useSubmissions();
 
   // Calculate user's personal submission stats
-  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !["inventory_addition", "ppe_request"].includes(s.formType));
+  const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType));
   const stats = {
     total: mySubmissions.length,
     accepted: mySubmissions.filter(s => s.status === "approved").length,

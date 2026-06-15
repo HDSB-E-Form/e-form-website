@@ -218,10 +218,23 @@ const AdminDashboard = () => {
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
   };
 
+  const refNoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+    const standardForms = submissions
+      .filter(s => !excludedForms.includes(s.formType))
+      .sort((a, b) => {
+        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
+      });
+    standardForms.forEach((s, idx) => {
+      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
+    });
+    return map;
+  }, [submissions]);
+
   const generateRefNo = (sub: Submission) => {
-    if (sub.id.startsWith("HDSB-")) return sub.id;
-    const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
-    return `HDSB-${num}`;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
@@ -640,7 +653,7 @@ const AdminDashboard = () => {
                     <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
+                    <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
                       {avatarUrl ? (
                         <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
                       ) : (
@@ -726,12 +739,12 @@ const AdminDashboard = () => {
             {/* Stock Levels */}
             <div className="xl:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
               <div className="p-5 border-b border-border bg-muted/10 shrink-0 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-bold text-foreground">Stock Levels</h2>
                     <p className="text-xs text-muted-foreground">Monitor remaining inventory across all categories</p>
                   </div>
-                  <button onClick={() => setIsStockSheetOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap">
+                  <button onClick={() => setIsStockSheetOpen(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap">
                     <Plus className="h-4 w-4" /> Add / Update Stock
                   </button>
                 </div>
@@ -739,8 +752,8 @@ const AdminDashboard = () => {
                   <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                     {[
                       { id: "ppe", label: "PPE" },
-                      { id: "uniform", label: "Uniforms" },
-                      { id: "office", label: "Office Supplies" },
+                      { id: "uniform", label: "Uniform" },
+                      { id: "office", label: "Office Supply" },
                     ].map(tab => (
                       <button
                         key={tab.id}

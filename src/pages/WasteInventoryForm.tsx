@@ -5,7 +5,7 @@ import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Trash2, PlusCircle, Scale, FileText, Send, FileDown, RotateCcw } from "lucide-react";
+import { ArrowLeft, Trash2, PlusCircle, Scale, FileText, Send, FileDown, RotateCcw, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 
@@ -34,6 +34,9 @@ const WasteInventoryForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [plant, setPlant] = useState<"Plant 1" | "Plant 2">("Plant 1");
   const [category, setCategory] = useState<"sell" | "pay">("sell");
+  
+  const [recordDate, setRecordDate] = useState(new Date().toISOString().split("T")[0]);
+  const [recordTime, setRecordTime] = useState(new Date().toTimeString().slice(0, 5));
   
   const [sellWasteTypes] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("hdsb_waste_types_sell") || "null") || DEFAULT_SELL_WASTE_TYPES; } 
@@ -109,6 +112,8 @@ const WasteInventoryForm = () => {
       wasteType,
       rows,
       totals,
+      recordDate,
+      recordTime,
     };
 
     const success = await addSubmission({
@@ -235,6 +240,18 @@ const WasteInventoryForm = () => {
               </div>
               <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
                 Category: {category === "sell" ? "Recycle (Sell)" : "Dispose (Pay)"}
+              </div>
+            </div>
+            
+            {/* Record Date & Time (Backdating support) */}
+            <div className="grid grid-cols-2 gap-4 print:hidden">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">Record Date</Label>
+                <Input type="date" value={recordDate} onChange={e => setRecordDate(e.target.value)} className="h-11 dark:[color-scheme:dark]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">Record Time</Label>
+                <Input type="time" value={recordTime} onChange={e => setRecordTime(e.target.value)} className="h-11 dark:[color-scheme:dark]" />
               </div>
             </div>
 

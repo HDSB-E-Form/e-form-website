@@ -41,6 +41,7 @@ const ProfilePage = () => {
     employeeId: user?.employeeId || "",
     department: user?.department || "",
     phone: user?.phone || "",
+    position: (user as any)?.position || "",
   });
 
   // Keep profile form in sync if background fetch updates user
@@ -51,6 +52,7 @@ const ProfilePage = () => {
         employeeId: user.employeeId || "",
         department: user.department || "",
         phone: user.phone || "",
+        position: (user as any)?.position || "",
       });
       setPreviewUrl(user.avatar || "");
       setAvatarFile(null);
@@ -160,6 +162,7 @@ const ProfilePage = () => {
         employeeId: user.employeeId || "",
         department: user.department || "",
         phone: user.phone || "",
+        position: (user as any)?.position || "",
       });
       setPreviewUrl(user.avatar || "");
     }
@@ -308,8 +311,8 @@ const ProfilePage = () => {
                     <User className="h-5 w-5 text-primary" />
                     <h2 className="font-bold text-foreground text-lg">Edit Profile</h2>
                   </div>
-                  <button type="button" onClick={handleCancel} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors" title="Cancel">
-                    <X className="h-5 w-5" />
+                  <button type="button" onClick={handleCancel} className="flex items-center justify-center p-2.5 bg-muted/60 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors border border-border/50 shadow-sm" title="Cancel">
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
                 
@@ -332,45 +335,50 @@ const ProfilePage = () => {
                 </div>
 
                 <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Email Address</Label>
+                    <Input value={user?.email || ""} disabled className="cursor-not-allowed bg-muted/50" />
+                    <p className="text-[10px] text-muted-foreground">Your email address is used for login and cannot be changed.</p>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Full Name</Label>
                       <Input value={profile.name} onChange={e => handleProfileChange("name", e.target.value)} autoFocus />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Email Address</Label>
-                      <Input value={user?.email || ""} disabled className="cursor-not-allowed bg-muted/50" />
+                      <Label>Staff ID</Label>
+                      <Input value={profile.employeeId} onChange={e => handleProfileChange("employeeId", e.target.value)} />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label>Staff ID</Label>
-                      <Input value={profile.employeeId} onChange={e => handleProfileChange("employeeId", e.target.value)} />
+                      <Label>Job Title / Position</Label>
+                      <Input value={profile.position} onChange={e => handleProfileChange("position", e.target.value)} placeholder="e.g. Assistant Manager" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Phone Number</Label>
-                      <Input value={profile.phone} onChange={e => handleProfileChange("phone", e.target.value)} placeholder="e.g. +60123456789" />
+                      <Label>Department</Label>
+                      <Select value={departmentsList.includes(profile.department) ? profile.department : undefined} onValueChange={val => handleProfileChange("department", val)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {departmentsList.map(dept => (
+                            <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Department</Label>
-                  <Select value={departmentsList.includes(profile.department) ? profile.department : undefined} onValueChange={val => handleProfileChange("department", val)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                      {departmentsList.map(dept => (
-                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Phone Number</Label>
+                    <Input value={profile.phone} onChange={e => handleProfileChange("phone", e.target.value)} placeholder="e.g. +60123456789" />
                   </div>
                 </div>
-                <div className="mt-6 border-t border-border pt-5 flex justify-end gap-3">
-                  <button type="button" onClick={handleCancel} className="px-5 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted/50 transition-colors">
+                <div className="mt-6 border-t border-border pt-5 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                  <button type="button" onClick={handleCancel} className="w-full sm:w-auto px-5 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted/50 transition-colors text-center">
                     Cancel
                   </button>
-              <button type="submit" className="btn-gold px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300" disabled={isProfileSaving}>
+                  <button type="submit" className="btn-gold w-full sm:w-auto px-6 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300" disabled={isProfileSaving}>
                     <Save className="h-4 w-4" />
                     {isProfileSaving ? "Saving..." : "Save Changes"}
                   </button>

@@ -4,7 +4,7 @@ import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload } from "lucide-react";
+import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Scale } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
@@ -48,6 +48,25 @@ const SafetyAdminDashboard = () => {
     useEffect(() => { localStorage.setItem("hdsb_waste_types_sell", JSON.stringify(sellTypes)); }, [sellTypes]);
     useEffect(() => { localStorage.setItem("hdsb_waste_types_pay", JSON.stringify(payTypes)); }, [payTypes]);
     useEffect(() => { localStorage.setItem("hdsb_safety_poster_config", JSON.stringify(posterConfig)); }, [posterConfig]);
+
+    const safetyRefNoMap = useMemo(() => {
+        const map = new Map<string, string>();
+        const safetyForms = submissions
+            .filter(s => ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(s.formType))
+            .sort((a, b) => {
+                const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+                return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
+            });
+            
+        safetyForms.forEach((s, idx) => {
+            map.set(s.id, `SFTY-${String(idx + 1).padStart(4, "0")}`);
+        });
+        return map;
+    }, [submissions]);
+
+    const generateRefNo = (subId: string) => {
+        return safetyRefNoMap.get(subId) || `SFTY-${subId.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    };
 
     const monitoringSubmissions = useMemo(() => 
         submissions.filter(s => ["final_discharge", "mixing_chemical_stages", "daily_operation_monitoring"].includes(s.formType)), 
@@ -102,63 +121,62 @@ const SafetyAdminDashboard = () => {
             return s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
         });
         
-        let totalValue = 0;
-        let validCount = 0;
+        let phTotal = 0, phCount = 0;
+        let codTotal = 0, codCount = 0;
+        let flowTotal = 0, flowCount = 0;
 
         filteredSubmissions.forEach(s => {
-            const val = parseFloat(s.data.finalDischarge?.[selectedParameter]);
-            if (!isNaN(val) && val > 0) {
-                totalValue += val;
-                validCount++;
-            }
+            const ph = parseFloat(s.data.finalDischarge?.ph4);
+            const cod = parseFloat(s.data.finalDischarge?.cod);
+            const flow = parseFloat(s.data.finalDischarge?.flowrate);
+
+            if (!isNaN(ph) && ph > 0) { phTotal += ph; phCount++; }
+            if (!isNaN(cod) && cod >= 0) { codTotal += cod; codCount++; }
+            if (!isNaN(flow) && flow > 0) { flowTotal += flow; flowCount++; }
         });
 
         return {
             totalReports: filteredSubmissions.length,
-            avgValue: validCount > 0 ? (totalValue / validCount).toFixed(2) : "0.00",
+            avgPh: phCount > 0 ? (phTotal / phCount).toFixed(2) : "0.00",
+            avgCod: codCount > 0 ? (codTotal / codCount).toFixed(2) : "0.00",
+            avgFlow: flowCount > 0 ? (flowTotal / flowCount).toFixed(2) : "0.00",
         };
-    }, [monitoringSubmissions, startDate, endDate, selectedParameter]);
+    }, [monitoringSubmissions, startDate, endDate]);
 
     const wasteChartData = useMemo(() => {
         const start = startDate || "0000-00-00";
         const end = endDate || "9999-12-31";
 
-        const dateFiltered = wasteSubmissions.filter(s => {
-            const subDate = new Date(s.submittedAt).toISOString().split('T')[0];
-            return subDate >= start && subDate <= end;
+        const filtered = wasteSubmissions.filter(s => {
+            const subDate = s.data.recordDate || new Date(s.submittedAt).toISOString().split('T')[0];
+            const dateMatch = subDate >= start && subDate <= end;
+            const plantMatch = wastePlantFilter === "All" || s.data.plant === wastePlantFilter;
+            return dateMatch && plantMatch;
         });
 
-        // Overall Stats (Unaffected by Plant Filter)
         let totalSell = 0, totalPay = 0;
-        dateFiltered.forEach(s => {
+        const sellStats: Record<string, any> = {};
+        const payStats: Record<string, any> = {};
+
+        filtered.forEach(s => {
             const cat = s.data.category;
             const net = parseFloat(s.data.totals?.net) || 0;
-            if (cat === "sell") totalSell += net;
-            else if (cat === "pay") totalPay += net;
-        });
-
-        // Bar Stats (Affected by Plant Filter)
-        let barSell = 0, barPay = 0;
-        const wasteStats: Record<string, any> = {};
-
-        dateFiltered.forEach(s => {
-            if (wastePlantFilter !== "All" && s.data.plant !== wastePlantFilter) return;
-
-            const cat = s.data.category;
-            const net = parseFloat(s.data.totals?.net) || 0;
-
-            if (cat === "sell") barSell += net;
-            else if (cat === "pay") barPay += net;
-
             const wasteType = s.data.wasteType || "Unknown";
             const code = wasteType.split(' ')[0].substring(0, 7);
-            const color = cat === "sell" ? "#10b981" : "#3b82f6";
 
-            if (!wasteStats[code]) wasteStats[code] = { code, value: 0, fullName: wasteType, color };
-            wasteStats[code].value += net;
+            if (cat === "sell") {
+                totalSell += net;
+                if (!sellStats[code]) sellStats[code] = { code, value: 0, fullName: wasteType, color: "#10b981" };
+                sellStats[code].value += net;
+            } else if (cat === "pay") {
+                totalPay += net;
+                if (!payStats[code]) payStats[code] = { code, value: 0, fullName: wasteType, color: "#3b82f6" };
+                payStats[code].value += net;
+            }
         });
 
-        const barData = Object.values(wasteStats).sort((a,b) => b.value - a.value).map(d => ({ ...d, value: parseFloat(d.value.toFixed(2)) }));
+        const sellData = Object.values(sellStats).sort((a,b) => b.value - a.value).map(d => ({ ...d, value: parseFloat(d.value.toFixed(2)) }));
+        const payData = Object.values(payStats).sort((a,b) => b.value - a.value).map(d => ({ ...d, value: parseFloat(d.value.toFixed(2)) }));
 
         const pieData = [
             { name: "Recycle (Sell)", value: parseFloat(totalSell.toFixed(2)), color: "#10b981" }, 
@@ -166,8 +184,8 @@ const SafetyAdminDashboard = () => {
         ].filter(d => d.value > 0);
 
         return { 
-            pieData, barData,
-            barStats: { sell: barSell, pay: barPay, total: barSell + barPay }
+            pieData, sellData, payData,
+            stats: { sell: totalSell, pay: totalPay, total: totalSell + totalPay }
         };
     }, [wasteSubmissions, startDate, endDate, wastePlantFilter]);
 
@@ -270,7 +288,7 @@ const SafetyAdminDashboard = () => {
         let rows: string[][] = [];
 
         if (targetForm === "mixing") {
-            rows.push(["Batch Number", "Date", "Time", "Employee", "Shift", "Tank Volume", "Caustic Soda (L)", "pH 1", "Coagulation (L)", "pH 2", "Flocculation (L)", "pH 3", "Remarks"]);
+            rows.push(["Ref No", "Batch Number", "Date", "Time", "Employee", "Shift", "Tank Volume", "Caustic Soda (L)", "pH 1", "Coagulation (L)", "pH 2", "Flocculation (L)", "pH 3", "Remarks"]);
             
             dataToExport.forEach(sub => {
                 const rawDate = sub.data.metaInfo?.date || new Date(sub.submittedAt).toISOString().split('T')[0];
@@ -283,7 +301,7 @@ const SafetyAdminDashboard = () => {
                 const remarks = `"${rawRemarks.replace(/"/g, '""')}"`;
 
                 rows.push([
-                    info.mixingTankBatchNo || "", date, time, sub.employeeName, shift,
+                    generateRefNo(sub.id), info.mixingTankBatchNo || "", date, time, sub.employeeName, shift,
                     info.mixingTankVolume || "",
                     info.causticSodaLitres || "", info.causticSodaPH1 || "",
                     info.coagulationLitres || "", info.coagulationPH2 || "",
@@ -292,7 +310,7 @@ const SafetyAdminDashboard = () => {
                 ]);
             });
         } else {
-            rows.push(["Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zink", "Iron", "Aluminum", "Fluoride", "Silver", "Sulphide", "Volume DCM", "Remarks"]);
+            rows.push(["Ref No", "Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zink", "Iron", "Aluminum", "Fluoride", "Silver", "Sulphide", "Volume DCM", "Remarks"]);
             
             dataToExport.forEach(sub => {
                 const rawDate = sub.data.metaInfo?.date || new Date(sub.submittedAt).toISOString().split('T')[0];
@@ -305,7 +323,7 @@ const SafetyAdminDashboard = () => {
                 const remarks = `"${rawRemarks.replace(/"/g, '""')}"`;
 
                 rows.push([
-                    date, time, sub.employeeName, shift,
+                    generateRefNo(sub.id), date, time, sub.employeeName, shift,
                     fd.ph4 || "", fd.cod || "", fd.bod || "", fd.tss || "", fd.og || "", fd.flowrate || "",
                     fd.mg || "", fd.nickel || "", fd.zink || "", fd.iron || "", fd.aluminum || "",
                     fd.fluoride || "", fd.silver || "", fd.sulphide || "", fd.volumeDcm || "",
@@ -365,20 +383,22 @@ const SafetyAdminDashboard = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="card-elevated p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center"><Droplet className="h-6 w-6 text-primary" /></div>
-                    <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Monitoring Reports (Selected)</p>
-                        <p className="text-3xl font-bold text-foreground">{stats.totalReports}</p>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div className="card-elevated p-5 border-l-4 border-l-primary/50">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Monitoring Reports</p>
+                    <p className="text-3xl font-bold text-foreground">{stats.totalReports}</p>
                 </div>
-                <div className="card-elevated p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center"><span className="text-sm font-bold text-emerald-600 text-center leading-tight">{selectedParamInfo?.id === "ph4" ? "pH" : selectedParamInfo?.id === "cod" ? "COD" : "Flow"}</span></div>
-                    <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Average {selectedParamInfo?.label}</p>
-                        <p className="text-3xl font-bold text-foreground">{stats.avgValue}</p>
-                    </div>
+                <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average pH</p>
+                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.avgPh}</p>
+                </div>
+                <div className="card-elevated p-5 border-l-4 border-l-blue-500">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average COD</p>
+                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.avgCod} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
+                </div>
+                <div className="card-elevated p-5 border-l-4 border-l-amber-500">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average Flowrate</p>
+                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{stats.avgFlow} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
                 </div>
             </div>
 
@@ -464,95 +484,102 @@ const SafetyAdminDashboard = () => {
                     </div>
                 </div>
 
-            {/* Waste Inventory Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 mt-8">
-                {/* Unified Bar Chart */}
-                <div className="card-elevated p-6 lg:col-span-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <div className="flex items-center gap-3">
-                                <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Waste by SW Code</h2>
-                                {wasteChartData.barStats.total > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-emerald-500 bg-emerald-500/10 text-[10px] px-1.5 py-0.5 font-bold rounded uppercase">{Math.round((wasteChartData.barStats.sell / wasteChartData.barStats.total) * 100)}% Sell</span>
-                                        <span className="text-blue-500 bg-blue-500/10 text-[10px] px-1.5 py-0.5 font-bold rounded uppercase">{Math.round((wasteChartData.barStats.pay / wasteChartData.barStats.total) * 100)}% Pay</span>
-                                    </div>
-                                )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">{wastePlantFilter === "All" ? "Combined data from both plants." : `Showing data specifically for ${wastePlantFilter}.`}</p>
-                        </div>
-                        <div className="w-full sm:w-48">
-                            <Select value={wastePlantFilter} onValueChange={(val: any) => setWastePlantFilter(val)}>
-                                <SelectTrigger className="h-10 rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 transition-all shadow-sm text-sm font-medium">
-                                    <SelectValue placeholder="All Plants" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="All">Combined (All Plants)</SelectItem>
-                                    <SelectItem value="Plant 1">Plant 1 Only</SelectItem>
-                                    <SelectItem value="Plant 2">Plant 2 Only</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+            {/* Waste Inventory Section */}
+            <div className="mt-12 mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+                    <div>
+                        <h2 className="font-bold text-foreground text-xl flex items-center gap-2">
+                            <Scale className="h-6 w-6 text-primary" /> Waste Inventory Overview
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-1">Track scheduled waste generation, recycling, and disposal.</p>
                     </div>
-                    <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={wasteChartData.barData} margin={{ top: 20, right: 0, left: -25, bottom: 0 }} barCategoryGap="15%">
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
-                                    contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
-                                    labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }}
-                                    itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }}
-                                    formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]}
-                                />
-                                <Bar dataKey="value" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }}>
-                                    {wasteChartData.barData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50 w-fit">
+                        {["All", "Plant 1", "Plant 2"].map(plant => (
+                            <button 
+                                key={plant} 
+                                onClick={() => setWastePlantFilter(plant as any)} 
+                                className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${wastePlantFilter === plant ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                {plant === "All" ? "All Plants" : plant}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                {/* Pie Chart: Overall Sell vs Pay */}
-                <div className="card-elevated p-6">
-                    <div className="mb-6">
-                        <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary" /> Overall Distribution</h2>
-                        <p className="text-xs text-muted-foreground mt-1">Total combined waste percentage.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="card-elevated p-5 border-l-4 border-l-primary/50">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Waste Generated</p>
+                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.total.toFixed(2)} <span className="text-sm font-medium text-muted-foreground">kg</span></p>
                     </div>
-                    <div className="h-56">
-                        {wasteChartData.pieData.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={wasteChartData.pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={50}
-                                        outerRadius={70}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                    >
-                                        {wasteChartData.pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip 
-                                        formatter={(value: number) => [`${value} kg`, 'Net Weight']} 
-                                        contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} 
-                                        labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }}
-                                        itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }}
-                                    />
-                                    <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        )}
+                    <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Recycle (Sell)</p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{wasteChartData.stats.sell.toFixed(2)} <span className="text-sm font-medium text-emerald-600/50">kg</span></p>
+                    </div>
+                    <div className="card-elevated p-5 border-l-4 border-l-blue-500">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Dispose (Pay)</p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{wasteChartData.stats.pay.toFixed(2)} <span className="text-sm font-medium text-blue-600/50">kg</span></p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Sell Chart */}
+                    <div className="card-elevated p-6">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-emerald-500" /> Recycle (Sell) by SW Code</h3>
+                        <div className="h-56">
+                            {wasteChartData.sellData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={wasteChartData.sellData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barCategoryGap="15%">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]} />
+                                        <Bar dataKey="value" fill="#10b981" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Pay Chart */}
+                    <div className="card-elevated p-6">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-blue-500" /> Dispose (Pay) by SW Code</h3>
+                        <div className="h-56">
+                            {wasteChartData.payData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={wasteChartData.payData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barCategoryGap="15%">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]} />
+                                        <Bar dataKey="value" fill="#3b82f6" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Pie Chart */}
+                    <div className="card-elevated p-6">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
+                        <div className="h-56">
+                            {wasteChartData.pieData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
+                                            {wasteChartData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                        </Pie>
+                                        <Tooltip formatter={(value: number) => [`${value} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
+                                        <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -573,9 +600,12 @@ const SafetyAdminDashboard = () => {
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
                                             <p className="font-bold text-sm text-foreground">{sub.employeeName}</p>
+                                            <p className="text-[10px] font-bold text-primary mb-0.5">{generateRefNo(sub.id)}</p>
                                             <p className="text-[10px] uppercase text-muted-foreground">{sub.formType.replace(/_/g, ' ')}</p>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString()}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {sub.data.metaInfo?.date ? new Date(sub.data.metaInfo.date).toLocaleDateString() : new Date(sub.submittedAt).toLocaleDateString()}
+                                        </p>
                                     </div>
                                     <p className="text-sm text-foreground">{sub.data.remarks}</p>
                                 </div>
@@ -596,7 +626,7 @@ const SafetyAdminDashboard = () => {
                     <div className="space-y-6">
                         {/* Date Range Selector */}
                         <div className="p-4 rounded-xl border border-border bg-background shadow-sm space-y-3">
-                            <Label className="text-xs font-bold text-foreground uppercase tracking-wider">1. Select Date Range</Label>
+                            <Label className="text-xs font-bold text-foreground uppercase tracking-wider">Select Date Range</Label>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
@@ -636,7 +666,7 @@ const SafetyAdminDashboard = () => {
                         {/* Mixing Records */}
                         <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-4">
                             <div>
-                                <h3 className="text-sm font-bold text-foreground">2. Mixing & Chemical Stages</h3>
+                                <h3 className="text-sm font-bold text-foreground">1. Mixing & Chemical Stages</h3>
                                 <p className="text-xs text-muted-foreground mt-1">Export records containing pH 1, 2, 3 and chemical usage.</p>
                                 <div className="mt-3">
                                     <button onClick={() => { handleExportCSV("mixing"); setIsExportOpen(false); }} className="w-full py-2.5 bg-emerald-500 text-white font-bold text-xs rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
@@ -649,7 +679,7 @@ const SafetyAdminDashboard = () => {
                         {/* Final Discharge Records */}
                         <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-4">
                             <div>
-                                <h3 className="text-sm font-bold text-foreground">3. Final Discharge</h3>
+                                <h3 className="text-sm font-bold text-foreground">2. Final Discharge</h3>
                                 <p className="text-xs text-muted-foreground mt-1">Export records containing COD, BOD, TSS, Metals, etc.</p>
                                 <div className="mt-3">
                                     <button onClick={() => { handleExportCSV("discharge"); setIsExportOpen(false); }} className="w-full py-2.5 bg-emerald-500 text-white font-bold text-xs rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">

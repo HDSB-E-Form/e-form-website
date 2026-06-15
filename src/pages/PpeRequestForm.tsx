@@ -226,7 +226,7 @@ const PpeRequestForm = () => {
                 {[
                   { id: "ppe", label: "PPE" },
                   { id: "uniform", label: "Uniform" },
-                  { id: "office", label: "Office Supplies" }
+                  { id: "office", label: "Office Supply" }
                 ].map(cat => (
                   <div
                     key={cat.id}

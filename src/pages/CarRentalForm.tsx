@@ -511,7 +511,7 @@ const CarRentalForm = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-primary">From Date & Time / Dari Tarikh & Masa <span className="text-destructive">*</span></Label>
                 <Input type="datetime-local" value={form.fromDate} onChange={e => handleChange("fromDate", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
@@ -705,7 +705,7 @@ const CarRentalForm = () => {
             className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit Request / Hantar Permohonan"}
+            {isSubmitting ? "Submitting..." : "Submit Request"}
           </button>
         </div>
       </form>

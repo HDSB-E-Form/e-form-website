@@ -56,8 +56,9 @@ export function useRealtimeNotifications() {
           // Don't notify the person who actually submitted the form
           if (submittedBy === user.id) return;
 
-          // Exclude inventory actions from realtime notifications
-          if (['inventory_addition', 'ppe_request'].includes(formType)) return;
+          // Exclude inventory and safety log actions from realtime notifications
+          const excludedForms = ['inventory_addition', 'ppe_request', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
+          if (excludedForms.includes(formType)) return;
 
           let shouldNotify = false;
 

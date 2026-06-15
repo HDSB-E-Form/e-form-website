@@ -40,8 +40,8 @@ const HRFormsPage = () => {
     },
     {
       id: "ppe_request",
-      title: "PPE | Uniform | Office Supplies",
-      description: "Request personal protective equipment, uniforms, or office supplies",
+      title: "PPE | Uniform | Office Supply",
+      description: "Request personal protective equipment, uniforms, or office supply",
       icon: Package,
       path: "/hr/ppe-request",
     },

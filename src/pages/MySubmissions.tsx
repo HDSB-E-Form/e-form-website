@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type CarInfo } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
@@ -125,7 +125,8 @@ const MySubmissions = () => {
 
   const assignedCar = cars.find(c => c.status === 'checked_out' && c.lastCheckedOutBy === user?.name);
 
-  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !["inventory_addition", "ppe_request"].includes(s.formType));
+  const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType));
 
   const stats = {
     total: mySubmissions.length,
@@ -141,10 +142,22 @@ const MySubmissions = () => {
     return true;
   });
 
+  const refNoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const standardForms = submissions
+      .filter(s => !excludedForms.includes(s.formType))
+      .sort((a, b) => {
+        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
+      });
+    standardForms.forEach((s, idx) => {
+      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
+    });
+    return map;
+  }, [submissions]);
+
   const generateRefNo = (sub: Submission) => {
-    if (sub.id.startsWith("HDSB-")) return sub.id;
-    const num = sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0");
-    return `HDSB-${num}`;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
   };
 
   if (selectedSubmission) {

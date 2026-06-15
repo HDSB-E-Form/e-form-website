@@ -159,12 +159,12 @@ const CarManagement = () => {
           }} 
         />
       )}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Cars Overview / Gambaran keseluruhan kereta</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming department requests.</p>
         </div>
-        <button onClick={() => setIsBookingHistoryOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors whitespace-nowrap">
+        <button onClick={() => setIsBookingHistoryOpen(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors whitespace-nowrap">
           <History className="h-4 w-4" />
           Booking History
         </button>
@@ -173,20 +173,20 @@ const CarManagement = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="card-elevated p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
             <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Available / Tersedia</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Available</p>
             <p className="text-3xl font-bold text-foreground">{available.length}</p>
           </div>
         </div>
         <div className="card-elevated p-5 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Car className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Booked / Ditempah</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Booked</p>
             <p className="text-3xl font-bold text-foreground">{checkedOut.length}</p>
           </div>
         </div>

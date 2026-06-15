@@ -398,7 +398,7 @@ const SuperAdminDashboard = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'}`}>
+                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'}`}>
                       {u.avatar ? (
                         <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
                       ) : (

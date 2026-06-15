@@ -52,8 +52,9 @@ export function NotificationBell() {
     const notifs: AppNotification[] = [];
     
     submissions.forEach(s => {
-      // Exclude inventory actions from notifications entirely
-      if (['inventory_addition', 'ppe_request'].includes(s.formType)) return;
+      // Exclude inventory and safety log actions from notifications entirely
+      const excludedForms = ['inventory_addition', 'ppe_request', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
+      if (excludedForms.includes(s.formType)) return;
 
       let isRelevant = false;
       let path = "";
