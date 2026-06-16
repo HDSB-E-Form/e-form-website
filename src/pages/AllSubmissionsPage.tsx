@@ -17,6 +17,17 @@ const renderValue = (val: any): React.ReactNode => {
   
   if (Array.isArray(val)) {
     if (val.length === 0) return "—";
+    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
+      return (
+        <div className="flex flex-col gap-2 mt-1">
+          {val.map((url, idx) => (
+            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
+              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
+            </a>
+          ))}
+        </div>
+      );
+    }
     if (typeof val[0] === 'object' && val[0] !== null) {
       // Filter out rows that are entirely empty (e.g. empty passenger slots)
       const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));

@@ -66,7 +66,7 @@ const DailyOperationMonitoringForm = () => {
     ph4: "",
     cod: "",
     bod: "",
-    ss: "",
+    tss: "",
     og: "",
     flowrate: "",
     mg: "",
@@ -77,8 +77,7 @@ const DailyOperationMonitoringForm = () => {
     fluoride: "",
     silver: "",
     sulphide: "",
-    formaldehyde: "",
-    ammoniacalNitrogen: "",
+    rawEq: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,27 +224,28 @@ const DailyOperationMonitoringForm = () => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mixing Tank Unit */}
-            <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Mixing Tank Details</div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Volume (liter) <span className="text-destructive">*</span></Label>
-                <Select value={processInfo.mixingTankVolume} onValueChange={(val) => setProcessInfo(p => ({ ...p, mixingTankVolume: val }))}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select Volume" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1500">1500 liter</SelectItem>
-                    <SelectItem value="2000">2000 liter</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Mixing Tank Unit */}
+          <div className="mb-6 p-4 rounded-xl border border-border/60 bg-muted/5">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Mixing Tank Details</div>
+            <div className="max-w-sm space-y-1.5">
+              <Label className="text-xs font-semibold">Volume (liter) <span className="text-destructive">*</span></Label>
+              <Select value={processInfo.mixingTankVolume} onValueChange={(val) => setProcessInfo(p => ({ ...p, mixingTankVolume: val }))}>
+                <SelectTrigger className="h-10 bg-background">
+                  <SelectValue placeholder="Select Volume" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1500">1500 liter</SelectItem>
+                  <SelectItem value="2000">2000 liter</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             {/* Caustic Soda Stage */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Caustic Soda</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Neutralization (Caustic Soda)</div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter)</Label>
                 <Input
@@ -258,7 +258,7 @@ const DailyOperationMonitoringForm = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">pH 1</Label>
+                <Label className="text-xs font-semibold">pH Result</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -273,7 +273,7 @@ const DailyOperationMonitoringForm = () => {
 
             {/* Coagulation Stage */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Coagulation</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Coagulation (Gullifloc)</div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter)</Label>
                 <Input
@@ -286,7 +286,7 @@ const DailyOperationMonitoringForm = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">pH 2</Label>
+                <Label className="text-xs font-semibold">pH Result</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -301,7 +301,7 @@ const DailyOperationMonitoringForm = () => {
 
             {/* Flocculation Stage */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Flocculation</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Flocculation (Polymer)</div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter)</Label>
                 <Input
@@ -314,7 +314,7 @@ const DailyOperationMonitoringForm = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">pH 3</Label>
+                <Label className="text-xs font-semibold">pH Result</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -352,10 +352,10 @@ const DailyOperationMonitoringForm = () => {
           {/* Parameters Stack */}
           <div className="space-y-3">
             {[
-              { id: "ph4", label: "Ph Value", hint: "5.5 ~ 9.0", step: "0.01" },
+              { id: "ph4", label: "pH Value", hint: "5.5 ~ 9.0", step: "0.01" },
               { id: "cod", label: "Chemical Oxygen Demand (COD)", hint: "<200" },
               { id: "bod", label: "Biochemical Oxygen Demand (BOD)", hint: "<50" },
-              { id: "ss", label: "Suspended Solid (SS)", hint: "<100" },
+              { id: "tss", label: "Total Suspended Solid (TSS)", hint: "<100" },
               { id: "og", label: "Oil&Grease (O&G)", hint: "<10" },
               { id: "flowrate", label: "Flowrate (ACF)", hint: "metercube", step: "0.001" },
               { id: "mg", label: "Magnesium (mg)", hint: "<1", step: "0.01" },
@@ -366,8 +366,7 @@ const DailyOperationMonitoringForm = () => {
               { id: "fluoride", label: "Fluoride", hint: "<5.0", step: "0.01" },
               { id: "silver", label: "Silver (Ag)", hint: "<1.0", step: "0.01" },
               { id: "sulphide", label: "Sulphide (S²⁻)", hint: "<0.50", step: "0.01" },
-              { id: "formaldehyde", label: "Formaldehyde (HCHO / CH₂O)", hint: "<2", step: "0.01" },
-              { id: "ammoniacalNitrogen", label: "Ammoniacal Nitrogen (NH₃-N)", hint: "<20", step: "0.01" },
+              { id: "rawEq", label: "Raw EQ", hint: "<2000", step: "0.01" },
             ].map((param) => (
               <div
                 key={param.id}

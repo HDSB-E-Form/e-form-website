@@ -1,20 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Sun, Moon } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
+import { ThemeToggle } from "./ThemeToggle";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  const toggleTheme = () => {
-    const isCurrentlyDark = document.documentElement.classList.toggle("dark");
-    setIsDark(isCurrentlyDark);
-  };
 
   return (
     <SidebarProvider>
@@ -33,12 +23,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             
             <div className="flex items-center gap-1 sm:gap-2">
               <NotificationBell />
-              <button
-                onClick={toggleTheme}
-                className="p-2 text-muted-foreground hover:text-foreground transition-all focus:outline-none rounded-full hover:bg-muted/80 active:scale-95"
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
+              <ThemeToggle />
             </div>
           </header>
           

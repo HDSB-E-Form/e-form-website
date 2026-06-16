@@ -47,6 +47,17 @@ const renderValue = (val: any): React.ReactNode => {
   
   if (Array.isArray(val)) {
     if (val.length === 0) return "—";
+    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
+      return (
+        <div className="flex flex-col gap-2 mt-1">
+          {val.map((url, idx) => (
+            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
+              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
+            </a>
+          ))}
+        </div>
+      );
+    }
     if (typeof val[0] === 'object' && val[0] !== null) {
       // Filter out rows that are entirely empty (e.g. empty passenger slots)
       const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
@@ -533,7 +544,7 @@ const MySubmissions = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="card-elevated p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
             <FileText className="h-6 w-6 text-muted-foreground" />
           </div>
           <div>
@@ -542,7 +553,7 @@ const MySubmissions = () => {
           </div>
         </div>
         <div className="card-elevated p-5 flex items-center gap-4 hover:bg-emerald-500/5 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
             <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
@@ -551,7 +562,7 @@ const MySubmissions = () => {
           </div>
         </div>
         <div className="card-elevated p-5 flex items-center gap-4 hover:bg-destructive/5 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-destructive/15 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-destructive/15 flex items-center justify-center flex-shrink-0">
             <XCircle className="h-6 w-6 text-destructive dark:text-red-400" />
           </div>
           <div>

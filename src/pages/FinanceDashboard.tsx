@@ -164,7 +164,19 @@ const FinanceDashboard = () => {
         </div>
 
         {/* Attachment */}
-        {selectedSubmission.data.attachment && (
+        {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 ? (
+          <div className="space-y-3 mb-6">
+            {selectedSubmission.data.attachments.map((url: string, idx: number) => (
+              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium text-primary">View Attachment {idx + 1} / Lihat Lampiran {idx + 1}</span>
+                </div>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </a>
+            ))}
+          </div>
+        ) : selectedSubmission.data.attachment && (
           <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20 transition-colors">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-muted-foreground" />
@@ -232,32 +244,16 @@ const FinanceDashboard = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Submissions</p>
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+12%</Badge>
-          </div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Total Submissions</p>
           <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
-          <p className="text-xs text-muted-foreground mt-1">Current fiscal year / Tahun kewangan semasa</p>
         </div>
         <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Action Required</p>
-            {stats.actionRequired > 0 ? (
-              <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[10px] font-semibold px-2 animate-pulse">Needs Review</Badge>
-            ) : (
-              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">All Cleared</Badge>
-            )}
-          </div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Action Required</p>
           <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
-          <p className="text-xs text-muted-foreground mt-1">Forms waiting for your final approval</p>
         </div>
         <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval Rate</p>
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+2%</Badge>
-          </div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Approval Rate</p>
           <p className="text-4xl font-bold text-foreground">{stats.approvalRate}%</p>
-          <p className="text-xs text-muted-foreground mt-1">Compliance target: 90% / Sasaran pematuhan: 90%</p>
         </div>
       </div>
 

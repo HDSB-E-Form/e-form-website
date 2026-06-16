@@ -16,9 +16,9 @@ const LeaveForm = () => {
   const { addSubmission } = useSubmissions();
   const { getUsersByRole } = useUsers();
 
-  const hosUsers = getUsersByRole("HOS").sort((a, b) => a.name.localeCompare(b.name));
-  const hodUsers = getUsersByRole("HOD").sort((a, b) => a.name.localeCompare(b.name));
-  const securityGuards = getUsersByRole("security_guard");
+  const hosUsers = [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const hodUsers = [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const securityGuards = getUsersByRole("security_guard") || [];
 
   const [employeeInfo, setEmployeeInfo] = useState({
     name: user?.name || "",
@@ -370,15 +370,22 @@ const LeaveForm = () => {
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="flex justify-center pt-4 pb-8">
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit Gate Pass / Hantar Pas Keluar"}
+            {isSubmitting ? "Submitting..." : "Submit Gate Pass"}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/hr")}
+            className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
+          >
+            Cancel
           </button>
         </div>
       </form>

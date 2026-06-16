@@ -15,7 +15,7 @@ const FinanceFormsPage = () => {
         <p className="text-muted-foreground mt-1">Select a form to submit</p>
       </div>
 
-      <div className="max-w-md">
+      <div className="grid md:grid-cols-2 gap-6">
         <div
           onClick={() => navigate("/finance/claim")}
           className="dept-card group"

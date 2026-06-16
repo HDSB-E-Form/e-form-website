@@ -6,12 +6,11 @@ import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, User, Receipt, Upload, PlusCircle, Trash2, Wallet, FileText } from "lucide-react";
+import { ArrowLeft, User, Receipt, Upload, PlusCircle, Trash2, Wallet, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
 interface ClaimRow {
-  date: string;
   description: string;
   gst: string;
   receiptNo: string;
@@ -23,9 +22,9 @@ const ClaimForm = () => {
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
   const { getUsersByRole } = useUsers();
-  const hosUsers = getUsersByRole("HOS").sort((a, b) => a.name.localeCompare(b.name));
-  const hodUsers = getUsersByRole("HOD").sort((a, b) => a.name.localeCompare(b.name));
-  const financeAdmins = getUsersByRole("finance_admin");
+  const hosUsers = [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const hodUsers = [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const financeAdmins = getUsersByRole("finance_admin") || [];
 
   const [employeeInfo, setEmployeeInfo] = useState({
     name: user?.name || "",
@@ -53,15 +52,15 @@ const ClaimForm = () => {
   }, [user]);
 
   const [claimRows, setClaimRows] = useState<ClaimRow[]>([
-    { date: "", description: "", gst: "0.00", receiptNo: "", amount: "0.00" },
-    { date: "", description: "", gst: "", receiptNo: "", amount: "" },
+    { description: "", gst: "", receiptNo: "", amount: "" },
+    { description: "", gst: "", receiptNo: "", amount: "" },
   ]);
 
   const [hosName, setHosName] = useState("");
   const [hodName, setHodName] = useState("");
   const [financeCode, setFinanceCode] = useState("");
   const [amtReceived, setAmtReceived] = useState("");
-  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,18 +78,22 @@ const ClaimForm = () => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setAttachedFile(e.dataTransfer.files[0]);
+      setAttachedFiles(prev => [...prev, ...Array.from(e.dataTransfer.files!)]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setAttachedFile(e.target.files[0]);
+      setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
     }
   };
 
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const addRow = () => {
-    setClaimRows([...claimRows, { date: "", description: "", gst: "", receiptNo: "", amount: "" }]);
+    setClaimRows([...claimRows, { description: "", gst: "", receiptNo: "", amount: "" }]);
   };
 
   const removeRow = (index: number) => {
@@ -111,11 +114,11 @@ const ClaimForm = () => {
     setClaimRows(updated);
   };
 
-  const totalAmount = claimRows.reduce((sum, row) => {
+  const totalAmount = Math.round(claimRows.reduce((sum, row) => {
     const amountVal = parseFloat(row.amount) || 0;
     const gstVal = parseFloat(row.gst) || 0;
     return sum + (amountVal - gstVal);
-  }, 0);
+  }, 0));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,28 +129,34 @@ const ClaimForm = () => {
       return;
     }
 
+    if (totalAmount > 500) {
+      toast.error("The total claim amount cannot exceed RM 500.");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    let attachmentUrl = null;
-    if (attachedFile) {
-      const filePath = `public/${user?.id || 'unknown_user'}/${Date.now()}_${attachedFile.name}`;
-      
-      const { data, error } = await supabase.storage
-        .from('form-attachments')
-        .upload(filePath, attachedFile);
+    let attachmentUrls: string[] = [];
+    if (attachedFiles.length > 0) {
+      for (const file of attachedFiles) {
+        const filePath = `public/${user?.id || 'unknown_user'}/${Date.now()}_${file.name}`;
+        
+        const { data, error } = await supabase.storage
+          .from('form-attachments')
+          .upload(filePath, file);
 
-      if (error) {
-        toast.error(`Attachment upload failed: ${error.message}`);
-        setIsSubmitting(false);
-        return; // Stop if upload fails
+        if (error) {
+          toast.error(`Attachment upload failed: ${error.message}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('form-attachments')
+          .getPublicUrl(data.path);
+        
+        attachmentUrls.push(urlData.publicUrl);
       }
-
-      // Get the public URL of the uploaded file
-      const { data: urlData } = supabase.storage
-        .from('form-attachments')
-        .getPublicUrl(data.path);
-      
-      attachmentUrl = urlData.publicUrl;
     }
 
     const success = await addSubmission({
@@ -164,7 +173,8 @@ const ClaimForm = () => {
         financeCode, 
         amtReceived, 
         totalAmount, 
-        attachment: attachmentUrl,
+        attachment: attachmentUrls.length > 0 ? attachmentUrls[0] : null,
+        attachments: attachmentUrls,
       },
     });
     if (success) {
@@ -187,7 +197,7 @@ const ClaimForm = () => {
               subject: `New Claim Submission from ${employeeInfo.name}`,
               employeeName: employeeInfo.name,
               formType: "Petty Cash Claim",
-              amount: totalAmount.toFixed(2),
+              amount: totalAmount.toString(),
               url: window.location.origin
             }
           });
@@ -293,9 +303,6 @@ const ClaimForm = () => {
               <thead>
                 <tr className="bg-muted/50">
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
-                    Date
-                  </th>
-                  <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
                     Claim Details
                   </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border w-24">
@@ -315,14 +322,6 @@ const ClaimForm = () => {
                   <tr key={i}>
                     <td className="p-1.5 border border-border">
                       <Input
-                        type="date"
-                        value={row.date}
-                        onChange={e => updateRow(i, "date", e.target.value)}
-                        className="h-10 border-0 shadow-none dark:[color-scheme:dark]"
-                      />
-                    </td>
-                    <td className="p-1.5 border border-border">
-                      <Input
                         value={row.description}
                         onChange={e => updateRow(i, "description", e.target.value)}
                         placeholder="Write the details"
@@ -334,10 +333,10 @@ const ClaimForm = () => {
                         type="number"
                         step="0.01"
                         value={row.gst}
-                        onChange={e => updateRow(i, "gst", e.target.value)}
                         placeholder="0.00"
-                        className="h-10 border-0 shadow-none text-right no-spinner"
-                        onWheel={(e) => (e.target as HTMLElement).blur()}
+                        className="h-10 border-0 shadow-none text-right no-spinner bg-muted/30 text-muted-foreground font-semibold cursor-not-allowed focus-visible:ring-0"
+                        readOnly
+                        tabIndex={-1}
                       />
                     </td>
                     <td className="p-1.5 border border-border">
@@ -369,11 +368,11 @@ const ClaimForm = () => {
                   </tr>
                 ))}
                 <tr className="bg-muted/30">
-                  <td colSpan={4} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
-                    Total / Jumlah Besar (RM)
+                  <td colSpan={3} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
+                    Total (RM) <span className="text-[10px] text-destructive ml-2 font-bold">(Max RM 500)</span>
                   </td>
                   <td className="p-3 border border-border text-right font-bold text-foreground text-lg">
-                    RM {totalAmount.toFixed(2)}
+                    RM {totalAmount}
                   </td>
                   <td className="border border-border"></td>
                 </tr>
@@ -433,29 +432,34 @@ const ClaimForm = () => {
             Upload Document / <span className="text-primary">Muat Naik Dokumen</span>
           </Label>
           
-          {attachedFile ? (
-            <div className="border border-border rounded-xl p-6 flex items-center justify-between bg-muted/10">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-6 w-6 text-primary" />
+          {attachedFiles.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {attachedFiles.map((file, i) => (
+                <div key={i} className="border border-border rounded-xl p-4 flex items-center justify-between bg-muted/10">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex-shrink-0 ml-4"
+                    title="Remove file"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="overflow-hidden">
-                  <p className="text-sm font-medium text-foreground truncate">{attachedFile.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {(attachedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAttachedFile(null)}
-                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex-shrink-0 ml-4"
-                title="Remove file"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
+              ))}
             </div>
-          ) : (
+          )}
+
             <label
               htmlFor="file-upload"
               onDragOver={handleDragOver}
@@ -469,16 +473,16 @@ const ClaimForm = () => {
                 id="file-upload"
                 type="file"
                 className="hidden"
+              multiple={true}
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileChange}
               />
               <Upload className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="text-sm text-muted-foreground">
-                Drag and drop or tap to upload receipt
+              Drag and drop or tap to upload receipt(s)
               </p>
               <p className="text-xs text-muted-foreground mt-1">(PDF, JPG, PNG)</p>
             </label>
-          )}
         </div>
 
         {/* Finance Department */}
@@ -516,8 +520,9 @@ const ClaimForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
+            <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit"}
           </button>
           <button

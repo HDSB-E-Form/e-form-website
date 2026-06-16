@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sun, Moon, User, LogOut, LayoutDashboard } from "lucide-react";
+import { User, LogOut, LayoutDashboard } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,22 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
-
-// This is a placeholder. A real implementation would use a theme context.
-const ThemeToggle = () => {
-    const [isDark, setIsDark] = React.useState(() => document.documentElement.classList.contains('dark'));
-
-    const toggleTheme = () => {
-        const isCurrentlyDark = document.documentElement.classList.toggle('dark');
-        setIsDark(isCurrentlyDark);
-    }
-
-    return (
-        <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
-    );
-}
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);

@@ -4,14 +4,15 @@ import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Scale, Layers } from "lucide-react";
+import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Recycle, Layers } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
 import { supabase } from "@/supabase";
+import { Badge } from "@/components/ui/badge";
 
 const parameterOptions = [
-    { id: "ph4", label: "Ph Value", unit: "" },
+    { id: "ph4", label: "pH Value", unit: "" },
     { id: "cod", label: "Chemical Oxygen Demand (COD)", unit: "mg/L" },
     { id: "flowrate", label: "Flowrate (ACF)", unit: "m³" },
 ];
@@ -31,18 +32,16 @@ const SafetyAdminDashboard = () => {
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [wastePlantFilter, setWastePlantFilter] = useState<"All" | "Plant 1" | "Plant 2">("All");
+    const [wasteSwFilter, setWasteSwFilter] = useState<string>("All");
     const [dashboardView, setDashboardView] = useState<"discharge" | "mixing" | "waste">("discharge");
     
     // Mixing Parameter State
     const mixingParameterOptions = [
-        { id: "causticSodaPH1", label: "Caustic Soda (pH 1)", unit: "" },
-        { id: "coagulationPH2", label: "Coagulation (pH 2)", unit: "" },
-        { id: "flocculationPH3", label: "Flocculation (pH 3)", unit: "" },
-        { id: "causticSodaLitres", label: "Caustic Soda (L)", unit: "L" },
-        { id: "coagulationLitres", label: "Coagulation (L)", unit: "L" },
-        { id: "flocculationLitres", label: "Flocculation (L)", unit: "L" },
+        { id: "causticSodaLitres", label: "Neutralization (Caustic Soda) (ltr)", unit: "" },
+        { id: "coagulationLitres", label: "Coagulation (Gullifloc) (ltr)", unit: "" },
+        { id: "flocculationLitres", label: "Flocculation (Polymer) (ltr)", unit: "" },
     ];
-    const [selectedMixingParameter, setSelectedMixingParameter] = useState("causticSodaPH1");
+    const [selectedMixingParameter, setSelectedMixingParameter] = useState("causticSodaLitres");
     const selectedMixingParamInfo = mixingParameterOptions.find(p => p.id === selectedMixingParameter);
 
     // Poster Management State
@@ -94,6 +93,21 @@ const SafetyAdminDashboard = () => {
     const wasteSubmissions = useMemo(() => 
         submissions.filter(s => s.formType === "waste_inventory"), 
     [submissions]);
+
+    const availableSwCodes = useMemo(() => {
+        const codes = new Set<string>();
+        [...sellTypes, ...payTypes].forEach(t => {
+            const code = t.split(' ')[0];
+            if (code.startsWith('SW')) codes.add(code);
+        });
+        wasteSubmissions.forEach(s => {
+            if (s.data.wasteType) {
+                const code = s.data.wasteType.split(' ')[0];
+                if (code.startsWith('SW')) codes.add(code);
+            }
+        });
+        return Array.from(codes).sort();
+    }, [sellTypes, payTypes, wasteSubmissions]);
 
     const remarksList = useMemo(() => {
         return submissions
@@ -197,26 +211,26 @@ const SafetyAdminDashboard = () => {
         const filteredSubmissions = monitoringSubmissions.filter(s => {
             return (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
         });
-        
-        let ph1Total = 0, ph1Count = 0;
-        let ph2Total = 0, ph2Count = 0;
-        let ph3Total = 0, ph3Count = 0;
+
+        let totalCaustic = 0;
+        let totalCoagulation = 0;
+        let totalFlocculation = 0;
 
         filteredSubmissions.forEach(s => {
-            const ph1 = parseFloat(s.data.processInfo?.causticSodaPH1);
-            const ph2 = parseFloat(s.data.processInfo?.coagulationPH2);
-            const ph3 = parseFloat(s.data.processInfo?.flocculationPH3);
+            const caustic = parseFloat(s.data.processInfo?.causticSodaLitres);
+            const coag = parseFloat(s.data.processInfo?.coagulationLitres);
+            const floc = parseFloat(s.data.processInfo?.flocculationLitres);
 
-            if (!isNaN(ph1) && ph1 > 0) { ph1Total += ph1; ph1Count++; }
-            if (!isNaN(ph2) && ph2 > 0) { ph2Total += ph2; ph2Count++; }
-            if (!isNaN(ph3) && ph3 > 0) { ph3Total += ph3; ph3Count++; }
+            if (!isNaN(caustic) && caustic > 0) totalCaustic += caustic;
+            if (!isNaN(coag) && coag > 0) totalCoagulation += coag;
+            if (!isNaN(floc) && floc > 0) totalFlocculation += floc;
         });
 
         return {
             totalReports: filteredSubmissions.length,
-            avgPh1: ph1Count > 0 ? (ph1Total / ph1Count).toFixed(2) : "0.00",
-            avgPh2: ph2Count > 0 ? (ph2Total / ph2Count).toFixed(2) : "0.00",
-            avgPh3: ph3Count > 0 ? (ph3Total / ph3Count).toFixed(2) : "0.00",
+            totalCaustic: totalCaustic.toFixed(2),
+            totalCoagulation: totalCoagulation.toFixed(2),
+            totalFlocculation: totalFlocculation.toFixed(2),
         };
     }, [monitoringSubmissions, mixingStartDate, mixingEndDate]);
 
@@ -228,7 +242,8 @@ const SafetyAdminDashboard = () => {
             const subDate = s.data.recordDate || new Date(s.submittedAt).toISOString().split('T')[0];
             const dateMatch = subDate >= start && subDate <= end;
             const plantMatch = wastePlantFilter === "All" || s.data.plant === wastePlantFilter;
-            return dateMatch && plantMatch;
+            const swCodeMatch = wasteSwFilter === "All" || (s.data.wasteType || "").startsWith(wasteSwFilter);
+            return dateMatch && plantMatch && swCodeMatch;
         });
 
         let totalSell = 0, totalPay = 0;
@@ -264,7 +279,7 @@ const SafetyAdminDashboard = () => {
             pieData, sellData, payData,
             stats: { sell: totalSell, pay: totalPay, total: totalSell + totalPay }
         };
-    }, [wasteSubmissions, wasteStartDate, wasteEndDate, wastePlantFilter]);
+    }, [wasteSubmissions, wasteStartDate, wasteEndDate, wastePlantFilter, wasteSwFilter]);
 
     const handleAddWasteType = () => {
         if (!newTypeName.trim()) return toast.error("Waste type name cannot be empty");
@@ -365,7 +380,7 @@ const SafetyAdminDashboard = () => {
         let rows: string[][] = [];
 
         if (targetForm === "mixing") {
-            rows.push(["Ref No", "Batch Number", "Date", "Time", "Employee", "Shift", "Tank Volume", "Caustic Soda (L)", "pH 1", "Coagulation (L)", "pH 2", "Flocculation (L)", "pH 3", "Remarks"]);
+            rows.push(["Ref No", "Batch Number", "Date", "Time", "Employee", "Shift", "Tank Volume", "Neutralization (Caustic Soda) (L)", "Neutralization (pH Result)", "Coagulation (Gullifloc) (L)", "Coagulation (pH Result)", "Flocculation (Polymer) (L)", "Flocculation (pH Result)", "Remarks"]);
             
             dataToExport.forEach(sub => {
                 const rawDate = sub.data.metaInfo?.date || new Date(sub.submittedAt).toISOString().split('T')[0];
@@ -387,7 +402,7 @@ const SafetyAdminDashboard = () => {
                 ]);
             });
         } else {
-            rows.push(["Ref No", "Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zink", "Iron", "Aluminum", "Fluoride", "Silver", "Sulphide", "Volume DCM", "Remarks"]);
+            rows.push(["Ref No", "Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zink", "Iron", "Aluminum", "Fluoride", "Silver", "Sulphide", "Raw EQ", "Remarks"]);
             
             dataToExport.forEach(sub => {
                 const rawDate = sub.data.metaInfo?.date || new Date(sub.submittedAt).toISOString().split('T')[0];
@@ -401,9 +416,9 @@ const SafetyAdminDashboard = () => {
 
                 rows.push([
                     generateRefNo(sub.id), date, time, sub.employeeName, shift,
-                    fd.ph4 || "", fd.cod || "", fd.bod || "", fd.tss || "", fd.og || "", fd.flowrate || "",
+                    fd.ph4 || "", fd.cod || "", fd.bod || "", fd.tss || fd.ss || "", fd.og || "", fd.flowrate || "",
                     fd.mg || "", fd.nickel || "", fd.zink || "", fd.iron || "", fd.aluminum || "",
-                    fd.fluoride || "", fd.silver || "", fd.sulphide || "", fd.volumeDcm || "",
+                    fd.fluoride || "", fd.silver || "", fd.sulphide || "", fd.rawEq || fd.formaldehyde || "",
                     remarks
                 ]);
             });
@@ -430,6 +445,17 @@ const SafetyAdminDashboard = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Safety Department Dashboard</h1>
                     <p className="text-muted-foreground text-sm mt-1">Visualize and track environmental and safety data.</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs font-bold px-2.5 py-1 rounded-md">
+                            <Droplet className="w-3.5 h-3.5 mr-1.5"/> Discharge: {monitoringSubmissions.filter(s => s.formType === "final_discharge").length}
+                        </Badge>
+                        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border-0 text-xs font-bold px-2.5 py-1 rounded-md">
+                            <Layers className="w-3.5 h-3.5 mr-1.5"/> Mixing: {monitoringSubmissions.filter(s => s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring").length}
+                        </Badge>
+                        <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 hover:bg-blue-500/25 border-0 text-xs font-bold px-2.5 py-1 rounded-md">
+                            <Recycle className="w-3.5 h-3.5 mr-1.5"/> Scheduled Waste: {wasteSubmissions.length}
+                        </Badge>
+                    </div>
                 </div>
                 <div className="relative w-full sm:w-56">
                     <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg font-bold text-sm transition-colors shadow-sm">
@@ -464,7 +490,7 @@ const SafetyAdminDashboard = () => {
                 {[
                     { id: "discharge", label: "Final Discharge", icon: Droplet },
                     { id: "mixing", label: "Mixing & Chemical", icon: Layers },
-                    { id: "waste", label: "Waste Inventory", icon: Scale },
+                    { id: "waste", label: "Scheduled Waste Inventory", icon: Recycle },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -510,16 +536,16 @@ const SafetyAdminDashboard = () => {
                         <p className="text-3xl font-bold text-foreground">{mixingStats.totalReports}</p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Avg pH 1 (Caustic)</p>
-                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{mixingStats.avgPh1}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Neutralization</p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{mixingStats.totalCaustic} <span className="text-sm font-medium text-emerald-600/50">L</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-blue-500">
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Avg pH 2 (Coagulation)</p>
-                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{mixingStats.avgPh2}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Coagulation</p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{mixingStats.totalCoagulation} <span className="text-sm font-medium text-blue-600/50">L</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-amber-500">
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Avg pH 3 (Flocculation)</p>
-                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{mixingStats.avgPh3}</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Flocculation</p>
+                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{mixingStats.totalFlocculation} <span className="text-sm font-medium text-amber-600/50">L</span></p>
                     </div>
                 </div>
             )}
@@ -632,13 +658,10 @@ const SafetyAdminDashboard = () => {
                                     tick={{ fontSize: 12 }} 
                                     tickLine={false} 
                                     axisLine={false} 
-                                    domain={selectedMixingParameter.toLowerCase().includes("ph") ? [(dataMin: number) => Math.min(dataMin - 0.5, 5.5), (dataMax: number) => Math.max(dataMax + 0.5, 9.5)] : ['dataMin - 1', 'dataMax + 1']} 
+                                    domain={['dataMin - 1', 'dataMax + 1']} 
                                 />
                                 <Tooltip contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
                                 <Legend />
-                                {selectedMixingParameter.toLowerCase().includes("ph") && (
-                                    <><ReferenceLine y={9} stroke="#ef4444" strokeDasharray="3 3" /><ReferenceLine y={5.5} stroke="#ef4444" strokeDasharray="3 3" /></>
-                                )}
                                 <Line type="monotone" dataKey="value" name={`${selectedMixingParamInfo?.label} ${selectedMixingParamInfo?.unit ? `(${selectedMixingParamInfo.unit})` : ''}`} stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                             </LineChart>
                         </ResponsiveContainer>
@@ -652,11 +675,11 @@ const SafetyAdminDashboard = () => {
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
                     <div>
                         <h2 className="font-bold text-foreground text-xl flex items-center gap-2">
-                            <Scale className="h-6 w-6 text-primary" /> Waste Inventory Overview
+                            <Recycle className="h-6 w-6 text-primary" /> Scheduled Waste Disposal Overview
                         </h2>
                         <p className="text-xs text-muted-foreground mt-1">Track scheduled waste generation, recycling, and disposal.</p>
                     </div>
-                    <div className="flex flex-col items-end gap-4">
+                    <div className="flex flex-col items-end gap-3">
                         {/* Date Filters - Waste */}
                         <div className="flex items-center justify-end gap-4">
                             <div className="flex items-center gap-2">
@@ -678,16 +701,29 @@ const SafetyAdminDashboard = () => {
                                 />
                             </div>
                         </div>
-                        <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50 w-fit">
-                            {["All", "Plant 1", "Plant 2"].map(plant => (
-                                <button 
-                                    key={plant} 
-                                    onClick={() => setWastePlantFilter(plant as any)} 
-                                    className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${wastePlantFilter === plant ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                                >
-                                    {plant === "All" ? "All Plants" : plant}
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-3">
+                            <Select value={wasteSwFilter} onValueChange={setWasteSwFilter}>
+                                <SelectTrigger className="h-10 w-36 text-sm bg-background border border-border/50 shadow-sm rounded-xl">
+                                    <SelectValue placeholder="All SW Codes" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="All">All SW Codes</SelectItem>
+                                    {availableSwCodes.map(code => (
+                                        <SelectItem key={code} value={code}>{code}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50 w-fit">
+                                {["All", "Plant 1", "Plant 2"].map(plant => (
+                                    <button 
+                                        key={plant} 
+                                        onClick={() => setWastePlantFilter(plant as any)} 
+                                        className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${wastePlantFilter === plant ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                                    >
+                                        {plant === "All" ? "All Plants" : plant}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -225,7 +225,19 @@ const ApproverDashboard = () => {
           </div>
         )}
 
-        {selectedSubmission.data.attachment && (
+        {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 ? (
+          <div className="space-y-3 mb-6">
+            {selectedSubmission.data.attachments.map((url: string, idx: number) => (
+              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium text-primary">View Attachment {idx + 1} / Lihat Lampiran {idx + 1}</span>
+                </div>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </a>
+            ))}
+          </div>
+        ) : selectedSubmission.data.attachment && (
           <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20 transition-colors">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-muted-foreground" />
