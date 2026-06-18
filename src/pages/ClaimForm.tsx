@@ -12,7 +12,6 @@ import { supabase } from "@/supabase";
 
 interface ClaimRow {
   description: string;
-  gst: string;
   receiptNo: string;
   amount: string;
 }
@@ -52,8 +51,8 @@ const ClaimForm = () => {
   }, [user]);
 
   const [claimRows, setClaimRows] = useState<ClaimRow[]>([
-    { description: "", gst: "", receiptNo: "", amount: "" },
-    { description: "", gst: "", receiptNo: "", amount: "" },
+    { description: "", receiptNo: "", amount: "" },
+    { description: "", receiptNo: "", amount: "" },
   ]);
 
   const [hosName, setHosName] = useState("");
@@ -93,7 +92,7 @@ const ClaimForm = () => {
   };
 
   const addRow = () => {
-    setClaimRows([...claimRows, { description: "", gst: "", receiptNo: "", amount: "" }]);
+    setClaimRows([...claimRows, { description: "", receiptNo: "", amount: "" }]);
   };
 
   const removeRow = (index: number) => {
@@ -106,18 +105,12 @@ const ClaimForm = () => {
     const updated = [...claimRows];
     updated[index] = { ...updated[index], [field]: value };
     
-    if (field === "amount") {
-      const amountVal = parseFloat(value) || 0;
-      updated[index].gst = (amountVal * 0.06).toFixed(2);
-    }
-
     setClaimRows(updated);
   };
 
   const totalAmount = Math.round(claimRows.reduce((sum, row) => {
     const amountVal = parseFloat(row.amount) || 0;
-    const gstVal = parseFloat(row.gst) || 0;
-    return sum + (amountVal - gstVal);
+    return sum + amountVal;
   }, 0));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -305,9 +298,6 @@ const ClaimForm = () => {
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
                     Claim Details
                   </th>
-                  <th className="text-left text-xs font-semibold text-primary p-3 border border-border w-24">
-                    GST 6%
-                  </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
                     Receipt No.
                   </th>
@@ -326,17 +316,6 @@ const ClaimForm = () => {
                         onChange={e => updateRow(i, "description", e.target.value)}
                         placeholder="Write the details"
                         className="h-10 border-0 shadow-none"
-                      />
-                    </td>
-                    <td className="p-1.5 border border-border">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={row.gst}
-                        placeholder="0.00"
-                        className="h-10 border-0 shadow-none text-right no-spinner bg-muted/30 text-muted-foreground font-semibold cursor-not-allowed focus-visible:ring-0"
-                        readOnly
-                        tabIndex={-1}
                       />
                     </td>
                     <td className="p-1.5 border border-border">
@@ -368,7 +347,7 @@ const ClaimForm = () => {
                   </tr>
                 ))}
                 <tr className="bg-muted/30">
-                  <td colSpan={3} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
+                  <td colSpan={2} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
                     Total (RM) <span className="text-[10px] text-destructive ml-2 font-bold">(Max RM 500)</span>
                   </td>
                   <td className="p-3 border border-border text-right font-bold text-foreground text-lg">
