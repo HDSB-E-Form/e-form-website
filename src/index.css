@@ -98,67 +98,91 @@
   @media print {
     @page {
       size: A4;
-      margin: 0.6cm; /* Reduced even further to force content onto page 1 */
+      margin: 0.6cm;
     }
 
     body {
-      font-size: 7.5pt !important; /* 0.5pt smaller for tight body text */
-      line-height: 1.0 !important; /* Forces maximum vertical compression */
       -webkit-print-color-adjust: exact;
       background: white !important;
     }
 
-    /* 1. KEEP TOP HEADING & BRANDING LARGER */
     h1, .print-header-main {
       font-size: 15pt !important;
       margin-bottom: 2px !important;
       font-weight: 800 !important;
     }
 
-    /* 2. FIX CLAIM ROWS & ATTACHMENT ALIGNMENT */
-    /* Prevents the (--) symbol from wrapping below the text */
-    td, th, p, span, div {
-      white-space: nowrap !important; 
-      vertical-align: middle !important;
-    }
-
-    /* 3. CONDENSE ALL ROWS */
-    table {
-      width: 100% !important;
-      border-collapse: collapse !important;
-      margin-bottom: 4px !important;
-    }
-
-    td, th {
-      padding: 1px 4px !important; /* Minimal padding for ultra-tight rows */
-      border: 1px solid #ddd !important;
-      height: 14pt !important; /* Standardizes row height across the form */
-    }
-
-    /* Target specific sections like Employee Info to stay compact */
-    .section-header {
-      font-size: 9pt !important;
-      font-weight: bold;
-      border-bottom: 2px solid black !important;
-      margin-top: 5px !important;
-      margin-bottom: 2px !important;
-    }
-
-    /* General Print Clean-up */
     * {
       color: black !important;
       box-shadow: none !important;
       text-shadow: none !important;
     }
 
-    /* Hide elements that cause extra page breaks */
     nav, .no-print, .sidebar, footer {
       display: none !important;
     }
 
-    /* Hide specific claim rows in finance form when printing*/
     .print-hide-finance-claim-row {
       display: none !important;
+    }
+
+    .waste-inventory-print {
+      font-size: 8pt !important;
+      line-height: 1.05 !important;
+    }
+
+    .waste-inventory-print h1,
+    .waste-inventory-print h2,
+    .waste-inventory-print h3,
+    .waste-inventory-print h4,
+    .waste-inventory-print h5,
+    .waste-inventory-print h6,
+    .waste-inventory-print p,
+    .waste-inventory-print label,
+    .waste-inventory-print span,
+    .waste-inventory-print div {
+      font-size: 8pt !important;
+      line-height: 1.05 !important;
+    }
+
+    .waste-inventory-print h1 {
+      font-size: 13pt !important;
+      margin-bottom: 2px !important;
+    }
+
+    .waste-inventory-print h2 {
+      font-size: 10pt !important;
+      margin-bottom: 2px !important;
+    }
+
+    .waste-inventory-print table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      border-spacing: 0 !important;
+      font-size: 7.5pt !important;
+      line-height: 1.0 !important;
+    }
+
+    .waste-inventory-print th,
+    .waste-inventory-print td {
+      padding: 2px 3px !important;
+      font-size: 7.5pt !important;
+      line-height: 1.0 !important;
+      vertical-align: middle !important;
+    }
+
+    .waste-inventory-print tr {
+      page-break-inside: avoid !important;
+    }
+
+    .waste-inventory-print td input,
+    .waste-inventory-print td textarea {
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      background: transparent !important;
+      font-size: 7.5pt !important;
+      line-height: 1.0 !important;
     }
   }
 }

@@ -131,7 +131,9 @@ const SuperAdminDashboard = () => {
   const filtered = users.filter(u => {
     // Role filter
     if (roleFilter === "employee" && u.role !== "employee") return false;
-    if (roleFilter === "admin" && u.role === "employee") return false;
+    if (roleFilter === "hos" && u.role !== "hos") return false;
+    if (roleFilter === "hod" && u.role !== "hod") return false;
+    if (roleFilter === "admin" && !["hr_admin", "finance_admin", "safety_admin", "super_admin"].includes(u.role)) return false;
 
     // Department filter
     if (departmentFilter !== "all" && u.department !== departmentFilter) return false;
@@ -362,6 +364,8 @@ const SuperAdminDashboard = () => {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="employee">Employees Only</SelectItem>
+                <SelectItem value="hos">HOS Only</SelectItem>
+                <SelectItem value="hod">HOD Only</SelectItem>
                 <SelectItem value="admin">Admins Only</SelectItem>
               </SelectContent>
             </Select>
