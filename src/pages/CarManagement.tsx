@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSubmissions, type CarInfo, type Submission } from "@/contexts/SubmissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Car, CheckCircle, ArrowRightLeft, Info, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera } from "lucide-react";
@@ -19,6 +19,10 @@ type CarHistoryEntry = {
   mileageIn: string;
   fuelLevelOut?: string;
   fuelLevelIn?: string;
+  petrolCardOut?: boolean;
+  petrolCardSerialOut?: string;
+  petrolCardIn?: boolean;
+  petrolCardSerialIn?: string;
   remarksOut?: string;
   remarksIn?: string;
   remarks?: string;
@@ -30,6 +34,11 @@ type AggregatedHistoryEntry = CarHistoryEntry & {
   model: string;
   plateNumber: string;
 };
+
+const petrolCardOptions = [
+  "708381 530122 65680",
+  "708381 530098 38960",
+];
 
 const CarManagement = () => {
   const { submissions, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar } = useSubmissions();
@@ -68,7 +77,8 @@ const CarManagement = () => {
 
   const approvedCarRequesters = submissions
     .filter((sub: Submission) => {
-      if (sub.formType !== 'car_rental' || sub.status !== 'approved') return false;
+      // Include submissions that are fully approved or HOD-approved (ready for admin to finalize)
+      if (sub.formType !== 'car_rental' || !["approved", "approved_hod"].includes(sub.status)) return false;
       if (checkedOutEmployees.includes(sub.employeeName)) return false;
       
       // Clean up dummy/past data: Hide malformed, expired, and already fulfilled requests
@@ -376,6 +386,30 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   const [dateTimeOut, setDateTimeOut] = useState(() => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedPetrolCard = window.localStorage.getItem("car_checkout_petrol_card");
+    const savedPetrolSerial = window.localStorage.getItem("car_checkout_petrol_serial");
+    if (savedPetrolCard === "true") setPetrolCard(true);
+    if (savedPetrolSerial) setPetrolSerial(savedPetrolSerial);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("car_checkout_petrol_card", String(petrolCard));
+    if (!petrolCard) {
+      window.localStorage.removeItem("car_checkout_petrol_serial");
+      setPetrolSerial("");
+    }
+  }, [petrolCard]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (petrolCard) {
+      window.localStorage.setItem("car_checkout_petrol_serial", petrolSerial);
+    }
+  }, [petrolCard, petrolSerial]);
+
   const fuelOptions = ["Empty", "2/7", "4/7", "5/7", "6/7", "Full"];
 
   const handlePhotoUpload = (side: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -486,14 +520,23 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-foreground">Petrol Card</label>
           <div className="flex gap-1">
-            <button onClick={() => setPetrolCard(false)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${!petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>NO</button>
+            <button onClick={() => { setPetrolCard(false); setPetrolSerial(""); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${!petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>NO</button>
             <button onClick={() => setPetrolCard(true)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>YES</button>
           </div>
         </div>
         {petrolCard && (
           <div className="mt-2">
-            <label className="text-xs text-primary font-medium">Petrol Card Serial No (If YES)</label>
-            <input type="text" placeholder="e.g. 7088 1234 5678" value={petrolSerial} onChange={e => setPetrolSerial(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-background px-3 text-base sm:text-sm mt-1" />
+            <label className="text-xs text-primary font-medium">Select Petrol Card</label>
+            <Select value={petrolSerial} onValueChange={setPetrolSerial}>
+              <SelectTrigger className="h-10 w-full text-base sm:text-sm mt-1">
+                <SelectValue placeholder="Choose a petrol card" />
+              </SelectTrigger>
+              <SelectContent>
+                {petrolCardOptions.map(card => (
+                  <SelectItem key={card} value={card}>{card}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -529,6 +572,10 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
           onClick={async () => {
             if (!employee) {
               toast.error("Please select an employee.");
+              return;
+            }
+            if (petrolCard && !petrolSerial) {
+              toast.error("Please select a petrol card.");
               return;
             }
             setIsSubmitting(true);
@@ -755,7 +802,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
                   }
                 }
               }
-              await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls);
+                await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls);
             } catch (error: any) {
               console.error("Upload error:", error);
               toast.error(`Failed to upload photos: ${error.message}`);

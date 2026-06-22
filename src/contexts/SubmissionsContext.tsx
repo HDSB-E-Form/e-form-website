@@ -132,7 +132,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     }
   }, [submissions]);
 
-  const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>) => {
+const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>) => {
     const carToCheckIn = cars.find(c => c.id === carId);
     if (!carToCheckIn) {
       toast.error("Cannot check-in: Car not found.");
@@ -162,9 +162,9 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       lastCheckedOutAt: null, 
       mileageOut: null, 
       fuelLevelOut: null,
-        remarksOut: null,
+      remarksOut: null,
       photosOut: null,
-      history: updatedHistory 
+      history: updatedHistory,
     };
 
     const { error } = await supabase.from('cars').update(updates).eq('id', carId);

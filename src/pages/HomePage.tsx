@@ -22,7 +22,7 @@ const HomePage = () => {
     {
       id: "hr",
       title: "Human Resource Department",
-      description: "Car rental requests, pass exit forms, and more",
+      description: "Car Booking requests, Gate Pass, PPE Items and more.",
       icon: Users,
       color: "from-blue-500 to-blue-600",
       iconColor: "text-white",
@@ -31,7 +31,7 @@ const HomePage = () => {
     {
       id: "finance",
       title: "Finance Department",
-      description: "Submit petty cash claims and reimbursements",
+      description: "Submit Petty Cash claims and reimbursements.",
       icon: DollarSign,
       color: "from-accent to-accent/80",
       iconColor: "text-accent-foreground",
@@ -40,7 +40,7 @@ const HomePage = () => {
     {
       id: "safety",
       title: "Safety Department",
-      description: "Submit water treatment logs and waste inventory records",
+      description: "Submit water treatment logs, Final Discharge, and waste inventory records.",
       icon: ShieldCheck,
       color: "from-red-500 to-red-600",
       iconColor: "text-white",

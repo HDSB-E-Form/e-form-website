@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
-const CarRentalForm = () => {
+const CarBookingForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission, submissions, cars } = useSubmissions();
@@ -720,4 +720,4 @@ const CarRentalForm = () => {
   );
 };
 
-export default CarRentalForm;
+export default CarBookingForm;

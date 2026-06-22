@@ -14,7 +14,7 @@ import RegisterPage from "@/pages/RegisterPage";
 import HomePage from "@/pages/HomePage";
 import HRFormsPage from "@/pages/HRFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
-import CarRentalForm from "@/pages/CarRentalForm";
+import CarBookingForm from "@/pages/CarBookingForm";
 import LeaveForm from "@/pages/LeaveForm";
 import PpeRequestForm from "@/pages/PpeRequestForm";
 import ClaimForm from "@/pages/ClaimForm";
@@ -137,7 +137,7 @@ const App = () => (
                 } 
               />
               <Route path="/finance" element={<AppLayout><FinanceFormsPage /></AppLayout>} />
-              <Route path="/hr/car-rental" element={<AppLayout><CarRentalForm /></AppLayout>} />
+              <Route path="/hr/car-rental" element={<AppLayout><CarBookingForm /></AppLayout>} />
               <Route path="/hr/leave" element={<AppLayout><LeaveForm /></AppLayout>} />
               <Route path="/hr/ppe-request" element={<AppLayout><PpeRequestForm /></AppLayout>} />
               <Route path="/finance/claim" element={<AppLayout><ClaimForm /></AppLayout>} />

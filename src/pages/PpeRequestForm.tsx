@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
 const PPE_ITEMS = [
-  "Goggle",
-  "Helmet",
+  "Safety Goggle",
+  "Safety Helmet",
   "Safety Boot",
   "Safety Shoe",
   "Safety Insert",
