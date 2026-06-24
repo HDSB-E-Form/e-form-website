@@ -16,6 +16,7 @@ const DailyOperationMonitoringForm = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remarks, setRemarks] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
   const activeFormType = location.pathname.includes("discharge") ? "discharge" : "mixing";
 
   const [employeeInfo, setEmployeeInfo] = useState({
@@ -80,7 +81,25 @@ const DailyOperationMonitoringForm = () => {
     rawEq: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const dischargeParams = [
+    { id: 'ph4', label: 'pH Value' },
+    { id: 'cod', label: 'Chemical Oxygen Demand (COD)' },
+    { id: 'bod', label: 'Biochemical Oxygen Demand (BOD)' },
+    { id: 'tss', label: 'Total Suspended Solid (TSS)' },
+    { id: 'og', label: 'Oil & Grease (O&G)' },
+    { id: 'flowrate', label: 'Flowrate' },
+    { id: 'mg', label: 'Magnesium (Mg)' },
+    { id: 'nickel', label: 'Nickel (Ni)' },
+    { id: 'zink', label: 'Zinc (Zn)' },
+    { id: 'iron', label: 'Iron (Fe)' },
+    { id: 'aluminum', label: 'Aluminum (Al)' },
+    { id: 'fluoride', label: 'Fluoride' },
+    { id: 'silver', label: 'Silver (Ag)' },
+    { id: 'sulphide', label: 'Sulphide (S²⁻)' },
+    { id: 'rawEq', label: 'Raw EQ' },
+  ];
+
+  const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!metaInfo.shift) {
@@ -92,13 +111,15 @@ const DailyOperationMonitoringForm = () => {
       return;
     }
 
+    setShowConfirm(true);
+  };
+
+  const confirmSubmit = async () => {
     if (isSubmitting) return;
+    setShowConfirm(false);
     setIsSubmitting(true);
 
-    // Use the user-selected date/time instead of auto-generating it
-    const finalMetaInfo = {
-      ...metaInfo,
-    };
+    const finalMetaInfo = { ...metaInfo };
 
     const success = await addSubmission({
       formType: activeFormType === "mixing" ? "mixing_chemical_stages" : "final_discharge",
@@ -137,7 +158,7 @@ const DailyOperationMonitoringForm = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleOpenConfirm} className="space-y-6">
 
         {/* SECTION 0: Employee Details */}
         <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
@@ -356,12 +377,12 @@ const DailyOperationMonitoringForm = () => {
               { id: "cod", label: "Chemical Oxygen Demand (COD)", hint: "<200" },
               { id: "bod", label: "Biochemical Oxygen Demand (BOD)", hint: "<50" },
               { id: "tss", label: "Total Suspended Solid (TSS)", hint: "<100" },
-              { id: "og", label: "Oil&Grease (O&G)", hint: "<10" },
+              { id: "og", label: "Oil & Grease (O&G)", hint: "<10" },
               { id: "flowrate", label: "Flowrate (ACF)", hint: "metercube", step: "0.001" },
               { id: "mg", label: "Magnesium (mg)", hint: "<1", step: "0.01" },
-              { id: "nickel", label: "Nickel(Ng)", hint: "<1", step: "0.01" },
-              { id: "zink", label: "Zink (Zn)", hint: "<2.0", step: "0.01" },
-              { id: "iron", label: "Iron(Fe)", hint: "<5.0", step: "0.01" },
+              { id: "nickel", label: "Nickel (Ni)", hint: "<1", step: "0.01" },
+              { id: "zink", label: "Zinc (Zn)", hint: "<2.0", step: "0.01" },
+              { id: "iron", label: "Iron (Fe)", hint: "<5.0", step: "0.01" },
               { id: "aluminum", label: "Aluminum (Al)", hint: "<15", step: "0.01" },
               { id: "fluoride", label: "Fluoride", hint: "<5.0", step: "0.01" },
               { id: "silver", label: "Silver (Ag)", hint: "<1.0", step: "0.01" },
@@ -436,6 +457,54 @@ const DailyOperationMonitoringForm = () => {
           </button>
         </div>
       </form>
+
+      {showConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+          <div className="bg-card max-w-2xl w-full rounded-lg p-4 sm:p-6 shadow-lg max-h-[80vh] overflow-auto text-sm">
+            <h3 className="text-base font-semibold">Confirm Submission</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Please review the summary below, then confirm to submit.</p>
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              {activeFormType === "mixing" ? (
+                <div className="p-3 rounded-md border bg-muted/5">
+                  <div className="text-sm font-semibold mb-2">Mixing & Chemical Stages — Summary</div>
+                  <div className="text-sm text-foreground">
+                    <div>Mixing Tank Volume: <span className="font-medium">{processInfo.mixingTankVolume || '—'}</span></div>
+                    <div>Shift: <span className="font-medium">{metaInfo.shift || '—'}</span></div>
+                    <div className="mt-2 text-sm text-muted-foreground">Stages (values shown when present):</div>
+                    <div className="text-sm divide-y divide-border/30">
+                      <div className="py-2">Caustic Soda: {processInfo.causticSodaLitres || '—'} L (pH: {processInfo.causticSodaPH1 || '—'})</div>
+                      <div className="py-2">Coagulation: {processInfo.coagulationLitres || '—'} L (pH: {processInfo.coagulationPH2 || '—'})</div>
+                      <div className="py-2">Flocculation: {processInfo.flocculationLitres || '—'} L (pH: {processInfo.flocculationPH3 || '—'})</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-md border bg-muted/5">
+                  <div className="text-sm font-semibold mb-2">Final Discharge — Summary</div>
+                  <div className="text-sm text-foreground">
+                    <div>Shift: <span className="font-medium">{metaInfo.shift || '—'}</span></div>
+                    <div className="mt-2 text-sm text-muted-foreground">Parameters submitted:</div>
+                    <div className="text-sm divide-y divide-border/30">
+                      {dischargeParams.map(p => (
+                        <div key={p.id} className="grid items-center py-2" style={{ gridTemplateColumns: '220px 1fr' }}>
+                          <div className="text-muted-foreground pr-2">{p.label}:</div>
+                          <div className="font-medium">{(finalDischarge as any)[p.id] || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setShowConfirm(false)} className="px-4 py-2 rounded-lg bg-muted/20 font-semibold">Cancel</button>
+              <button onClick={confirmSubmit} disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

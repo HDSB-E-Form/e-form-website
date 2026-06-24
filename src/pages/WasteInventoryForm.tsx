@@ -32,6 +32,7 @@ const WasteInventoryForm = () => {
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [plant, setPlant] = useState<"Plant 1" | "Plant 2">("Plant 1");
   const [category, setCategory] = useState<"sell" | "pay">("sell");
   
@@ -102,8 +103,14 @@ const WasteInventoryForm = () => {
     { gross: 0, container: 0, net: 0 }
   );
 
-  const handleSubmit = async () => {
+  const handleOpenConfirm = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    setShowConfirm(true);
+  };
+
+  const confirmSubmit = async () => {
     if (isSubmitting) return;
+    setShowConfirm(false);
     setIsSubmitting(true);
 
     const submissionData = {
@@ -118,7 +125,7 @@ const WasteInventoryForm = () => {
 
     const success = await addSubmission({
       formType: "waste_inventory",
-      status: "approved", // This is a record, so it can be auto-approved.
+      status: "approved",
       submittedBy: user?.id || "",
       employeeName: user?.name || "Unknown User",
       department: user?.department || "Unknown Dept",
@@ -391,13 +398,40 @@ const WasteInventoryForm = () => {
             <FileDown className="h-4 w-4" /> Export as PDF
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={handleOpenConfirm}
             disabled={isSubmitting}
           className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-3 rounded-full text-sm sm:text-xs font-bold flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" /> Submit Records
           </button>
         </div>
+
+        {showConfirm && (
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+            <div className="bg-card max-w-md w-full rounded-lg p-6 shadow-lg">
+              <h3 className="text-lg font-bold">Confirm Submission</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Please review the record summary below, then confirm to submit.</p>
+
+              <div className="mt-4 p-3 rounded-md border bg-muted/5">
+                <div className="text-sm font-semibold mb-2">Waste Inventory — Summary</div>
+                <div className="text-sm">
+                  <div>Plant: <span className="font-medium">{plant}</span></div>
+                  <div>Category: <span className="font-medium">{category === 'sell' ? 'Recycle (Sell)' : 'Dispose (Pay)'}</span></div>
+                  <div>Waste Type: <span className="font-medium">{wasteType}</span></div>
+                  <div className="mt-2">Rows: <span className="font-medium">{rows.length}</span></div>
+                  <div>Total Gross: <span className="font-medium">{totals.gross.toFixed(2)} kg</span></div>
+                  <div>Total Container: <span className="font-medium">{totals.container.toFixed(2)} kg</span></div>
+                  <div>Total Net: <span className="font-medium">{totals.net.toFixed(2)} kg</span></div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setShowConfirm(false)} className="px-4 py-2 rounded-lg bg-muted/20 font-semibold">Cancel</button>
+                <button onClick={confirmSubmit} disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">Confirm</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <p className="hidden print:block text-center text-xs text-muted-foreground pb-4 print:text-gray-400 print:mt-12">
           This is computer generated and no signature is required.
