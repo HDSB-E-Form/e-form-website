@@ -6,7 +6,7 @@ import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText } from "lucide-react";
+import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
@@ -229,7 +229,7 @@ const PpeRequestForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Employee Details */}
-        <div className="card-elevated p-6">
+        <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none">
           <div className="flex items-center gap-2 mb-5">
             <UserCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm">
@@ -258,8 +258,8 @@ const PpeRequestForm = () => {
         </div>
 
         {/* Request Category */}
-        <div className="card-elevated p-6">
-          <div className="flex items-center justify-between gap-4 mb-5">
+        <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none">
+          <div className="flex items-center justify-between gap-4 mb-5 print:hidden">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
               <h2 className="font-bold text-foreground text-sm">
@@ -300,7 +300,7 @@ const PpeRequestForm = () => {
 
           <div className="space-y-6">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Category / Kategori <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary print:hidden">Category / Kategori <span className="text-destructive">*</span></Label>
               <div className="flex flex-col sm:flex-row gap-3 mt-1.5">
                 {[
                   { id: "ppe", label: "PPE" },
@@ -308,7 +308,7 @@ const PpeRequestForm = () => {
                   ...(requestType === "issue" ? [{ id: "office", label: "Office Supply" }] : [])
                 ].map(cat => (
                   <div
-                    key={cat.id}
+                    key={cat.id} // The print:hidden class here will hide the category selection boxes when printing
                     className={`flex-1 rounded-xl border-2 p-3 sm:p-4 transition-all cursor-pointer flex items-center gap-3 ${
                       requestCategory === cat.id
                         ? "border-primary bg-primary/5 text-primary"
@@ -325,7 +325,7 @@ const PpeRequestForm = () => {
               </div>
             </div>
 
-            <div className="border border-border rounded-lg overflow-x-auto">
+            <div className="border border-border rounded-lg overflow-x-auto print:border-2 print:border-black">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
@@ -481,7 +481,7 @@ const PpeRequestForm = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8">
+        <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8 print:hidden">
           <button
             type="submit"
             disabled={isSubmitting}
@@ -490,6 +490,26 @@ const PpeRequestForm = () => {
             <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit Record"}
           </button>
+          {requestType === 'buy' && (
+            <button
+              type="button"
+              onClick={() => {
+                const originalTitle = document.title;
+                document.title = `PPE_Purchase_Form_${employeeInfo.name.replace(' ', '_')}`;
+                
+                const isDark = document.documentElement.classList.contains('dark');
+                if (isDark) document.documentElement.classList.remove('dark');
+
+                window.onafterprint = () => {
+                  document.title = originalTitle;
+                  if (isDark) document.documentElement.classList.add('dark');
+                  window.onafterprint = null;
+                };
+                window.print();
+              }}
+              className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center flex items-center justify-center gap-2"
+            ><Printer className="h-4 w-4" /> Print Form</button>
+          )}
           <button
             type="button"
             onClick={() => navigate("/hr")}
@@ -499,6 +519,25 @@ const PpeRequestForm = () => {
           </button>
         </div>
       </form>
+
+      {/* Signature Section - Only visible on print */}
+      <div className="hidden print:block mt-24 pt-12 border-t-2 border-dashed border-black">
+        <div className="grid grid-cols-2 gap-16">
+          <div className="text-center">
+            <div className="border-b-2 border-black pb-2"></div>
+            <p className="mt-2 text-sm font-bold">Requester's Signature</p>
+            <p className="mt-4 text-xs text-gray-600">Name:</p>
+            <p className="mt-4 text-xs text-gray-600">Date:</p>
+          </div>
+          <div className="text-center">
+            <div className="border-b-2 border-black pb-2"></div>
+            <p className="mt-2 text-sm font-bold">Finance Department</p>
+            <p className="mt-4 text-xs text-gray-600">Name:</p>
+            <p className="mt-4 text-xs text-gray-600">Date:</p>
+            <p className="mt-4 text-xs text-gray-600">Company Stamp:</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

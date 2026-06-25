@@ -569,7 +569,7 @@ const AdminDashboard = () => {
       </div>
 
       {viewMode === "purchases" ? (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-700">
           <div className="card-elevated p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-foreground">Equipment Purchases</h2>
@@ -579,7 +579,7 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
@@ -599,22 +599,28 @@ const AdminDashboard = () => {
                     </TableRow>
                   ) : (
                     purchaseSubmissions.map(sub => (
-                      <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors cursor-pointer" onClick={() => setSelectedSubmission(sub)}>
-                        <TableCell className="font-semibold text-sm">{sub.employeeName}</TableCell>
-                        <TableCell className="text-sm">{sub.data.requestCategory?.toUpperCase() || "PPE"}</TableCell>
-                        <TableCell className="text-sm">
+                      <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors">
+                        <TableCell className="font-semibold text-sm cursor-pointer whitespace-nowrap" onClick={() => setSelectedSubmission(sub)}>
+                          {sub.employeeName}
+                        </TableCell>
+                        <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setSelectedSubmission(sub)}>
+                          {sub.data.requestCategory?.toUpperCase() || "PPE"}
+                        </TableCell>
+                        <TableCell className="text-sm cursor-pointer min-w-[200px]" onClick={() => setSelectedSubmission(sub)}>
                           {sub.data.items?.map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ") || "—"}
                         </TableCell>
                         <TableCell className="text-sm">
                           {sub.data.invoiceUrl ? (
-                            <a href={sub.data.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
+                            <a href={sub.data.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <FileText className="h-3.5 w-3.5" /> View
                             </a>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => setSelectedSubmission(sub)}>
+                          {new Date(sub.submittedAt).toLocaleDateString()}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -624,7 +630,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       ) : viewMode === "approvals" ? (
-        <>
+        <div className="animate-in slide-in-from-bottom-2 duration-700">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="card-elevated p-5">
               <div className="flex items-center justify-between mb-2">
@@ -760,10 +766,10 @@ const AdminDashboard = () => {
               </>
             )}
           </div>
-        </>
+        </div>
       ) : (
         /* INVENTORY TRACKER VIEW */
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-700">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card-elevated p-5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -915,8 +921,8 @@ const AdminDashboard = () => {
                               }
                             </p>
                             {isRestock && sub.data.poNumber && (
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] font-semibold">
-                                PO: {sub.data.poNumber}
+                              <p className="text-[10px] text-muted-foreground">
+                                PO Number: {sub.data.poNumber}
                               </p>
                             )}
                           </div>

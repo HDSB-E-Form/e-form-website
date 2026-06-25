@@ -136,7 +136,7 @@ const CarManagement = () => {
     });
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in slide-in-from-bottom-2 duration-700">
       {/* Fullscreen Image Preview Modal */}
       {fullscreenImage && (
         <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setFullscreenImage(null)}>
@@ -443,7 +443,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-700">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-Out</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-Out Form</h1>
 
@@ -484,7 +484,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
       <div className="card-elevated p-5 mt-4">
         <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Rent Details</h3>
 
-        <div className="grid grid-cols-1 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">Current Mileage (km)</label>
             <input type="text" placeholder="Enter current mileage" value={mileage} onChange={e => setMileage(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
@@ -544,18 +544,11 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         <div className="mt-6 pt-5 border-t border-border/50 text-center">
           <h4 className="font-bold text-foreground text-sm mb-1">Vehicle Condition Photos / Gambar Keadaan Kenderaan</h4>
           <p className="text-xs text-muted-foreground mb-4">Max 12MB per photo / Maksimum 12MB setiap gambar</p>
-          <div className="flex flex-col items-center gap-4 bg-muted/20 p-5 sm:p-6 rounded-xl border border-border w-full shadow-sm">
-            {/* Top / Front */}
+          <div className="grid grid-cols-2 gap-4 bg-muted/20 p-5 sm:p-6 rounded-xl border border-border w-full shadow-sm">
             {renderPhotoUpload('front', 'Front View')}
-            
-            {/* Left and Right */}
-            <div className="flex w-full gap-6 sm:gap-16 md:gap-24 px-2 sm:px-8 md:px-16">
-              {renderPhotoUpload('left', 'Left Side')}
-              {renderPhotoUpload('right', 'Right Side')}
-            </div>
-        
-            {/* Bottom / Back */}
             {renderPhotoUpload('back', 'Back View')}
+            {renderPhotoUpload('left', 'Left Side')}
+            {renderPhotoUpload('right', 'Right Side')}
           </div>
         </div>
 
@@ -567,20 +560,23 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
       </div>
 
       {/* Buttons */}
-      <div className="mt-6 space-y-3">
+      <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8">
         <button
           onClick={async () => {
             if (!employee) {
               toast.error("Please select an employee.");
               return;
             }
-            if (petrolCard && !petrolSerial) {
-              toast.error("Please select a petrol card.");
-              return;
-            }
             setIsSubmitting(true);
             const uploadedUrls: Record<string, string | null> = { front: null, back: null, left: null, right: null };
             try {
+              if (petrolCard && !petrolSerial) {
+                throw new Error("Please select a petrol card.");
+              }
+              if (!mileage) {
+                throw new Error("Please enter the current mileage.");
+              }
+
               for (const [side, data] of Object.entries(photos)) {
                 if (data.file) {
                   const filePath = `public/${user?.id || 'admin'}/car_out_${side}_${Date.now()}_${data.file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
@@ -595,16 +591,17 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
               await onSubmit(car, employee, mileage, fuelLevel, remarks, uploadedUrls);
             } catch (error: any) {
               console.error("Upload error:", error);
-              toast.error(`Failed to upload photos: ${error.message}`);
+              toast.error(error.message || `Failed to submit check-out.`);
             } finally {
               setIsSubmitting(false);
             }
           }}
           disabled={isSubmitting}
-          className="btn-gold w-full py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
-          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit"}
+          className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
+          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit Check-Out"}
         </button>
-        <button onClick={onCancel} disabled={isSubmitting} className="w-full py-3 rounded-lg bg-muted text-foreground font-medium text-sm hover:bg-muted/70 transition-colors disabled:opacity-50">
+        <div className="w-full h-px bg-border sm:hidden" />
+        <button type="button" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center">
           Cancel
         </button>
       </div>
@@ -657,7 +654,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-700">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-In</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-In Form</h1>
 
@@ -719,7 +716,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <h3 className="font-bold text-primary">Section 2: Check-In Details</h3>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Current Mileage (Return)</label>
             <div className="relative group mt-1.5">
@@ -765,32 +762,26 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
         <div className="mb-5 pt-5 border-t border-border/50 text-center">
           <h4 className="font-bold text-foreground text-sm mb-1">Vehicle Condition Photos / Gambar Keadaan Kenderaan</h4>
           <p className="text-xs text-muted-foreground mb-4">Max 12MB per photo / Maksimum 12MB setiap gambar</p>
-          <div className="flex flex-col items-center gap-4 bg-muted/20 p-5 sm:p-6 rounded-xl border border-border w-full shadow-sm">
-            {/* Top / Front */}
+          <div className="grid grid-cols-2 gap-4 bg-muted/20 p-5 sm:p-6 rounded-xl border border-border w-full shadow-sm">
             {renderPhotoUpload('front', 'Front View')}
-            
-            {/* Left and Right */}
-            <div className="flex w-full gap-6 sm:gap-16 md:gap-24 px-2 sm:px-8 md:px-16">
-              {renderPhotoUpload('left', 'Left Side')}
-              {renderPhotoUpload('right', 'Right Side')}
-            </div>
-        
-            {/* Bottom / Back */}
             {renderPhotoUpload('back', 'Back View')}
+            {renderPhotoUpload('left', 'Left Side')}
+            {renderPhotoUpload('right', 'Right Side')}
           </div>
         </div>
       </div>
 
       {/* Buttons */}
-      <div className="mt-6 flex items-center justify-center gap-3">
-        <button onClick={onCancel} disabled={isSubmitting} className="px-8 py-3 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-muted/50 transition-colors disabled:opacity-50">
-          Cancel
-        </button>
+      <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8">
         <button 
           onClick={async () => {
             setIsSubmitting(true);
             const uploadedUrls: Record<string, string | null> = { front: null, back: null, left: null, right: null };
             try {
+              if (!mileageIn) {
+                throw new Error("Please enter the return mileage.");
+              }
+
               for (const [side, data] of Object.entries(photos)) {
                 if (data.file) {
                   const filePath = `public/${user?.id || 'admin'}/car_in_${side}_${Date.now()}_${data.file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
@@ -802,17 +793,21 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
                   }
                 }
               }
-                await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls);
+              await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls);
             } catch (error: any) {
               console.error("Upload error:", error);
-              toast.error(`Failed to upload photos: ${error.message}`);
+              toast.error(error.message || `Failed to submit check-in.`);
             } finally {
               setIsSubmitting(false);
             }
           }} 
           disabled={isSubmitting}
-          className="btn-gold px-8 py-3 rounded-lg text-sm font-bold flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
-          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Confirm Check-In"}
+          className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
+          <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit Check-In"}
+        </button>
+        <div className="w-full h-px bg-border sm:hidden" />
+        <button type="button" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center">
+          Cancel
         </button>
       </div>
     </div>

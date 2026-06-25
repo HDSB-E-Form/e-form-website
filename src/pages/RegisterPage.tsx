@@ -43,15 +43,6 @@ const RegisterPage = () => {
       return;
     }
 
-    // Domain Validation: Restrict to official company domains
-    const allowedDomains = ["hidsb.com", "drb-hicom.com"];
-    const emailDomain = form.email.split("@")[1];
-    
-    if (!emailDomain || !allowedDomains.includes(emailDomain.toLowerCase())) {
-      setError("Please use an official registered email address (sara@hidsb.com)");
-      return;
-    }
-
       setIsRegistering(true);
 
       const { data, error: signUpError } = await supabase.auth.signUp({
