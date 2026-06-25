@@ -6,7 +6,7 @@ import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserCheck, Package, Send } from "lucide-react";
+import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
@@ -16,6 +16,7 @@ const PPE_ITEMS = [
   "Safety Boot",
   "Safety Shoe",
   "Safety Insert",
+  
   "Earplug",
   "Apron",
   "Crane Vest",
@@ -89,10 +90,14 @@ const PpeRequestForm = () => {
   }, [user]);
 
   const [requestCategory, setRequestCategory] = useState<"ppe" | "uniform" | "office">("ppe");
+  const [requestType, setRequestType] = useState<"issue" | "buy">("issue");
   const [ppeItems, setPpeItems] = useState(PPE_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
   const [uniformItems, setUniformItems] = useState(UNIFORM_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
   const [officeItems, setOfficeItems] = useState(OFFICE_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
   const [remarks, setRemarks] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+  const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
 
   const currentItems = requestCategory === "ppe" ? ppeItems : requestCategory === "uniform" ? uniformItems : officeItems;
   const setCurrentItems = requestCategory === "ppe" ? setPpeItems : requestCategory === "uniform" ? setUniformItems : setOfficeItems;
@@ -105,6 +110,34 @@ const PpeRequestForm = () => {
 
   const toggleItemSelection = (index: number) => {
     setCurrentItems((prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, selected: !item.selected } : item));
+  };
+
+  const handleInvoiceChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingInvoice(true);
+    const fileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const filePath = `ppe-purchase/${user?.id || "unknown"}/${Date.now()}_${fileName}`;
+
+    const { data, error } = await supabase.storage.from("form-attachments").upload(filePath, file);
+    if (error || !data) {
+      toast.error(`Upload failed: ${error?.message || "Unknown error"}`);
+      setIsUploadingInvoice(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("form-attachments").getPublicUrl(data.path);
+    if (!urlData) {
+      toast.error("Failed to get invoice URL");
+      setIsUploadingInvoice(false);
+      return;
+    }
+
+    setInvoiceFile(file);
+    setInvoiceUrl(urlData.publicUrl);
+    setIsUploadingInvoice(false);
+    toast.success("Invoice uploaded successfully.");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,11 +155,17 @@ const PpeRequestForm = () => {
       return;
     }
 
+    if (requestType === "buy" && !invoiceUrl) {
+      toast.error("Please upload an invoice for purchase requests.");
+      return;
+    }
+
     if (isSubmitting) return;
     setIsSubmitting(true);
 
     const success = await addSubmission({
-      formType: "ppe_request",
+      formType: requestType === "buy" ? "ppe_purchase" : "ppe_request",
+
       status: "approved",
       submittedBy: user?.id || "",
       employeeName: employeeInfo.name,
@@ -134,8 +173,10 @@ const PpeRequestForm = () => {
       data: {
         employeeInfo,
         requestCategory,
+        requestType,
         items: selectedItems.map(({ name, size, quantity }) => requestCategory === "office" ? { "Item Name": name, Quantity: quantity } : { "Item Name": name, Size: size, Quantity: quantity }),
         remarks,
+        ...(requestType === "buy" && { invoiceUrl }),
       },
     });
 
@@ -149,9 +190,9 @@ const PpeRequestForm = () => {
           await supabase.functions.invoke('send-notification', {
             body: {
               to: recipientEmails,
-              subject: `New Collection Record for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
+              subject: `New ${requestType === "buy" ? "Purchase" : "Collection"} Record for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
               employeeName: employeeInfo.name,
-              formType: "PPE | Uniform | Office Supplies Request",
+              formType: requestType === "buy" ? "PPE | Uniform Purchase" : "PPE | Uniform | Office Supplies Request",
               url: window.location.origin
             }
           });
@@ -166,6 +207,12 @@ const PpeRequestForm = () => {
       setIsSubmitting(false);
     }
   };
+
+  const resetForm = () => {
+    setInvoiceFile(null);
+    setInvoiceUrl(null);
+  };
+
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
@@ -212,11 +259,43 @@ const PpeRequestForm = () => {
 
         {/* Request Category */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Package className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
-              Request Details / <span className="font-normal">Butiran Permohonan</span>
-            </h2>
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              <h2 className="font-bold text-foreground text-sm">
+                Request Details / <span className="font-normal">Butiran Permohonan</span>
+              </h2>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRequestType("issue");
+                  setRequestCategory("ppe");
+                }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  requestType === "issue"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Issue
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRequestType("buy");
+                  setRequestCategory("ppe");
+                }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                  requestType === "buy"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <ShoppingCart className="h-3.5 w-3.5" /> Buy
+              </button>
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -226,7 +305,7 @@ const PpeRequestForm = () => {
                 {[
                   { id: "ppe", label: "PPE" },
                   { id: "uniform", label: "Uniform" },
-                  { id: "office", label: "Office Supply" }
+                  ...(requestType === "issue" ? [{ id: "office", label: "Office Supply" }] : [])
                 ].map(cat => (
                   <div
                     key={cat.id}
@@ -355,6 +434,49 @@ const PpeRequestForm = () => {
                 className="h-11"
               />
             </div>
+
+            {requestType === "buy" && (
+              <div className="space-y-1.5 pt-4 border-t border-border">
+                <Label className="text-xs font-semibold text-primary">Upload Invoice / Receipt <span className="text-destructive">*</span></Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                  {invoiceUrl && invoiceFile ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-emerald-600">
+                        <FileText className="h-5 w-5" />
+                        <span className="text-sm font-medium truncate max-w-xs">{invoiceFile.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInvoiceFile(null);
+                          setInvoiceUrl(null);
+                          resetForm();
+                        }}
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        Change File
+                      </button>
+                    </div>
+                  ) : (
+                    <label htmlFor="invoice-upload" className="cursor-pointer block">
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-sm font-semibold text-muted-foreground">Click to upload invoice</span>
+                        <span className="text-xs text-muted-foreground">PDF, Image, or document</span>
+                      </div>
+                      <input
+                        id="invoice-upload"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        className="hidden"
+                        onChange={handleInvoiceChange}
+                        disabled={isUploadingInvoice}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

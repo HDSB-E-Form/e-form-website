@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, Package, Box, AlertTriangle, Plus, XCircle } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, Package, Box, AlertTriangle, Plus, XCircle, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ const formTypeLabels: Record<string, string> = {
   claim: "Petty Cash Claim",
   leave: "Gate Pass",
   ppe_request: "PPE / Uniform / Office",
+  ppe_purchase: "PPE | Uniform Purchase",
 };
 
 const statusBadge = (status: string) => {
@@ -145,18 +146,16 @@ const renderValue = (val: any): React.ReactNode => {
   return String(val);
 };
 
-// HR Admin Dashboard - sees leave and car_rental forms only
 const AdminDashboard = () => {
   const { user } = useAuth();
   const { submissions, updateSubmissionStatus, addSubmission } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [viewMode, setViewMode] = useState<"approvals" | "inventory">("approvals");
+  const [viewMode, setViewMode] = useState<"approvals" | "inventory" | "purchases">("approvals");
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
   
-  // Inventory State (Calculated from database history)
   const inventoryStock = useMemo(() => {
     const stock: Record<string, number> = { ...INITIAL_STOCK };
     submissions.filter(s => s.formType === "inventory_addition").forEach(sub => {
@@ -167,8 +166,9 @@ const AdminDashboard = () => {
     });
     return stock;
   }, [submissions]);
+
   const [isStockSheetOpen, setIsStockSheetOpen] = useState(false);
-  const [stockForm, setStockForm] = useState({ itemName: "", quantity: "" });
+  const [stockForm, setStockForm] = useState({ itemName: "", quantity: "", poNumber: "" });
   const [customItem, setCustomItem] = useState("");
   const [inventoryTab, setInventoryTab] = useState<"ppe" | "uniform" | "office">("ppe");
   const [inventorySearch, setInventorySearch] = useState("");
@@ -191,9 +191,9 @@ const AdminDashboard = () => {
 
   const getItemCategory = (name: string) => itemCategoryMap[name] || "ppe";
 
-  // Separate standard approvals from instant-record inventory forms
-  const approvalSubmissions = submissions.filter(s => s.formType === "car_rental");
+  const approvalSubmissions = submissions.filter(s => s.formType === "car_rental" || s.formType === "leave");
   const inventorySubmissions = submissions.filter(s => s.formType === "ppe_request");
+  const purchaseSubmissions = submissions.filter(s => s.formType === "ppe_purchase");
 
   const filtered = approvalSubmissions
     .filter(s => {
@@ -212,7 +212,7 @@ const AdminDashboard = () => {
 
   const isRecent = (dateStr: string) => {
     const hours = (new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
-    return hours < 48; // Checks if submitted within the last 48 hours
+    return hours < 48;
   };
 
   const tabFiltered = filtered.filter(s => {
@@ -269,20 +269,19 @@ const AdminDashboard = () => {
       submittedBy: user?.id || "",
       employeeName: user?.name || "System Admin",
       department: user?.department || "HR",
-      data: { itemName: nameToUpdate, quantity: qty, category: stockSheetCategory }
+      data: { itemName: nameToUpdate, quantity: qty, category: stockSheetCategory, poNumber: stockForm.poNumber }
     });
 
     if (success) {
       toast.success(`${qty} unit(s) added to ${nameToUpdate} stock`);
       setIsStockSheetOpen(false);
-      setStockForm({ itemName: "", quantity: "" });
+      setStockForm({ itemName: "", quantity: "", poNumber: "" });
       setCustomItem("");
     } else {
       toast.error("Failed to add stock to the database.");
     }
   };
 
-  // Calculate Distributed Inventory
   const distributedItems: Record<string, number> = {};
   inventorySubmissions.forEach(sub => {
     if (sub.status === "approved" && sub.data?.items && Array.isArray(sub.data.items)) {
@@ -294,7 +293,6 @@ const AdminDashboard = () => {
     }
   });
 
-  // Combine all known inventory items
   const allInventoryKeys = Array.from(new Set([
     ...PPE_ITEMS,
     ...UNIFORM_ITEMS,
@@ -493,11 +491,9 @@ const AdminDashboard = () => {
     );
   };
 
-  // Review detail view
   if (selectedSubmission) {
-    const isApprovalForm = selectedSubmission.formType === "car_rental";
+    const isApprovalForm = selectedSubmission.formType === "car_rental" || selectedSubmission.formType === "leave";
     const isPpe = selectedSubmission.formType === "ppe_request";
-    // Enforce strict 3-step approval: HOS -> HOD -> HR
     const canApprove = selectedSubmission.status === "approved_hod";
     const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod";
 
@@ -566,154 +562,208 @@ const AdminDashboard = () => {
           <button onClick={() => setViewMode("inventory")} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${viewMode === "inventory" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
             <Package className="h-4 w-4" /> Inventory Tracker
           </button>
+          <button onClick={() => setViewMode("purchases")} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${viewMode === "purchases" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+            <ShoppingCart className="h-4 w-4" /> Purchases
+          </button>
         </div>
       </div>
 
-      {viewMode === "approvals" ? (
-        <>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Submissions</p>
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+12%</Badge>
+      {viewMode === "purchases" ? (
+        <div className="space-y-4">
+          <div className="card-elevated p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-foreground">Equipment Purchases</h2>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-primary">{purchaseSubmissions.length}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Submissions</p>
+              </div>
+            </div>
+
+            <div className="border border-border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Employee</TableHead>
+                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Category</TableHead>
+                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Items</TableHead>
+                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Invoice</TableHead>
+                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {purchaseSubmissions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No purchase submissions yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    purchaseSubmissions.map(sub => (
+                      <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors cursor-pointer" onClick={() => setSelectedSubmission(sub)}>
+                        <TableCell className="font-semibold text-sm">{sub.employeeName}</TableCell>
+                        <TableCell className="text-sm">{sub.data.requestCategory?.toUpperCase() || "PPE"}</TableCell>
+                        <TableCell className="text-sm">
+                          {sub.data.items?.map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ") || "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {sub.data.invoiceUrl ? (
+                            <a href={sub.data.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
+                              <FileText className="h-3.5 w-3.5" /> View
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-          <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
-          <p className="text-xs text-muted-foreground mt-1">Current fiscal year / Tahun kewangan semasa</p>
         </div>
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Action Required</p>
-            {stats.actionRequired > 0 ? (
-              <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[10px] font-semibold px-2 animate-pulse">Needs Review</Badge>
+      ) : viewMode === "approvals" ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="card-elevated p-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Submissions</p>
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+12%</Badge>
+              </div>
+              <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
+              <p className="text-xs text-muted-foreground mt-1">Current fiscal year / Tahun kewangan semasa</p>
+            </div>
+            <div className="card-elevated p-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Action Required</p>
+                {stats.actionRequired > 0 ? (
+                  <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[10px] font-semibold px-2 animate-pulse">Needs Review</Badge>
+                ) : (
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">All Cleared</Badge>
+                )}
+              </div>
+              <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
+              <p className="text-xs text-muted-foreground mt-1">Forms waiting for your final approval</p>
+            </div>
+            <div className="card-elevated p-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval Rate</p>
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+2%</Badge>
+              </div>
+              <p className="text-4xl font-bold text-foreground">{stats.approvalRate}%</p>
+              <p className="text-xs text-muted-foreground mt-1">Compliance target: 90% / Sasaran pematuhan: 90%</p>
+            </div>
+          </div>
+
+          <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6">
+            <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "action_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
+              Action Required
+              {stats.actionRequired > 0 && (
+                <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.actionRequired}</Badge>
+              )}
+            </button>
+            <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "in_progress" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
+              In Progress
+              {stats.inProgress > 0 && (
+                <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-amber-500 text-white hover:bg-amber-600">{stats.inProgress}</Badge>
+              )}
+            </button>
+            <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "history" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
+              History
+            </button>
+          </div>
+
+          <div className="card-elevated overflow-hidden">
+            <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by name, date, or type..." 
+                  value={search} 
+                  onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
+                  className="pl-9 w-full sm:w-72 h-9 text-base sm:text-sm" 
+                />
+              </div>
+            </div>
+
+            {tabFiltered.length === 0 ? (
+              <div className="p-12 text-center">
+                <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground">No submissions found in this tab</h3>
+              </div>
             ) : (
-              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">All Cleared</Badge>
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Status</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(isViewAll ? tabFiltered : tabFiltered.slice(0, 10)).map((sub) => {
+                        const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
+                        return (
+                          <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
+                            <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
+                                  {avatarUrl ? (
+                                    <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    getInitials(sub.employeeName)
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col items-start gap-1">
+                                <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
+                                {activeTab === "action_required" && isRecent(sub.submittedAt) && (
+                                  <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{statusBadge(sub.status)}</TableCell>
+                            <TableCell className="text-center">
+                              <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
+                                {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex items-center justify-between p-4 border-t border-border">
+                  <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>
+                  {tabFiltered.length > 10 && (
+                    <button 
+                      onClick={() => setIsViewAll(!isViewAll)}
+                      className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                    >
+                      {isViewAll ? "View Less" : "View More"}
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
-          <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
-          <p className="text-xs text-muted-foreground mt-1">Forms waiting for your final approval</p>
-        </div>
-        <div className="card-elevated p-5">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval Rate</p>
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+2%</Badge>
-          </div>
-          <p className="text-4xl font-bold text-foreground">{stats.approvalRate}%</p>
-          <p className="text-xs text-muted-foreground mt-1">Compliance target: 90% / Sasaran pematuhan: 90%</p>
-        </div>
-      </div>
-
-      {/* Action Tabs */}
-      <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6">
-        <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "action_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          Action Required
-          {stats.actionRequired > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.actionRequired}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "in_progress" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          In Progress
-          {stats.inProgress > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-amber-500 text-white hover:bg-amber-600">{stats.inProgress}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "history" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          History
-        </button>
-      </div>
-
-      {/* Submissions Table */}
-      <div className="card-elevated overflow-hidden">
-        <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search by name, date, or type..." 
-              value={search} 
-              onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
-              className="pl-9 w-full sm:w-72 h-9 text-base sm:text-sm" 
-            />
-          </div>
-        </div>
-
-        {tabFiltered.length === 0 ? (
-          <div className="p-12 text-center">
-            <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">No submissions found in this tab</h3>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Status</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-            {(isViewAll ? tabFiltered : tabFiltered.slice(0, 10)).map((sub) => {
-              const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
-              return (
-                <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
-                    <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
-                      ) : (
-                        getInitials(sub.employeeName)
-                      )}
-                        </div>
-                        <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col items-start gap-1">
-                        <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
-                        {activeTab === "action_required" && isRecent(sub.submittedAt) && (
-                          <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{statusBadge(sub.status)}</TableCell>
-                    <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
-                        {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
-                      </button>
-                    </TableCell>
-                  </TableRow>
-              );
-            })}
-              </TableBody>
-            </Table>
-            </div>
-            <div className="flex items-center justify-between p-4 border-t border-border">
-              <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>
-              {tabFiltered.length > 10 && (
-                <button 
-                  onClick={() => setIsViewAll(!isViewAll)}
-                  className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm"
-                >
-                  {isViewAll ? "View Less" : "View More"}
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
         </>
       ) : (
         /* INVENTORY TRACKER VIEW */
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* Inventory Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card-elevated p-5 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -747,7 +797,6 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Stock Levels */}
             <div className="xl:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
               <div className="p-5 border-b border-border bg-muted/10 shrink-0 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -833,7 +882,6 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Recent Activity History */}
             <div className="card-elevated overflow-hidden flex flex-col h-[600px]">
               <div className="p-5 border-b border-border bg-muted/10 shrink-0">
                 <h2 className="text-lg font-bold text-foreground">Recent Activity</h2>
@@ -850,22 +898,29 @@ const AdminDashboard = () => {
                       const isRestock = sub.formType === "inventory_addition";
                       return (
                         <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => !isRestock && setSelectedSubmission(sub)}>
-                        <div className="flex justify-between items-start mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <div className="flex justify-between items-start mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
                               <Badge className={`border-0 text-[9px] uppercase px-1.5 py-0 ${isRestock ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400' : 'bg-primary/10 text-primary'}`}>
                                 {isRestock ? "RESTOCK" : (sub.data.requestCategory || "PPE")}
                               </Badge>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-medium">{new Date(sub.submittedAt).toLocaleDateString()}</span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground font-medium">{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {isRestock
+                                ? `+${sub.data.quantity}x ${sub.data.itemName}`
+                                : (sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ")
+                              }
+                            </p>
+                            {isRestock && sub.data.poNumber && (
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] font-semibold">
+                                PO: {sub.data.poNumber}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                            {isRestock
-                              ? `+${sub.data.quantity}x ${sub.data.itemName}`
-                              : (sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ")
-                            }
-                        </p>
-                      </div>
                       );
                     })}
                   </div>
@@ -887,9 +942,9 @@ const AdminDashboard = () => {
             <div>
               <Label className="text-xs font-bold text-primary uppercase tracking-wider block mb-2">1. Select Category</Label>
               <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => { setStockSheetCategory("ppe"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'ppe' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>PPE</button>
-                <button type="button" onClick={() => { setStockSheetCategory("uniform"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'uniform' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Uniforms</button>
-                <button type="button" onClick={() => { setStockSheetCategory("office"); setStockForm({ itemName: "", quantity: stockForm.quantity }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'office' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Office</button>
+                <button type="button" onClick={() => { setStockSheetCategory("ppe"); setStockForm({ itemName: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'ppe' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>PPE</button>
+                <button type="button" onClick={() => { setStockSheetCategory("uniform"); setStockForm({ itemName: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'uniform' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Uniforms</button>
+                <button type="button" onClick={() => { setStockSheetCategory("office"); setStockForm({ itemName: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'office' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Office</button>
               </div>
             </div>
 
@@ -926,8 +981,14 @@ const AdminDashboard = () => {
 
             <div className="space-y-2">
               <Label className="text-xs font-bold text-primary uppercase tracking-wider">3. Quantity to Add</Label>
-              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="e.g. 50" className="h-11 no-spinner text-base sm:text-sm" onWheel={(e) => (e.target as HTMLElement).blur()} />
+              <Input type="number" min="1" value={stockForm.quantity} onChange={e => setStockForm(p => ({...p, quantity: e.target.value}))} placeholder="Enter quantity" className="h-11 no-spinner text-base sm:text-sm" onWheel={(e) => (e.target as HTMLElement).blur()} />
               <p className="text-[10px] text-muted-foreground">This amount will be added to the total historical stock.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-primary uppercase tracking-wider">4. PO Number</Label>
+              <Input value={stockForm.poNumber} onChange={e => setStockForm(p => ({...p, poNumber: e.target.value}))} placeholder="Enter PO Number" className="h-11 text-base sm:text-sm" />
+              <p className="text-[10px] text-muted-foreground">Optional reference number for this restock entry.</p>
             </div>
             
             <div className="pt-4 flex gap-3">
