@@ -472,7 +472,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
           <SelectTrigger className="h-11 text-base sm:text-sm">
             <SelectValue placeholder="Select Employee" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-64">
             {requesters.map(name => (
               <SelectItem key={name} value={name}>{name}</SelectItem>
             ))}

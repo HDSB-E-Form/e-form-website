@@ -6,9 +6,10 @@ import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText, Printer } from "lucide-react";
+import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText, Printer, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
+import logo from "@/assets/logo.png";
 
 const PPE_ITEMS = [
   "Safety Goggle",
@@ -215,12 +216,27 @@ const PpeRequestForm = () => {
 
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
+      {/* Print Header */}
+      <div className="hidden print:flex items-center mb-8 border-b-2 border-black pb-6">
+        <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
+        <div className="text-left">
+          <h1 className="text-2xl font-bold uppercase tracking-widest text-black">HICOM Diecastings Sdn Bhd</h1>
+          <p className="text-sm text-gray-600 mt-1 uppercase tracking-wide">
+            {requestType === 'buy' ? 'Purchase Requisition Form' : 'Collection Record'}
+          </p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-xs text-gray-500">Date Printed:</p>
+          <p className="text-sm font-semibold text-black">{new Date().toLocaleDateString('en-GB')}</p>
+        </div>
+      </div>
+
+      <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
 
-      <div className="mb-8">
+      <div className="mb-8 print:hidden">
         <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
           PPE | Uniform | Office Supplies Request
         </h1>
@@ -229,7 +245,7 @@ const PpeRequestForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Employee Details */}
-        <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none">
+        <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none print:mb-8">
           <div className="flex items-center gap-2 mb-5">
             <UserCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm">
@@ -237,22 +253,22 @@ const PpeRequestForm = () => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-xl border border-border/50">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name / Nama</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
+          <div className="bg-muted/10 p-4 rounded-xl border border-border/50 print:bg-transparent print:p-0 print:border-none print:rounded-none">
+            <div className="py-2 sm:py-3 border-b border-border/50 print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Name / Nama</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
+            <div className="py-2 sm:py-3 border-b border-border/50 print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position / Jawatan</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No Pekerja</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.staffNo || "—"}</div>
+            <div className="py-2 sm:py-3 border-b border-border/50 print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID / No Pekerja</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Department / Jabatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.department || "—"}</div>
+            <div className="py-2 sm:py-3 border-b-0 print:border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department / Jabatan</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
         </div>
@@ -300,15 +316,15 @@ const PpeRequestForm = () => {
 
           <div className="space-y-6">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary print:hidden">Category / Kategori <span className="text-destructive">*</span></Label>
-              <div className="flex flex-col sm:flex-row gap-3 mt-1.5">
+              <Label className="text-xs font-semibold text-primary print:hidden">Category / Kategori <span className="text-destructive">*</span></Label>              
+              <div className="flex flex-col sm:flex-row gap-3 mt-1.5 print:hidden">
                 {[
                   { id: "ppe", label: "PPE" },
                   { id: "uniform", label: "Uniform" },
                   ...(requestType === "issue" ? [{ id: "office", label: "Office Supply" }] : [])
                 ].map(cat => (
                   <div
-                    key={cat.id} // The print:hidden class here will hide the category selection boxes when printing
+                    key={cat.id}
                     className={`flex-1 rounded-xl border-2 p-3 sm:p-4 transition-all cursor-pointer flex items-center gap-3 ${
                       requestCategory === cat.id
                         ? "border-primary bg-primary/5 text-primary"
@@ -323,13 +339,21 @@ const PpeRequestForm = () => {
                   </div>
                 ))}
               </div>
+              <div className="hidden print:block">
+                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Request Category</p>
+                <p className="text-base font-bold text-black">{requestCategory.toUpperCase()}</p>
+              </div>
+              <div className="hidden print:block mt-2">
+                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Request Type</p>
+                <p className="text-base font-bold text-black">{requestType === 'buy' ? 'Purchase' : 'Issue'}</p>
+              </div>
             </div>
 
             <div className="border border-border rounded-lg overflow-x-auto print:border-2 print:border-black">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-muted/50 border-b border-border">
-                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-center w-16">Select</th>
+                  <tr className="bg-muted/50 border-b border-border print:bg-gray-100">
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-center w-16 print:hidden">Select</th>
                     <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left">Item Name / Nama Barang</th>
                     {requestCategory !== "office" && (
                       <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">Size / Saiz</th>
@@ -339,29 +363,29 @@ const PpeRequestForm = () => {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {currentItems.map((item, i) => (
-                    <tr key={i} className={`transition-colors ${item.selected ? 'bg-primary/5' : 'hover:bg-muted/5'}`}>
-                      <td className="px-4 py-3 text-center">
+                    <tr key={i} className={`transition-colors ${item.selected ? 'bg-primary/5' : 'hover:bg-muted/5'} ${!item.selected ? 'print:hidden' : ''} print:bg-transparent`}>
+                      <td className="px-4 py-1 text-center print:hidden">
                         <div 
                           onClick={() => toggleItemSelection(i)}
                           className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${item.selected ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30 hover:border-muted-foreground'}`}
                         >
-                          {item.selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                          {item.selected && <CheckCircle className="h-5 w-5 text-white" />}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-foreground">
+                      <td className="px-4 py-1 text-sm font-semibold text-foreground print:py-1 print:text-xs">
                         {item.name}
                       </td>
                       {requestCategory !== "office" && (
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-1 print:px-4 print:py-1 print:w-48">
                           <Select 
                             value={item.size} 
                             onValueChange={(value) => handleItemChange(i, "size", value)}
                             disabled={!item.selected}
                           >
-                            <SelectTrigger className="h-10 border-0 bg-background/50 focus:bg-background">
+                            <SelectTrigger className="h-10 border-0 bg-background/50 focus:bg-background print:text-xs print:bg-transparent print:border-none print:shadow-none print:p-0 print:h-auto">
                               <SelectValue placeholder="Size" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="print:hidden max-h-64">
                               {requestCategory === "ppe" ? (
                                 item.name === "Safety Shoe" || item.name === "Safety Boot" ? (
                                   <>
@@ -408,13 +432,13 @@ const PpeRequestForm = () => {
                           </Select>
                         </td>
                       )}
-                      <td className="px-2 py-2">
+                      <td className="px-2 py-1 print:px-4 print:py-1 print:w-24">
                         <Input 
                           type="number" 
                           min="1"
                           value={item.quantity} 
                           onChange={(e) => handleItemChange(i, "quantity", e.target.value)}
-                          className="h-10 border-0 bg-background/50 focus:bg-background no-spinner"
+                          className="h-10 border-0 bg-background/50 focus:bg-background no-spinner print:bg-transparent print:border-none print:shadow-none print:p-0 print:h-auto print:text-xs"
                           onWheel={(e) => (e.target as HTMLElement).blur()}
                           disabled={!item.selected}
                         />
@@ -425,18 +449,19 @@ const PpeRequestForm = () => {
               </table>
             </div>
 
-            <div className="space-y-1.5 pt-4">
+            <div className="space-y-1.5 pt-4 print:pt-6">
               <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
               <Input
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
-                className="h-11"
+                className="h-11 print:hidden"
               />
+              <p className="hidden print:block text-black border-b border-gray-400 min-h-[2rem]">{remarks || '—'}</p>
             </div>
 
             {requestType === "buy" && (
-              <div className="space-y-1.5 pt-4 border-t border-border">
+              <div className="space-y-1.5 pt-4 border-t border-border print:hidden">
                 <Label className="text-xs font-semibold text-primary">Upload Invoice / Receipt <span className="text-destructive">*</span></Label>
                 <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
                   {invoiceUrl && invoiceFile ? (
@@ -500,12 +525,15 @@ const PpeRequestForm = () => {
                 const isDark = document.documentElement.classList.contains('dark');
                 if (isDark) document.documentElement.classList.remove('dark');
 
-                window.onafterprint = () => {
-                  document.title = originalTitle;
-                  if (isDark) document.documentElement.classList.add('dark');
-                  window.onafterprint = null;
-                };
-                window.print();
+                setTimeout(() => {
+                  window.onafterprint = () => {
+                    document.title = originalTitle;
+                    if (isDark) document.documentElement.classList.add('dark');
+                    window.onafterprint = null;
+                  };
+                  window.print();
+                  setTimeout(() => { document.title = originalTitle; }, 2000);
+                }, 50);
               }}
               className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center flex items-center justify-center gap-2"
             ><Printer className="h-4 w-4" /> Print Form</button>
@@ -521,20 +549,19 @@ const PpeRequestForm = () => {
       </form>
 
       {/* Signature Section - Only visible on print */}
-      <div className="hidden print:block mt-24 pt-12 border-t-2 border-dashed border-black">
+      <div className="hidden print:block mt-12 pt-6">
         <div className="grid grid-cols-2 gap-16">
-          <div className="text-center">
+          <div className="text-left">
             <div className="border-b-2 border-black pb-2"></div>
-            <p className="mt-2 text-sm font-bold">Requester's Signature</p>
+            <p className="mt-2 text-xs font-bold">Requester's Signature</p>
             <p className="mt-4 text-xs text-gray-600">Name:</p>
             <p className="mt-4 text-xs text-gray-600">Date:</p>
           </div>
-          <div className="text-center">
+          <div className="text-left">
             <div className="border-b-2 border-black pb-2"></div>
-            <p className="mt-2 text-sm font-bold">Finance Department</p>
+            <p className="mt-2 text-xs font-bold">Finance Department</p>
             <p className="mt-4 text-xs text-gray-600">Name:</p>
             <p className="mt-4 text-xs text-gray-600">Date:</p>
-            <p className="mt-4 text-xs text-gray-600">Company Stamp:</p>
           </div>
         </div>
       </div>

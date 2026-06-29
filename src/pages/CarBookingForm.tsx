@@ -618,7 +618,7 @@ const CarBookingForm = () => {
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Choose Head of Section" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64">
                   {hosUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -629,7 +629,7 @@ const CarBookingForm = () => {
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Choose Head of Department" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64">
                   {hodUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>

@@ -4,7 +4,7 @@ import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Recycle, Layers } from "lucide-react";
+import { Droplet, BarChart3, PieChart as PieChartIcon, CalendarDays, MessageSquare, Settings, Trash2, Pencil, Plus, Download, Image as ImageIcon, Upload, Recycle, Layers, Save } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
@@ -18,7 +18,7 @@ const parameterOptions = [
 ];
 
 const SafetyAdminDashboard = () => {
-    const { submissions } = useSubmissions();
+    const { submissions, addSubmission } = useSubmissions();
     const [selectedParameter, setSelectedParameter] = useState("ph4");
     const [dischargeStartDate, setDischargeStartDate] = useState("");
     const [dischargeEndDate, setDischargeEndDate] = useState("");
@@ -30,6 +30,9 @@ const SafetyAdminDashboard = () => {
     const [exportEndDate, setExportEndDate] = useState("");
     const [isRemarksOpen, setIsRemarksOpen] = useState(false);
     const [isExportOpen, setIsExportOpen] = useState(false);
+    const [isAddRemarkOpen, setIsAddRemarkOpen] = useState(false);
+    const [newRemark, setNewRemark] = useState("");
+    const [isSavingRemark, setIsSavingRemark] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [wastePlantFilter, setWastePlantFilter] = useState<"All" | "Plant 1" | "Plant 2">("All");
     const [wasteSwFilter, setWasteSwFilter] = useState<string>("All");
@@ -315,6 +318,29 @@ const SafetyAdminDashboard = () => {
         toast.success("Waste type renamed successfully!");
     };
 
+    const handleAddRemark = async () => {
+        if (!newRemark.trim()) {
+            toast.error("Remark cannot be empty.");
+            return;
+        }
+        setIsSavingRemark(true);
+        const success = await addSubmission({
+            formType: "final_discharge",
+            status: "approved", // Remarks don't need an approval flow
+            data: {
+                remarks: newRemark,
+                // Add minimal meta info to make it a valid-looking submission
+                metaInfo: { date: new Date().toISOString().split('T')[0], time: new Date().toTimeString().slice(0, 5), shift: "N/A" }
+            }
+        });
+        if (success) {
+            toast.success("Remark added successfully.");
+            setIsAddRemarkOpen(false);
+            setNewRemark("");
+        }
+        setIsSavingRemark(false);
+    };
+
     const handlePosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -583,6 +609,9 @@ const SafetyAdminDashboard = () => {
                             <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
                         </div>
                         <div className="w-full sm:w-48">
+                        <button onClick={() => setIsAddRemarkOpen(true)} className="w-full h-10 mb-2 flex items-center justify-center gap-2 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors">
+                            <Plus className="h-4 w-4" /> Add Remark
+                        </button>
                             <Select value={selectedParameter} onValueChange={setSelectedParameter}>
                                 <SelectTrigger className="h-10 rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 transition-all shadow-sm text-sm font-medium">
                                     <SelectValue placeholder="Select Parameter" />
@@ -834,6 +863,30 @@ const SafetyAdminDashboard = () => {
                                 </div>
                             ))
                         )}
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Add Remark Sheet */}
+            <Sheet open={isAddRemarkOpen} onOpenChange={setIsAddRemarkOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Add New Remark</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Log a new observation for Final Discharge operations.</p>
+                    </SheetHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label className="text-xs font-bold text-primary uppercase tracking-wider">Remark / Ulasan</Label>
+                            <textarea
+                                value={newRemark}
+                                onChange={(e) => setNewRemark(e.target.value)}
+                                placeholder="Enter your observation or note here..."
+                                className="w-full mt-2 rounded-lg border border-border bg-background px-3 py-2 text-base sm:text-sm min-h-[120px] resize-y"
+                            />
+                        </div>
+                        <button onClick={handleAddRemark} disabled={isSavingRemark} className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-70">
+                            {isSavingRemark ? <><Save className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save Remark</>}
+                        </button>
                     </div>
                 </SheetContent>
             </Sheet>

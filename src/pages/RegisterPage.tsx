@@ -116,7 +116,7 @@ const RegisterPage = () => {
                       <SelectTrigger className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow">
                         <SelectValue placeholder="Select Department" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-64">
                         {departmentsList.map(dept => (
                           <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                         ))}

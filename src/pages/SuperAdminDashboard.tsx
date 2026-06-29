@@ -373,7 +373,7 @@ const SuperAdminDashboard = () => {
               <SelectTrigger className="h-9 w-full sm:w-[240px]">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-64">
                 <SelectItem value="all">All Departments</SelectItem>
                 {departmentsList.map(d => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -511,7 +511,7 @@ const SuperAdminDashboard = () => {
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-64">
                   {departmentsList.map(d => (
                     <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
