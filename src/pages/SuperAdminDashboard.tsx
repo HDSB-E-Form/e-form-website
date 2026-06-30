@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +20,7 @@ interface FirestoreUser {
   role: UserRole;
   createdAt?: Date;
   avatar?: string;
+  secondary_roles?: UserRole[];
 }
 
 const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string; icon: any }> = [
@@ -33,6 +34,12 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "super_admin", label: "Super Admin", description: "Full system access & user management", icon: Shield },
 ];
 
+const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
+  { value: "head_of_purchasing", label: "Head of Purchasing" },
+  { value: "head_of_finance", label: "Head of Finance" },
+];
+
+
 const roleBadge = (role: UserRole) => {
   switch (role) {
     case "super_admin":
@@ -41,6 +48,10 @@ const roleBadge = (role: UserRole) => {
       return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">HR ADMIN</Badge>;
     case "finance_admin":
       return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[10px] font-bold">FINANCE ADMIN</Badge>;
+    case "head_of_purchasing":
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[10px] font-bold">HEAD OF PURCHASING</Badge>;
+    case "head_of_finance":
+      return <Badge className="bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-0 text-[10px] font-bold">HEAD OF FINANCE</Badge>;
     case "hod":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">HOD</Badge>;
     case "hos":
@@ -81,6 +92,7 @@ const SuperAdminDashboard = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editRole, setEditRole] = useState<UserRole>("employee");
   const [editDepartment, setEditDepartment] = useState("");
+  const [editSecondaryRoles, setEditSecondaryRoles] = useState<UserRole[]>([]);
   const [isViewAll, setIsViewAll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -113,7 +125,9 @@ const SuperAdminDashboard = () => {
           position: doc.position,
           role: doc.role || "employee",
           createdAt: doc.createdAt ? new Date(doc.createdAt) : undefined,
+          is_head_of_finance: doc.is_head_of_finance || false,
           avatar: doc.avatar,
+          secondary_roles: doc.secondary_roles || [],
         }));
 
         setUsers(fetchedUsers);
@@ -133,7 +147,7 @@ const SuperAdminDashboard = () => {
     if (roleFilter === "employee" && u.role !== "employee") return false;
     if (roleFilter === "hos" && u.role !== "hos") return false;
     if (roleFilter === "hod" && u.role !== "hod") return false;
-    if (roleFilter === "admin" && !["hr_admin", "finance_admin", "safety_admin", "super_admin"].includes(u.role)) return false;
+    if (roleFilter === "admin" && !["hr_admin", "finance_admin", "head_of_purchasing", "head_of_finance", "safety_admin", "super_admin"].includes(u.role as string)) return false;
 
     // Department filter
     if (departmentFilter !== "all" && u.department !== departmentFilter) return false;
@@ -163,6 +177,7 @@ const SuperAdminDashboard = () => {
     setSelectedUser(user);
     setEditRole(user.role);
     setEditDepartment(user.department);
+    setEditSecondaryRoles(user.secondary_roles || []);
     setSheetOpen(true);
   };
 
@@ -170,23 +185,21 @@ const SuperAdminDashboard = () => {
     if (!selectedUser) return;
     
     try {
-      // Update role in Firestore and context
-      await updateUserRole(selectedUser.id, editRole);
+      const updates = { 
+        role: editRole, 
+        department: editDepartment,
+        secondary_roles: editSecondaryRoles,
+      };
       
-      // Update department if needed
-      if (editDepartment !== selectedUser.department) {
-        await supabase.from("users").update({ department: editDepartment }).eq("id", selectedUser.id);
+      // The updateUser function from the context handles both the DB update
+      // and the local state update, ensuring synchronization.
+      const success = await updateUser(selectedUser.id, updates);
+
+      if (!success) {
+        // The context function will have already shown a toast error.
+        // We just need to prevent the sheet from closing.
+        return;
       }
-
-      // Update local state
-      setUsers(users.map(u => 
-        u.id === selectedUser.id 
-          ? { ...u, role: editRole, department: editDepartment }
-          : u
-      ));
-
-      // Update global users context so dropdowns work immediately without refresh
-      updateUser(selectedUser.id, { role: editRole, department: editDepartment });
 
       setSheetOpen(false);
       toast.success(`${selectedUser.name}'s role updated to ${ROLE_OPTIONS.find(r => r.value === editRole)?.label}`);
@@ -518,6 +531,36 @@ const SuperAdminDashboard = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Secondary Roles */}
+            <div>
+              <p className="text-xs font-bold text-primary tracking-wider mb-3">ADDITIONAL ROLES</p>
+              <Select onValueChange={(val) => {
+                if (val && !editSecondaryRoles.includes(val as UserRole)) {
+                  setEditSecondaryRoles([...editSecondaryRoles, val as UserRole]);
+                }
+              }}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Add a secondary role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {SECONDARY_ROLE_OPTIONS.filter(opt => !editSecondaryRoles.includes(opt.value)).map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {editSecondaryRoles.map(role => (
+                  <Badge key={role} className="bg-primary/10 text-primary text-xs font-bold pl-3 pr-1.5 py-1 rounded-md">
+                    {SECONDARY_ROLE_OPTIONS.find(o => o.value === role)?.label || role}
+                    <button onClick={() => setEditSecondaryRoles(editSecondaryRoles.filter(r => r !== role))} className="ml-1.5 p-0.5 rounded-full hover:bg-black/10">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {editSecondaryRoles.length === 0 && <p className="text-xs text-muted-foreground p-2">No additional roles assigned.</p>}
+                </div>
+              </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">

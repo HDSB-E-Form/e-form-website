@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/supabase";
 import { toast } from "sonner";
-
-export type UserRole = "employee" | "hod" | "hos" | "hr_admin" | "finance_admin" | "super_admin" | "security_guard";
+import { type UserRole } from "./types";
 
 export interface User {
   id: string;
@@ -14,6 +13,9 @@ export interface User {
   role: UserRole;
   phone?: string;
   avatar?: string;
+  is_head_of_finance?: boolean;
+  is_head_of_purchasing?: boolean;
+  secondary_roles?: UserRole[];
 }
 
 interface AuthContextType {
@@ -74,6 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   role: dbRole as UserRole,
                   phone: data.phone || authData?.user?.user_metadata?.phone || parsedUser.phone || "",
                   avatar: data.avatar || authData?.user?.user_metadata?.avatar || parsedUser.avatar || "",
+                  is_head_of_finance: data.is_head_of_finance || false,
+                  is_head_of_purchasing: data.is_head_of_purchasing || false,
+                  secondary_roles: data.secondary_roles || [],
                 };
                 setUser(updatedUser);
                 const storage = localStorage.getItem("hr_user") ? localStorage : sessionStorage;
@@ -121,7 +126,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           position: authData.user.user_metadata?.position || "",
           role: authData.user.user_metadata?.role || "employee",
           phone: authData.user.user_metadata?.phone || "",
-          avatar: authData.user.user_metadata?.avatar || ""
+          avatar: authData.user.user_metadata?.avatar || "",
+          is_head_of_finance: false,
+          is_head_of_purchasing: false,
+          secondary_roles: [],
         };
 
         // Try to insert the missing profile now that the user is authenticated
@@ -140,6 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: dbRole as UserRole,
           phone: userProfile.phone || authData.user.user_metadata?.phone || "",
           avatar: userProfile.avatar || authData.user.user_metadata?.avatar || "",
+          is_head_of_finance: userProfile.is_head_of_finance || false,
+          is_head_of_purchasing: userProfile.is_head_of_purchasing || false,
+          secondary_roles: userProfile.secondary_roles || [],
         };
       }
 

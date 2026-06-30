@@ -21,6 +21,8 @@ const statusBadge = (status: string) => {
     case "approved":
     case "approved_hos":
     case "approved_hod":
+    case "approved_hop":
+    case "approved_hof":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
     case "rejected":
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REJECTED</Badge>;
@@ -38,6 +40,8 @@ const getOverallStatus = (sub: Submission) => {
   if (sub.status === "rejected") return { label: "Rejected", color: "bg-destructive", progress: 100 };
   if (sub.status === "approved") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
   if (sub.status === "approved_hod") return { label: "Under Review", color: "bg-emerald-500", progress: 75 };
+  if (sub.status === "approved_hop") return { label: "Under Review", color: "bg-emerald-500", progress: 85 }; // Added HOP stage
+  if (sub.status === "approved_hof") return { label: "Under Review", color: "bg-emerald-500", progress: 95 }; // Added HOF stage
   if (sub.status === "approved_hos") return { label: "Under Review", color: "bg-emerald-500", progress: 50 };
   return { label: "Pending", color: "bg-muted-foreground/50", progress: 25 };
 };
@@ -425,35 +429,57 @@ const MySubmissions = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-1 sm:gap-4 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
-            <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
-              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Section Head</p>
-              <div className="print:hidden w-full flex justify-center">
-                {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
+          {selectedSubmission.formType === 'claim' ? (
+            <div className="grid grid-cols-5 gap-1 sm:gap-2 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
+              {[
+                { name: "Section Head", status: selectedSubmission.status, approved: ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved"], rejected: rejectedStage === "hos" },
+                { name: "Dept Head", status: selectedSubmission.status, approved: ["approved_hod", "approved_hop", "approved_hof", "approved"], rejected: rejectedStage === "hod" },
+                { name: "Purchasing", status: selectedSubmission.status, approved: ["approved_hop", "approved_hof", "approved"], rejected: rejectedStage === "hop" },
+                { name: "Finance Head", status: selectedSubmission.status, approved: ["approved_hof", "approved"], rejected: rejectedStage === "hof" },
+                { name: "Finance Admin", status: selectedSubmission.status, approved: ["approved"], rejected: rejectedStage === "admin" },
+              ].map((stage, index) => (
+                <div key={index} className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
+                  <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">{stage.name}</p>
+                  <div className="print:hidden w-full flex justify-center">
+                    {stage.approved.includes(stage.status) ? statusBadge("approved") : stage.rejected ? statusBadge("rejected") : statusBadge("pending")}
+                  </div>
+                  <div className="hidden print:block font-bold text-[10px] sm:text-sm">
+                    {stage.approved.includes(stage.status) ? "APPROVED" : stage.rejected ? "REJECTED" : "PENDING"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1 sm:gap-4 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
+              <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
+                <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Section Head</p>
+                <div className="print:hidden w-full flex justify-center">
+                  {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
+                </div>
+                <div className="hidden print:block font-bold text-[10px] sm:text-sm">
+                  {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : "PENDING"}
+                </div>
               </div>
-              <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : "PENDING"}
+              <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
+                <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Dept Head</p>
+                <div className="print:hidden w-full flex justify-center">
+                  {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
+                </div>
+                <div className="hidden print:block font-bold text-[10px] sm:text-sm">
+                  {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && rejectedStage === "hos") ? "N/A" : "PENDING"}
+                </div>
+              </div>
+              <div className="text-center flex flex-col items-center justify-between">
+                <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Admin</p>
+                <div className="print:hidden w-full flex justify-center">
+                  {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
+                </div>
+                <div className="hidden print:block font-bold text-[10px] sm:text-sm">
+                  {selectedSubmission.status === "approved" ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
+                </div>
               </div>
             </div>
-            <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
-              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Dept Head</p>
-              <div className="print:hidden w-full flex justify-center">
-                {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
-              </div>
-              <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && rejectedStage === "hos") ? "N/A" : "PENDING"}
-              </div>
-            </div>
-            <div className="text-center flex flex-col items-center justify-between">
-              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Admin</p>
-              <div className="print:hidden w-full flex justify-center">
-                {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
-              </div>
-              <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                {selectedSubmission.status === "approved" ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Print Footer */}
           <div className="hidden print:block mt-12 text-center text-xs text-gray-400">

@@ -31,6 +31,7 @@ const SafetyAdminDashboard = () => {
     const [isRemarksOpen, setIsRemarksOpen] = useState(false);
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isAddRemarkOpen, setIsAddRemarkOpen] = useState(false);
+    const [remarkType, setRemarkType] = useState<"discharge" | "mixing">("discharge");
     const [newRemark, setNewRemark] = useState("");
     const [isSavingRemark, setIsSavingRemark] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -114,7 +115,7 @@ const SafetyAdminDashboard = () => {
 
     const remarksList = useMemo(() => {
         return submissions
-            .filter(s => s.formType === "final_discharge")
+            .filter(s => s.formType === "final_discharge" || s.formType === "mixing_chemical_stages")
             .filter(s => s.data.remarks && s.data.remarks.trim() !== "")
             .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
     }, [submissions]);
@@ -323,10 +324,11 @@ const SafetyAdminDashboard = () => {
             toast.error("Remark cannot be empty.");
             return;
         }
+        const formTypeForRemark = remarkType === "mixing" ? "mixing_chemical_stages" : "final_discharge";
         setIsSavingRemark(true);
         const success = await addSubmission({
-            formType: "final_discharge",
-            status: "approved", // Remarks don't need an approval flow
+            formType: formTypeForRemark,
+            status: "approved",
             data: {
                 remarks: newRemark,
                 // Add minimal meta info to make it a valid-looking submission
@@ -609,9 +611,12 @@ const SafetyAdminDashboard = () => {
                             <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
                         </div>
                         <div className="w-full sm:w-48">
-                        <button onClick={() => setIsAddRemarkOpen(true)} className="w-full h-10 mb-2 flex items-center justify-center gap-2 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors">
-                            <Plus className="h-4 w-4" /> Add Remark
-                        </button>
+                            <button onClick={() => {
+                                setRemarkType("discharge");
+                                setIsAddRemarkOpen(true);
+                            }} className="w-full h-10 mb-2 flex items-center justify-center gap-2 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors">
+                                <Plus className="h-4 w-4" /> Add Remark
+                            </button>
                             <Select value={selectedParameter} onValueChange={setSelectedParameter}>
                                 <SelectTrigger className="h-10 rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 transition-all shadow-sm text-sm font-medium">
                                     <SelectValue placeholder="Select Parameter" />
@@ -668,6 +673,12 @@ const SafetyAdminDashboard = () => {
                             <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
                         </div>
                         <div className="w-full sm:w-56">
+                            <button onClick={() => {
+                                setRemarkType("mixing");
+                                setIsAddRemarkOpen(true);
+                            }} className="w-full h-10 mb-2 flex items-center justify-center gap-2 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors">
+                                <Plus className="h-4 w-4" /> Add Remark
+                            </button>
                             <Select value={selectedMixingParameter} onValueChange={setSelectedMixingParameter}>
                                 <SelectTrigger className="h-10 rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 transition-all shadow-sm text-sm font-medium">
                                     <SelectValue placeholder="Select Parameter" />
@@ -851,12 +862,20 @@ const SafetyAdminDashboard = () => {
                                 <div key={sub.id} className="p-4 rounded-xl border border-border bg-muted/10">
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
-                                            <p className="font-bold text-sm text-foreground">{sub.employeeName}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-sm text-foreground">{sub.employeeName || "System Log"}</p>
+                                                {sub.formType === 'final_discharge' && (
+                                                    <Badge variant="outline" className="text-[9px] border-blue-500/50 text-blue-600">Final Discharge</Badge>
+                                                )}
+                                                {sub.formType === 'mixing_chemical_stages' && (
+                                                    <Badge variant="outline" className="text-[9px] border-emerald-500/50 text-emerald-600">Mixing</Badge>
+                                                )}
+                                            </div>
                                             <p className="text-[10px] font-bold text-primary mb-0.5">{generateRefNo(sub.id)}</p>
                                             <p className="text-[10px] uppercase text-muted-foreground">{sub.formType.replace(/_/g, ' ')}</p>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            {sub.data.metaInfo?.date ? new Date(sub.data.metaInfo.date).toLocaleDateString() : new Date(sub.submittedAt).toLocaleDateString()}
+                                            {sub.data.metaInfo?.date ? new Date(sub.data.metaInfo.date).toLocaleDateString('en-GB') : new Date(sub.submittedAt).toLocaleDateString('en-GB')}
                                         </p>
                                     </div>
                                     <p className="text-sm text-foreground">{sub.data.remarks}</p>
@@ -872,7 +891,7 @@ const SafetyAdminDashboard = () => {
                 <SheetContent className="w-full sm:max-w-md overflow-y-auto">
                     <SheetHeader className="border-b border-border pb-4 mb-6">
                         <SheetTitle className="text-xl font-bold">Add New Remark</SheetTitle>
-                        <p className="text-sm text-muted-foreground">Log a new observation for Final Discharge operations.</p>
+                        <p className="text-sm text-muted-foreground">Log a new observation for {remarkType === 'discharge' ? 'Final Discharge' : 'Mixing'} operations.</p>
                     </SheetHeader>
                     <div className="space-y-4">
                         <div>

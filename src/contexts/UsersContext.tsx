@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "@/supabase";
+import { toast } from "sonner";
 
 export interface AppUser {
   id: string;
@@ -9,6 +10,9 @@ export interface AppUser {
   role: string;
   department: string;
   supervisor?: string;
+  is_head_of_finance?: boolean;
+  is_head_of_purchasing?: boolean;
+  secondary_roles?: string[];
 }
 
 interface UsersContextType {
@@ -40,6 +44,9 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
           role: doc.role || "employee",
           department: doc.department || "",
           supervisor: doc.supervisor || "",
+          is_head_of_finance: doc.is_head_of_finance || false,
+          is_head_of_purchasing: doc.is_head_of_purchasing || false,
+          secondary_roles: doc.secondary_roles || [],
         }));
         
         setUsers(fetchedUsers);
@@ -83,6 +90,9 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
       role: data.role || "employee",
       department: data.department || "",
       supervisor: data.supervisor || "",
+      is_head_of_finance: data.is_head_of_finance || false,
+      is_head_of_purchasing: data.is_head_of_purchasing || false,
+      secondary_roles: data.secondary_roles || [],
     };
     setUsers(prev => prev.map(u => (u.id === id ? updatedUser : u)));
     return true;

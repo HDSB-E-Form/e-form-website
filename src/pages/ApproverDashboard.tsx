@@ -54,6 +54,8 @@ const ApproverDashboard = () => {
 
   const isHOD = user?.role === "hod";
   const isHOS = user?.role === "hos";
+  const isHOP = user?.role === "head_of_purchasing" || user?.secondary_roles?.includes('head_of_purchasing');
+  const isHOF = user?.role === "head_of_finance" || user?.secondary_roles?.includes('head_of_finance');
 
   // HOD/HOS only sees forms where they were selected as approver
   // Also check car rental form's hos/hod fields
@@ -61,8 +63,12 @@ const ApproverDashboard = () => {
     .filter(s => {
       const hosValue = s.data.hosName || s.data.hos;
       const hodValue = s.data.hodName || s.data.hod;
+      const hopValue = s.data.hopName;
+      const hofValue = s.data.hofName;
       if (isHOS && hosValue === user?.name) return true;
       if (isHOD && hodValue === user?.name) return true;
+      if (isHOP && hopValue === user?.name && s.formType === 'claim') return true;
+      if (isHOF && hofValue === user?.name && s.formType === 'claim') return true;
       return false;
     })
     .filter(s => {
@@ -88,11 +94,15 @@ const ApproverDashboard = () => {
     if (activeTab === "action_required") {
       if (isHOS) return s.status === "pending";
       if (isHOD) return s.status === "approved_hos";
+      if (isHOP && s.formType === 'claim') return s.status === "approved_hod";
+      if (isHOF) return s.status === "approved_hop";
       return false;
     }
     if (activeTab === "in_progress") {
-      if (isHOS) return s.status === "approved_hos" || s.status === "approved_hod";
-      if (isHOD) return s.status === "pending" || s.status === "approved_hod";
+      if (isHOS) return ["approved_hos", "approved_hod", "approved_hop", "approved_hof"].includes(s.status);
+      if (isHOD) return ["pending", "approved_hod", "approved_hop", "approved_hof"].includes(s.status);
+      if (isHOP) return ["pending", "approved_hos", "approved_hop", "approved_hof"].includes(s.status);
+      if (isHOF) return ["pending", "approved_hos", "approved_hod", "approved_hof"].includes(s.status);
       return false;
     }
     if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
@@ -101,8 +111,8 @@ const ApproverDashboard = () => {
 
   const stats = {
     total: filtered.length,
-    actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos")).length,
-    inProgress: filtered.filter(s => (isHOS && (s.status === "approved_hos" || s.status === "approved_hod")) || (isHOD && (s.status === "pending" || s.status === "approved_hod"))).length,
+    actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos") || (isHOP && s.formType === 'claim' && s.status === "approved_hod") || (isHOF && s.status === "approved_hop")).length,
+    inProgress: filtered.filter(s => (isHOS && ["approved_hos", "approved_hod", "approved_hop", "approved_hof"].includes(s.status)) || (isHOD && ["pending", "approved_hod", "approved_hop", "approved_hof"].includes(s.status)) || (isHOP && ["pending", "approved_hos", "approved_hop", "approved_hof"].includes(s.status)) || (isHOF && ["pending", "approved_hos", "approved_hod", "approved_hof"].includes(s.status))).length,
     resolved: filtered.filter(s => s.status === "approved" || s.status === "rejected").length,
   };
 
@@ -126,7 +136,7 @@ const ApproverDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? (isHOS ? "hos" : "hod") : undefined });
+    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? (isHOS ? "hos" : isHOD ? "hod" : isHOP ? "hop" : "hof") : undefined });
     toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
@@ -257,12 +267,16 @@ const ApproverDashboard = () => {
         {/* Show action buttons only when it's this approver's turn */}
         {(() => {
           const canApprove = (isHOS && selectedSubmission.status === "pending") || 
-                             (isHOD && selectedSubmission.status === "approved_hos");
+                             (isHOD && selectedSubmission.status === "approved_hos") ||
+                             (isHOP && selectedSubmission.formType === 'claim' && selectedSubmission.status === "approved_hod") ||
+                             (isHOF && selectedSubmission.status === "approved_hop");
           if (!canApprove) {
-            const alreadyApproved = (isHOS && ["approved_hos", "approved_hod", "approved"].includes(selectedSubmission.status)) ||
-                                    (isHOD && ["approved_hod", "approved"].includes(selectedSubmission.status));
+            const alreadyApproved = (isHOS && ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+                                    (isHOD && ["approved_hod", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+                                    (isHOP && ["approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+                                    (isHOF && ["approved_hof", "approved"].includes(selectedSubmission.status));
 
-            if (selectedSubmission.status === "rejected") {
+            if (selectedSubmission.status === "rejected") { // This check is fine
               return (
                 <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center flex items-center justify-center gap-2">
                   <XCircle className="h-5 w-5 text-red-600" />
@@ -284,12 +298,34 @@ const ApproverDashboard = () => {
               );
             }
 
-            if (isHOD && selectedSubmission.status === "pending") {
+            if ((isHOD || isHOP || isHOF) && selectedSubmission.status === "pending") {
               return (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center flex items-center justify-center gap-2">
                   <Clock className="h-5 w-5 text-amber-600" />
                   <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
                     Waiting for Head of Section (HOS) approval first.
+                  </p>
+                </div>
+              );
+            }
+
+            if ((isHOP || isHOF) && selectedSubmission.status === "approved_hos") {
+              return (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center flex items-center justify-center gap-2">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                  <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                    Waiting for Head of Department (HOD) approval first.
+                  </p>
+                </div>
+              );
+            }
+
+            if (isHOF && selectedSubmission.status === "approved_hod") {
+              return (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center flex items-center justify-center gap-2">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                  <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                    Waiting for Head of Purchasing (HOP) approval first.
                   </p>
                 </div>
               );
@@ -319,7 +355,10 @@ const ApproverDashboard = () => {
                 </button>
                 <button
                   onClick={() => {
-                    const nextStatus = isHOS ? "approved_hos" : "approved_hod";
+                    const nextStatus = isHOS ? "approved_hos"
+                                     : isHOD ? "approved_hod"
+                                     : isHOP ? "approved_hop"
+                                     : "approved_hof";
                     handleAction(selectedSubmission.id, nextStatus);
                   }}
                   className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"

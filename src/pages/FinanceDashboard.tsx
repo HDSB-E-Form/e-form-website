@@ -12,12 +12,16 @@ const formTypeLabels: Record<string, string> = {
 
 const statusBadge = (status: string) => {
   switch (status) {
+    case "approved_hof":
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
+    case "approved_hop":
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
     case "approved_hod":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "pending":
@@ -70,16 +74,16 @@ const FinanceDashboard = () => {
   };
 
   const tabFiltered = filtered.filter(s => {
-    if (activeTab === "action_required") return s.status === "approved_hod";
-    if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
+    if (activeTab === "action_required") return s.status === "approved_hof";
+    if (activeTab === "in_progress") return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status);
     if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
     return true;
   });
 
   const stats = {
     total: filtered.length,
-    actionRequired: filtered.filter(s => s.status === "approved_hod").length,
-    inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
+    actionRequired: filtered.filter(s => s.status === "approved_hof").length,
+    inProgress: filtered.filter(s => ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status)).length,
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
   };
 
@@ -194,7 +198,7 @@ const FinanceDashboard = () => {
         )}
 
         {/* Remarks & Actions - only when HOD has approved */}
-        {selectedSubmission.status === "approved_hod" && (
+        {selectedSubmission.status === "approved_hof" && (
           <>
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
             <Input
@@ -222,11 +226,13 @@ const FinanceDashboard = () => {
           </>
         )}
 
-        {(selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos") && (
+        {["pending", "approved_hos", "approved_hod", "approved_hop"].includes(selectedSubmission.status) && (
           <div className="p-4 bg-muted/30 rounded-xl text-center">
             <p className="text-sm text-muted-foreground font-medium">
               {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
-               "Waiting for Head of Department (HOD) approval."}
+               selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
+               selectedSubmission.status === "approved_hod" ? "Waiting for Head of Purchasing (HOP) approval." :
+               "Waiting for Head of Finance (HOF) approval."}
             </p>
           </div>
         )}
@@ -340,7 +346,7 @@ const FinanceDashboard = () => {
                       <TableCell>{statusBadge(sub.status)}</TableCell>
                       <TableCell className="text-center">
                         <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
-                          {sub.status === "approved_hod" ? "Review" : "Details"}
+                          {sub.status === "approved_hof" ? "Review" : "Details"}
                         </button>
                       </TableCell>
                     </TableRow>

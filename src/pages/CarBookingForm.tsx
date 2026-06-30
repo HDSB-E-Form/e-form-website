@@ -157,6 +157,13 @@ const CarBookingForm = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
+    let initialStatus: "pending" | "approved_hos" | "approved_hod" = "pending";
+    if (form.hos === "N/A") {
+      initialStatus = "approved_hos";
+      if (form.hod === "N/A") {
+        initialStatus = "approved_hod";
+      }
+    }
     let licenseAttachmentUrl = null;
     if (licenseFile) {
       const filePath = `public/${user?.id || 'unknown_user'}/license_${Date.now()}_${licenseFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
@@ -180,7 +187,7 @@ const CarBookingForm = () => {
 
     const success = await addSubmission({
       formType: "car_rental",
-      status: "pending",
+      status: initialStatus,
       submittedBy: user?.id || "",
       employeeName: form.name || user?.name || "",
       department: form.department || user?.department || "",
@@ -619,6 +626,7 @@ const CarBookingForm = () => {
                   <SelectValue placeholder="Choose Head of Section" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">Not Applicable</SelectItem>
                   {hosUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -630,6 +638,7 @@ const CarBookingForm = () => {
                   <SelectValue placeholder="Choose Head of Department" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">Not Applicable</SelectItem>
                   {hodUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>

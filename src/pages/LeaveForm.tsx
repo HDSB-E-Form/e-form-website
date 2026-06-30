@@ -67,12 +67,19 @@ const LeaveForm = () => {
       return;
     }
     
+    let initialStatus: "pending" | "approved_hos" | "approved_hod" = "pending";
+    if (hosName === "N/A") {
+      initialStatus = "approved_hos";
+      if (hodName === "N/A") {
+        initialStatus = "approved_hod";
+      }
+    }
     if (isSubmitting) return;
     setIsSubmitting(true);
 
     const success = await addSubmission({
       formType: "leave",
-      status: "pending",
+      status: initialStatus,
       submittedBy: user?.id || "",
       employeeName: employeeInfo.name,
       department: employeeInfo.department,
@@ -303,6 +310,7 @@ const LeaveForm = () => {
                   <SelectValue placeholder="Choose Head of Section" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">Not Applicable</SelectItem>
                   {hosUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
@@ -318,6 +326,7 @@ const LeaveForm = () => {
                   <SelectValue placeholder="Choose Head of Department" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">Not Applicable</SelectItem>
                   {hodUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}

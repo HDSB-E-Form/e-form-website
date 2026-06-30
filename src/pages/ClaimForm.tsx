@@ -20,9 +20,13 @@ const ClaimForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
-  const { getUsersByRole } = useUsers();
+  const { users, getUsersByRole } = useUsers();
   const hosUsers = [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   const hodUsers = [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  // A HOP can have the primary role or a secondary role of 'head_of_purchasing'
+  const purchasingHeads = [...users.filter(u => u.role === 'head_of_purchasing' || u.secondary_roles?.includes('head_of_purchasing'))].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  // A HOF can have the primary role or a secondary role of 'head_of_finance'
+  const financeHeads = [...users.filter(u => u.role === 'head_of_finance' || u.secondary_roles?.includes('head_of_finance'))].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   const financeAdmins = getUsersByRole("finance_admin") || [];
 
   const [employeeInfo, setEmployeeInfo] = useState({
@@ -57,6 +61,8 @@ const ClaimForm = () => {
 
   const [hosName, setHosName] = useState("");
   const [hodName, setHodName] = useState("");
+  const [hopName, setHopName] = useState(""); // Head of Purchasing
+  const [hofName, setHofName] = useState(""); // Head of Finance
   const [financeCode, setFinanceCode] = useState("");
   const [amtReceived, setAmtReceived] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -117,8 +123,8 @@ const ClaimForm = () => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    if (!hosName || !hodName) {
-      toast.error("Please select both Head of Section and Head of Department.");
+    if (!hosName || !hodName || !hopName || !hofName) {
+      toast.error("Please select all approvers: HOS, HOD, Head of Purchasing, and Head of Finance.");
       return;
     }
 
@@ -127,6 +133,13 @@ const ClaimForm = () => {
       return;
     }
 
+    let initialStatus: "pending" | "approved_hos" | "approved_hod" | "approved_hop" | "approved_hof" = "pending";
+    if (hosName === "N/A") {
+      initialStatus = "approved_hos";
+      if (hodName === "N/A") {
+        initialStatus = "approved_hod";
+      }
+    }
     setIsSubmitting(true);
 
     let attachmentUrls: string[] = [];
@@ -154,7 +167,7 @@ const ClaimForm = () => {
 
     const success = await addSubmission({
       formType: "claim",
-      status: "pending",
+      status: initialStatus,
       submittedBy: user?.id || "",
       employeeName: employeeInfo.name,
       department: employeeInfo.department,
@@ -162,7 +175,9 @@ const ClaimForm = () => {
         employeeInfo, 
         claimRows, 
         hosName, 
-        hodName, 
+        hodName,
+        hopName,
+        hofName,
         financeCode, 
         amtReceived, 
         totalAmount, 
@@ -175,11 +190,15 @@ const ClaimForm = () => {
       try {
         const selectedHos = hosUsers.find(u => u.name === hosName);
         const selectedHod = hodUsers.find(u => u.name === hodName);
+        const selectedHop = purchasingHeads.find(u => u.name === hopName);
+        const selectedHof = financeHeads.find(u => u.name === hofName);
         
         // Gather all recipient emails
         const recipientEmails = [
           selectedHos?.email,
           selectedHod?.email,
+          selectedHop?.email,
+          selectedHof?.email,
           ...financeAdmins.map(admin => admin.email)
         ].filter(Boolean); // Filter out empty/undefined values
 
@@ -371,7 +390,7 @@ const ClaimForm = () => {
 
         {/* Approvals */}
         <div className="card-elevated p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
                 Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
@@ -381,6 +400,7 @@ const ClaimForm = () => {
                   <SelectValue placeholder="Choose Head of Section" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">Not Applicable</SelectItem>
                   {hosUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
@@ -396,7 +416,38 @@ const ClaimForm = () => {
                   <SelectValue placeholder="Choose Head of Department" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">Not Applicable</SelectItem>
                   {hodUsers.map(u => (
+                    <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-semibold text-sm">
+                Head of Purchasing / Ketua Pembelian <span className="text-destructive">*</span>
+              </Label>
+              <Select value={hopName} onValueChange={setHopName}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Choose Head of Purchasing" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {purchasingHeads.map(u => (
+                    <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-semibold text-sm">
+                Head of Finance / Ketua Kewangan <span className="text-destructive">*</span>
+              </Label>
+              <Select value={hofName} onValueChange={setHofName}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Choose Head of Finance" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {financeHeads.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
