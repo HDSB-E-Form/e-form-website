@@ -310,7 +310,7 @@ const LeaveForm = () => {
                   <SelectValue placeholder="Choose Head of Section" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">Not Applicable</SelectItem>
+                  <SelectItem value="N/A">N/A</SelectItem>
                   {hosUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
@@ -326,7 +326,7 @@ const LeaveForm = () => {
                   <SelectValue placeholder="Choose Head of Department" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">Not Applicable</SelectItem>
+                  <SelectItem value="N/A">N/A</SelectItem>
                   {hodUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}

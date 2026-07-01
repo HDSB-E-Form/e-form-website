@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
@@ -11,53 +11,86 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import logo from "@/assets/logo.png";
 
-const PPE_ITEMS = [
-  "Safety Goggle",
-  "Safety Helmet",
-  "Safety Boot",
-  "Safety Shoe",
-  "Safety Insert",
-  
-  "Earplug",
-  "Apron",
-  "Crane Vest",
-  "3-ply Mask",
-  "N-95 Mask",
-  "Forklift Vest"
+const getStoredPrices = () => {
+  try {
+    return JSON.parse(localStorage.getItem("hdsb_item_prices") || "{}");
+  } catch {
+    return {};
+  }
+};
+const SHOE_SIZES_UK = [
+  { size: "Size 3", price: 62.00 }, { size: "Size 4", price: 62.00 }, { size: "Size 5", price: 62.00 },
+  { size: "Size 6", price: 62.00 }, { size: "Size 7", price: 62.00 }, { size: "Size 8", price: 62.00 },
+  { size: "Size 9", price: 62.00 }, { size: "Size 10", price: 62.00 }, { size: "Size 11", price: 62.00 },
+  { size: "Size 12", price: 62.00 }, { size: "Size 13", price: 62.00 },
 ];
+const CLOTHING_SIZES_EXTENDED = [
+  { size: "XS", price: 0.00 }, { size: "S", price: 0.00 }, { size: "M", price: 0.00 }, { size: "L", price: 0.00 },
+  { size: "XL", price: 0.00 }, { size: "2XL", price: 0.00 }, { size: "3XL", price: 0.00 }, { size: "4XL", price: 0.00 }, { size: "5XL", price: 0.00 },
+];
+const PANTS_SIZES = [
+  { size: '26"', price: 40.00 }, { size: '28"', price: 40.00 }, { size: '30"', price: 40.00 }, { size: '32"', price: 40.00 },
+  { size: '34"', price: 40.00 }, { size: '36"', price: 40.00 }, { size: '38"', price: 40.00 }, { size: '40"', price: 40.00 },
+  { size: '42"', price: 40.00 }, { size: '44"', price: 40.00 }, { size: '46"', price: 40.00 }, { size: '48"', price: 40.00 }, { size: '50"', price: 40.00 },
+];
+const HELMET_SIZES = [{ size: "M", price: 11.00 }, { size: "L", price: 11.00 }];
+
+const PPE_ITEMS = [
+  { name: "3-ply Mask", sizes: [{ size: "Free Size", price: 15.00 }], unit: "Box" },
+  { name: "Medical Apron", sizes: [{ size: "Free Size", price: 25.00 }], unit: "pcs" },
+  { name: "Crane Vest", sizes: [{ size: "Free Size", price: 0.00 }], unit: "pcs" },
+  { name: "Earplug", sizes: [{ size: "Free Size", price: 1.10 }], unit: "pair" },
+  { name: "Forklift Vest", sizes: [{ size: "Free Size", price: 0.00 }], unit: "pcs" },
+  { name: "Safety Goggles", sizes: [{ size: "Free Size", price: 10.30 }], unit: "pcs" },
+  { name: "Safety Helmet", sizes: HELMET_SIZES, unit: "pcs" },
+  { name: "N-95 Mask", sizes: [{ size: "Free Size", price: 20.00 }], unit: "pcs" },
+  { name: "Safety Boot", sizes: SHOE_SIZES_UK.map(s => ({ ...s, price: 62.00 })), unit: "pair" },
+  { name: "Safety Insert", sizes: [{ size: "Free Size", price: 15.00 }], unit: "pair" },
+  { name: "Safety Shoe", sizes: SHOE_SIZES_UK, unit: "pair" },
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const UNIFORM_ITEMS = [
-  "Company T-Shirt (Short Sleeve)",
-  "Company T-Shirt (Long Sleeve)",
-  "Company Shirt",
-  "Company Shirt (Long Sleeve)",
-  "Cargo Pants"
-];
+  { name: "Cargo Pants", sizes: PANTS_SIZES, unit: "pcs" },
+  { name: "Company Shirt", sizes: CLOTHING_SIZES_EXTENDED.map(s => ({ ...s, price: 16.00 })), unit: "pcs" },
+  { name: "Company Shirt (Long Sleeve)", sizes: CLOTHING_SIZES_EXTENDED.map(s => ({ ...s, price: 17.00 })), unit: "pcs" },
+  { name: "Company T-Shirt (Long Sleeve)", sizes: CLOTHING_SIZES_EXTENDED.map(s => ({ ...s, price: 23.00 })), unit: "pcs" },
+  { name: "Company T-Shirt (Short Sleeve)", sizes: CLOTHING_SIZES_EXTENDED.map(s => ({ ...s, price: 20.00 })), unit: "pcs" },
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const OFFICE_ITEMS = [
-  "Ball Pen",
-  "Permanent Marker",
-  "Highlighter",
-  "Pencil",
-  "Eraser",
-  "Correction Tape",
-  "A4 Paper",
-  "Notebook",
-  "Stapler",
-  "Staple Pin",
-  "Paper Clip",
-  "Binder Clip",
-  "File Folder",
-  "Ring File",
-  "Sticky Notes",
-  "Scissors",
-  "Glue Stick",
-  "Clear Tape",
-  "Calculator",
-  "Whiteboard Marker",
-  "A3 Paper",
-  "A5 Paper"
-];
+  { name: "A3 Paper", sizes: [{ size: "80 gsm", price: 30.00 }], unit: "ream" },
+  { name: "A4 Paper", sizes: [{ size: "70 gsm", price: 12.00 }, { size: "80 gsm", price: 15.00 }], unit: "ream" },
+  { name: "Ball Pen", sizes: [{ size: "Black", price: 1.50 }, { size: "Blue", price: 1.50 }, { size: "Red", price: 1.50 }], unit: "pcs" },
+  { name: "Binder Clip", sizes: [{ size: "Small", price: 3.00 }, { size: "Medium", price: 5.00 }, { size: "Large", price: 7.00 }], unit: "box" },
+  { name: "Cellophane Tape", sizes: [{ size: "18 mm", price: 2.00 }], unit: "roll" },
+  { name: "Correction Fluid", sizes: [{ size: "White", price: 4.50 }], unit: "bottle" },
+  { name: "Correction Tape", sizes: [{ size: "5 mm", price: 5.00 }], unit: "pcs" },
+  { name: "Cutter Blade", sizes: [{ size: "Large", price: 8.00 }], unit: "pack" },
+  { name: "Cutter Knife", sizes: [{ size: "Large", price: 6.00 }], unit: "pcs" },
+  { name: "Document Tray", sizes: [{ size: "Plastic", price: 15.00 }], unit: "pcs" },
+  { name: "Double-Sided Tape", sizes: [{ size: "24 mm", price: 4.00 }], unit: "roll" },
+  { name: "Envelope", sizes: [{ size: "C4", price: 0.50 }, { size: "DL", price: 0.30 }], unit: "pcs" },
+  { name: "Eraser", sizes: [{ size: "Standard", price: 1.00 }], unit: "pcs" },
+  { name: "Glue Stick", sizes: [{ size: "21 g", price: 3.50 }], unit: "pcs" },
+  { name: "Highlighter", sizes: [{ size: "Yellow", price: 2.50 }, { size: "Green", price: 2.50 }, { size: "Pink", price: 2.50 }, { size: "Orange", price: 2.50 }], unit: "pcs" },
+  { name: "Lever Arch File", sizes: [{ size: "2 inch", price: 8.00 }, { size: "3 inch", price: 10.00 }], unit: "pcs" },
+  { name: "Liquid Glue", sizes: [{ size: "50 ml", price: 3.00 }], unit: "bottle" },
+  { name: "Masking Tape", sizes: [{ size: "24 mm", price: 3.00 }], unit: "roll" },
+  { name: "Mechanical Pencil", sizes: [{ size: "0.5 mm", price: 5.00 }], unit: "pcs" },
+  { name: "Notebook", sizes: [{ size: "A4", price: 7.00 }, { size: "A5", price: 5.00 }], unit: "pcs" },
+  { name: "Paper Clip", sizes: [{ size: "28 mm", price: 2.00 }], unit: "box" },
+  { name: "Pencil", sizes: [{ size: "2B", price: 1.00 }], unit: "pcs" },
+  { name: "Pencil Lead", sizes: [{ size: "0.5 mm", price: 2.50 }], unit: "tube" },
+  { name: "Permanent Marker", sizes: [{ size: "Black", price: 3.00 }, { size: "Blue", price: 3.00 }, { size: "Red", price: 3.00 }], unit: "pcs" },
+  { name: "Ring File", sizes: [{ size: "A4", price: 6.00 }], unit: "pcs" },
+  { name: "Rubber Band", sizes: [{ size: "Small", price: 2.00 }, { size: "Large", price: 3.00 }], unit: "pack" },
+  { name: "Scissors", sizes: [{ size: "Medium", price: 7.00 }], unit: "pcs" },
+  { name: "Sharpener", sizes: [{ size: "Standard", price: 1.50 }], unit: "pcs" },
+  { name: "Stapler", sizes: [{ size: "No.10", price: 12.00 }], unit: "pcs" },
+  { name: "Stapler Pin", sizes: [{ size: "No.10", price: 2.00 }, { size: "3-1M", price: 3.00 }], unit: "box" },
+  { name: "Sticky Notes", sizes: [{ size: '3" x 3"', price: 4.00 }], unit: "pad" },
+  { name: "Whiteboard Marker", sizes: [{ size: "Black", price: 3.50 }, { size: "Blue", price: 3.50 }, { size: "Red", price: 3.50 }, { size: "Green", price: 3.50 }], unit: "pcs" },
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const PpeRequestForm = () => {
   const navigate = useNavigate();
@@ -78,39 +111,67 @@ const PpeRequestForm = () => {
 
   useEffect(() => {
     if (user) {
-      setEmployeeInfo(prev => ({
-        ...prev,
+      setEmployeeInfo({
         name: user.name || "",
         staffNo: user.employeeId || "",
         department: user.department || "",
         phone: user.phone || "",
         position: (user as any)?.position || "",
         avatar: user.avatar || "",
-      }));
+      });
     }
   }, [user]);
 
   const [requestCategory, setRequestCategory] = useState<"ppe" | "uniform" | "office">("ppe");
   const [requestType, setRequestType] = useState<"issue" | "buy">("issue");
-  const [ppeItems, setPpeItems] = useState(PPE_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
-  const [uniformItems, setUniformItems] = useState(UNIFORM_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
-  const [officeItems, setOfficeItems] = useState(OFFICE_ITEMS.map(name => ({ name, selected: false, size: "", quantity: "1" })));
+  
+  const initializeItems = (items: any[]) => items.map(item => ({
+    ...item,
+    selected: false,
+    size: item.sizes.length === 1 ? item.sizes[0].size : (item.sizes.length === 0 ? "N/A" : ""),
+    quantity: "1"
+  }));
+
+  const [ppeItems, setPpeItems] = useState(() => initializeItems(PPE_ITEMS));
+  const [uniformItems, setUniformItems] = useState(() => initializeItems(UNIFORM_ITEMS));
+  const [officeItems, setOfficeItems] = useState(() => initializeItems(OFFICE_ITEMS));
   const [remarks, setRemarks] = useState("");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
-
-  const currentItems = requestCategory === "ppe" ? ppeItems : requestCategory === "uniform" ? uniformItems : officeItems;
-  const setCurrentItems = requestCategory === "ppe" ? setPpeItems : requestCategory === "uniform" ? setUniformItems : setOfficeItems;
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const currentItems = requestCategory === "ppe" ? ppeItems : requestCategory === "uniform" ? uniformItems : officeItems;
+  
+  const totalCost = useMemo(() => {
+    if (requestType !== 'buy') return 0;
+    return currentItems.reduce((acc, item) => {
+      if (!item.selected) return acc;
+      const sizeInfo = item.sizes.find((s: any) => s.size === item.size);
+      
+      // --- DYNAMIC PRICING ---
+      // 1. Check for admin-set price first.
+      const storedPrices = getStoredPrices();
+      const priceKey = `${item.name}::${item.size}`;
+      // 2. Fallback to hardcoded price if not set.
+      const price = storedPrices[priceKey] !== undefined ? storedPrices[priceKey] : (sizeInfo?.price || 0);
+      const quantity = parseInt(item.quantity) || 0;
+      return acc + (price * quantity);
+    }, 0);
+  }, [currentItems, requestType]);
+
   const handleItemChange = (index: number, field: string, value: string | boolean) => {
-    setCurrentItems((prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, [field]: value } : item));
+    const updateFn = (prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, [field]: value } : item);
+    if (requestCategory === "ppe") setPpeItems(updateFn);
+    else if (requestCategory === "uniform") setUniformItems(updateFn);
+    else setOfficeItems(updateFn);
   };
 
   const toggleItemSelection = (index: number) => {
-    setCurrentItems((prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, selected: !item.selected } : item));
+    const updateFn = (prev: any) => prev.map((item: any, i: number) => i === index ? { ...item, selected: !item.selected } : item);
+    if (requestCategory === "ppe") setPpeItems(updateFn);
+    else if (requestCategory === "uniform") setUniformItems(updateFn);
+    else setOfficeItems(updateFn);
   };
 
   const handleInvoiceChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,7 +227,6 @@ const PpeRequestForm = () => {
 
     const success = await addSubmission({
       formType: requestType === "buy" ? "ppe_purchase" : "ppe_request",
-
       status: "approved",
       submittedBy: user?.id || "",
       employeeName: employeeInfo.name,
@@ -175,17 +235,22 @@ const PpeRequestForm = () => {
         employeeInfo,
         requestCategory,
         requestType,
-        items: selectedItems.map(({ name, size, quantity }) => requestCategory === "office" ? { "Item Name": name, Quantity: quantity } : { "Item Name": name, Size: size, Quantity: quantity }),
+        items: selectedItems.map(({ name, size, quantity }) => 
+          ({ "Item Name": name, Size: size, Quantity: quantity })
+        ),
+        totalCost: requestType === 'buy' ? totalCost : undefined,
         remarks,
         ...(requestType === "buy" && { invoiceUrl }),
       },
     });
 
     if (success) {
+      toast.success("Collection record saved successfully!");
+      navigate("/home");
+
+      // Send email notification as background best-effort action
       try {
-        const recipientEmails = [
-          ...hrAdmins.map(admin => admin.email)
-        ].filter(Boolean);
+        const recipientEmails = hrAdmins.map(admin => admin.email).filter(Boolean);
 
         if (recipientEmails.length > 0) {
           await supabase.functions.invoke('send-notification', {
@@ -199,11 +264,8 @@ const PpeRequestForm = () => {
           });
         }
       } catch (err) {
-        console.error("Failed to send email", err);
+        console.error("Ignoring failed email notification:", err);
       }
-
-      toast.success("Collection record saved successfully!");
-      navigate("/home");
     } else {
       setIsSubmitting(false);
     }
@@ -213,7 +275,6 @@ const PpeRequestForm = () => {
     setInvoiceFile(null);
     setInvoiceUrl(null);
   };
-
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
@@ -314,6 +375,15 @@ const PpeRequestForm = () => {
             </div>
           </div>
 
+          {requestType === 'buy' && (
+            <div className="mt-6 pt-6 border-t border-border flex justify-end">
+              <div className="text-right">
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Total Estimated Cost</p>
+                <p className="text-3xl font-bold text-primary mt-1">RM {totalCost.toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-6">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary print:hidden">Category / Kategori <span className="text-destructive">*</span></Label>              
@@ -355,8 +425,9 @@ const PpeRequestForm = () => {
                   <tr className="bg-muted/50 border-b border-border print:bg-gray-100">
                     <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-center w-16 print:hidden">Select</th>
                     <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left">Item Name / Nama Barang</th>
-                    {requestCategory !== "office" && (
-                      <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">Size / Saiz</th>
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-48">Size / Saiz</th>
+                    {requestType === 'buy' && (
+                      <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-28">Price (RM)</th>
                     )}
                     <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">Qty / Kuantiti</th>
                   </tr>
@@ -375,61 +446,36 @@ const PpeRequestForm = () => {
                       <td className="px-4 py-1 text-sm font-semibold text-foreground print:py-1 print:text-xs">
                         {item.name}
                       </td>
-                      {requestCategory !== "office" && (
-                        <td className="px-2 py-1 print:px-4 print:py-1 print:w-48">
+                      <td className="px-2 py-1 print:px-4 print:py-1 print:w-48">
                           <Select 
                             value={item.size} 
                             onValueChange={(value) => handleItemChange(i, "size", value)}
-                            disabled={!item.selected}
+                            disabled={!item.selected || item.sizes.length === 0}
                           >
                             <SelectTrigger className="h-10 border-0 bg-background/50 focus:bg-background print:text-xs print:bg-transparent print:border-none print:shadow-none print:p-0 print:h-auto">
                               <SelectValue placeholder="Size" />
                             </SelectTrigger>
                             <SelectContent className="print:hidden max-h-64">
-                              {requestCategory === "ppe" ? (
-                                item.name === "Safety Shoe" || item.name === "Safety Boot" ? (
-                                  <>
-                                    <SelectItem value="4">4</SelectItem>
-                                    <SelectItem value="5">5</SelectItem>
-                                    <SelectItem value="6">6</SelectItem>
-                                    <SelectItem value="7">7</SelectItem>
-                                    <SelectItem value="8">8</SelectItem>
-                                    <SelectItem value="9">9</SelectItem>
-                                    <SelectItem value="10">10</SelectItem>
-                                    <SelectItem value="11">11</SelectItem>
-                                    <SelectItem value="12">12</SelectItem>
-                                    <SelectItem value="13">13</SelectItem>
-                                    <SelectItem value="14">14</SelectItem>
-                                  </>
-                                ) : (
-                                  <SelectItem value="Free Size">Free Size</SelectItem>
-                                )
-                              ) : item.name === "Cargo Pants" ? (
-                                <>
-                                  <SelectItem value="28">28</SelectItem>
-                                  <SelectItem value="30">30</SelectItem>
-                                  <SelectItem value="32">32</SelectItem>
-                                  <SelectItem value="34">34</SelectItem>
-                                  <SelectItem value="36">36</SelectItem>
-                                  <SelectItem value="38">38</SelectItem>
-                                  <SelectItem value="40">40</SelectItem>
-                                  <SelectItem value="42">42</SelectItem>
-                                  <SelectItem value="44">44</SelectItem>
-                                </>
+                              {item.sizes.length > 0 ? (
+                                item.sizes.map((s: any) => (
+                                  <SelectItem key={s.size} value={s.size}>
+                                    {s.size}
+                                  </SelectItem>
+                                ))
                               ) : (
-                                <>
-                                  <SelectItem value="XS">XS</SelectItem>
-                                  <SelectItem value="S">S</SelectItem>
-                                  <SelectItem value="M">M</SelectItem>
-                                  <SelectItem value="L">L</SelectItem>
-                                  <SelectItem value="XL">XL</SelectItem>
-                                  <SelectItem value="2XL">2XL</SelectItem>
-                                  <SelectItem value="3XL">3XL</SelectItem>
-                                  <SelectItem value="4XL">4XL</SelectItem>
-                                </>
+                                <SelectItem value="N/A" disabled>N/A</SelectItem>
                               )}
                             </SelectContent>
                           </Select>
+                      </td>
+                      {requestType === 'buy' && (
+                        <td className="px-4 py-1 text-sm font-bold text-foreground print:py-1 print:text-xs text-right">
+                        {(() => {
+                          const storedPrices = getStoredPrices();
+                          const priceKey = `${item.name}::${item.size}`;
+                          const price = storedPrices[priceKey] !== undefined ? storedPrices[priceKey] : (item.sizes.find((s: any) => s.size === item.size)?.price || 0);
+                          return price.toFixed(2);
+                        })()}
                         </td>
                       )}
                       <td className="px-2 py-1 print:px-4 print:py-1 print:w-24">
@@ -457,7 +503,7 @@ const PpeRequestForm = () => {
                 placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
                 className="h-11 print:hidden"
               />
-              <p className="hidden print:block text-black border-b border-gray-400 min-h-[2rem]">{remarks || '—'}</p>
+              <p className="hidden print:block text-black border-b-2 border-black min-h-[2rem] pb-2">{remarks || ' '}</p>
             </div>
 
             {requestType === "buy" && (
@@ -520,7 +566,7 @@ const PpeRequestForm = () => {
               type="button"
               onClick={() => {
                 const originalTitle = document.title;
-                document.title = `PPE_Purchase_Form_${employeeInfo.name.replace(' ', '_')}`;
+                document.title = `PPE_Purchase_Form_${employeeInfo.name.replace(/\s+/g, '_')}`;
                 
                 const isDark = document.documentElement.classList.contains('dark');
                 if (isDark) document.documentElement.classList.remove('dark');

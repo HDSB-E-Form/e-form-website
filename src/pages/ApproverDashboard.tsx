@@ -18,6 +18,14 @@ const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
+    case "approved_hof":
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
+    case "approved_hop":
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
+    case "approved_hof":
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
+    case "approved_hop":
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved_hod":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
     case "approved_hos":
@@ -43,6 +51,66 @@ const getInitialColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+const renderValue = (val: any): React.ReactNode => {
+  if (val === null || val === undefined || val === "") return "—";
+  
+  if (Array.isArray(val)) {
+    if (val.length === 0) return "—";
+    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
+      return (
+        <div className="flex flex-col gap-2 mt-1">
+          {val.map((url, idx) => (
+            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
+              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
+            </a>
+          ))}
+        </div>
+      );
+    }
+    if (typeof val[0] === 'object' && val[0] !== null) {
+      // Filter out rows that are entirely empty (e.g. empty passenger slots)
+      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
+      if (validRows.length === 0) return "—";
+
+      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+
+      // Specifically for claim forms, enforce the column order.
+      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
+        keys = ['description', 'receiptNo', 'amount'];
+      }
+
+      return (
+        <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto print:border-gray-400">
+          <Table className="w-full text-left border-collapse">
+            <TableHeader className="bg-muted/50 print:bg-gray-100">
+              <TableRow>
+                {keys.map(k => (
+                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground print:text-gray-600 whitespace-nowrap">
+                    {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {validRows.map((row, i) => (
+                <TableRow key={i} className="border-b border-border print:border-gray-300 last:border-0 hover:bg-muted/20">
+                  {keys.map((k, j) => (
+                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap print:text-black">
+                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    return val.join(", ");
+  }
+  return String(val);
+};
+
 const ApproverDashboard = () => {
   const { user } = useAuth();
   const { submissions, updateSubmissionStatus } = useSubmissions();
@@ -65,11 +133,11 @@ const ApproverDashboard = () => {
       const hodValue = s.data.hodName || s.data.hod;
       const hopValue = s.data.hopName;
       const hofValue = s.data.hofName;
-      if (isHOS && hosValue === user?.name) return true;
-      if (isHOD && hodValue === user?.name) return true;
-      if (isHOP && hopValue === user?.name && s.formType === 'claim') return true;
-      if (isHOF && hofValue === user?.name && s.formType === 'claim') return true;
-      return false;
+      const isUserHOS = isHOS && hosValue === user?.name;
+      const isUserHOD = isHOD && hodValue === user?.name;
+      const isUserHOP = isHOP && hopValue === user?.name && s.formType === 'claim';
+      const isUserHOF = isHOF && hofValue === user?.name && s.formType === 'claim';
+      return isUserHOS || isUserHOD || isUserHOP || isUserHOF;
     })
     .filter(s => {
       if (!search) return true;
@@ -92,17 +160,18 @@ const ApproverDashboard = () => {
 
   const tabFiltered = filtered.filter(s => {
     if (activeTab === "action_required") {
-      if (isHOS) return s.status === "pending";
-      if (isHOD) return s.status === "approved_hos";
-      if (isHOP && s.formType === 'claim') return s.status === "approved_hod";
-      if (isHOF) return s.status === "approved_hop";
-      return false;
+      const conditions = [];
+      if (isHOS) conditions.push(s.status === "pending");
+      if (isHOD) conditions.push(s.status === "approved_hos");
+      if (isHOP) conditions.push(s.formType === 'claim' && s.status === "approved_hod"); // HOP is only for claims
+      if (isHOF) conditions.push(s.formType === 'claim' && s.status === "approved_hop"); // HOF is only for claims
+      return conditions.some(Boolean);
     }
     if (activeTab === "in_progress") {
-      if (isHOS) return ["approved_hos", "approved_hod", "approved_hop", "approved_hof"].includes(s.status);
-      if (isHOD) return ["pending", "approved_hod", "approved_hop", "approved_hof"].includes(s.status);
-      if (isHOP) return ["pending", "approved_hos", "approved_hop", "approved_hof"].includes(s.status);
-      if (isHOF) return ["pending", "approved_hos", "approved_hod", "approved_hof"].includes(s.status);
+      if (isHOS) return ["approved_hod", "approved_hop", "approved_hof"].includes(s.status); // HOS sees later stages
+      if (isHOD) return s.status === "pending"; // HOD sees HOS pending
+      if (isHOP && s.formType === 'claim') return ["pending", "approved_hos"].includes(s.status); // HOP sees HOS/HOD pending
+      if (isHOF) return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status); // HOF sees HOS/HOD/HOP pending
       return false;
     }
     if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
@@ -112,7 +181,11 @@ const ApproverDashboard = () => {
   const stats = {
     total: filtered.length,
     actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos") || (isHOP && s.formType === 'claim' && s.status === "approved_hod") || (isHOF && s.status === "approved_hop")).length,
-    inProgress: filtered.filter(s => (isHOS && ["approved_hos", "approved_hod", "approved_hop", "approved_hof"].includes(s.status)) || (isHOD && ["pending", "approved_hod", "approved_hop", "approved_hof"].includes(s.status)) || (isHOP && ["pending", "approved_hos", "approved_hop", "approved_hof"].includes(s.status)) || (isHOF && ["pending", "approved_hos", "approved_hod", "approved_hof"].includes(s.status))).length,
+    inProgress: filtered.filter(s =>
+      (isHOS && ["approved_hod", "approved_hop", "approved_hof"].includes(s.status)) ||
+      (isHOD && s.status === "pending") ||
+      (isHOP && s.formType === 'claim' && ["pending", "approved_hos"].includes(s.status)) ||
+      (isHOF && ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status))).length,
     resolved: filtered.filter(s => s.status === "approved" || s.status === "rejected").length,
   };
 
@@ -145,8 +218,8 @@ const ApproverDashboard = () => {
   // Review detail view
   if (selectedSubmission) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-        <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+        <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
         </button>
 
@@ -156,8 +229,8 @@ const ApproverDashboard = () => {
           <p className="text-sm text-muted-foreground mb-1">
             Staff ID: {selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy}
           </p>
-        <p className="text-sm text-muted-foreground mb-1">Department: {selectedSubmission.department}</p>
-        <p className="text-sm text-muted-foreground mb-3">
+          <p className="text-sm text-muted-foreground mb-1">Department: {selectedSubmission.department}</p>
+          <p className="text-sm text-muted-foreground mb-3">
             Position: {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
           </p>
         </div>
@@ -176,6 +249,13 @@ const ApproverDashboard = () => {
               </Badge>
             </div>
           </div>
+          {/* Moved Details / Butiran to appear first */}
+          <div>
+            <p className="text-xs text-muted-foreground">Details / Butiran</p>
+            <p className="text-sm font-bold text-foreground mt-1">
+              {selectedSubmission.data.description || selectedSubmission.data.purpose || selectedSubmission.data.reason || selectedSubmission.data.companyDetails?.purpose || selectedSubmission.data.personalDetails?.purpose || "No details provided"}
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-xs text-muted-foreground">Date / Tarikh</p>
@@ -189,6 +269,12 @@ const ApproverDashboard = () => {
                 <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.amount}</p>
               </div>
             )}
+            {selectedSubmission.formType === 'claim' && selectedSubmission.data.totalAmount && (
+              <div>
+                <p className="text-xs text-muted-foreground">Total Amount / Amaun</p>
+                <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.totalAmount}</p>
+              </div>
+            )}
           </div>
       {selectedSubmission.formType === "car_rental" && (
         <div className="mb-4">
@@ -198,12 +284,20 @@ const ApproverDashboard = () => {
           </p>
         </div>
       )}
-          <div>
-            <p className="text-xs text-muted-foreground">Details / Butiran</p>
-            <p className="text-sm font-bold text-foreground mt-1">
-              {selectedSubmission.data.description || selectedSubmission.data.purpose || selectedSubmission.data.reason || selectedSubmission.data.companyDetails?.purpose || selectedSubmission.data.personalDetails?.purpose || "No details provided"}
-            </p>
-          </div>
+          {selectedSubmission.formType === 'claim' && (
+            <>
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">Claim Details / Butiran Tuntutan</p>
+                <div className="text-sm font-bold text-foreground mt-1">
+                  {renderValue(selectedSubmission.data.claimRows)}
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border/50 text-right">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Total Amount</p>
+                <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount || "0.00"}</p>
+              </div>
+            </>
+          )}
           {selectedSubmission.formType === 'leave' && selectedSubmission.data.estimatedTime && (
             <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/50">
               <div>
@@ -355,10 +449,16 @@ const ApproverDashboard = () => {
                 </button>
                 <button
                   onClick={() => {
-                    const nextStatus = isHOS ? "approved_hos"
-                                     : isHOD ? "approved_hod"
-                                     : isHOP ? "approved_hop"
-                                     : "approved_hof";
+                    let nextStatus: SubmissionStatus = "approved";
+                    if (isHOS && selectedSubmission.status === "pending") {
+                      nextStatus = "approved_hos";
+                    } else if (isHOD && selectedSubmission.status === "approved_hos") { // This was correct
+                      nextStatus = "approved_hod";
+                    } else if (isHOP && selectedSubmission.status === "approved_hod") {
+                      nextStatus = "approved_hop";
+                    } else if (isHOF && selectedSubmission.status === "approved_hop") { // This was correct
+                      nextStatus = "approved_hof";
+                    }
                     handleAction(selectedSubmission.id, nextStatus);
                   }}
                   className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"

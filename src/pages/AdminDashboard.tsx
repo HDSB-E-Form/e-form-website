@@ -3,12 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, Package, Box, AlertTriangle, Plus, XCircle, ShoppingCart } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, Package, Box, AlertTriangle, Plus, XCircle, ShoppingCart, Settings, DollarSign, Save, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import logo from "@/assets/logo.png";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -22,6 +23,10 @@ const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
+    case "approved_hof":
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
+    case "approved_hop":
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved_hod":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
     case "approved_hos":
@@ -47,23 +52,65 @@ const getInitialColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
-const INITIAL_STOCK = {
-  "Goggle": 100,
-  "Helmet": 50,
-  "Safety Boot": 50,
-  "Safety Shoe": 50,
-  "Safety Insert": 50,
-  "Earplug": 200,
-  "Apron": 30,
-  "Crane Vest": 30,
-  "3-ply Mask": 500,
-  "N-95 Mask": 100,
-  "Forklift Vest": 30,
+const SAFETY_STOCK_LEVELS: Record<string, number> = {
+  // Default for items without specific levels
+  "default": 5,
+
+  // PPE
+  "Crane Vest": 5,
+  "Earplug": 20,
+  "Forklift Vest": 5,
+  "Safety Goggles": 20,
+  "Safety Helmet": 20,
+  "Safety Insert": 15,
+
+  // Uniforms
+  'Cargo Pants - 26"': 10, 'Cargo Pants - 28"': 10, 'Cargo Pants - 30"': 20, 'Cargo Pants - 32"': 20,
+  'Cargo Pants - 34"': 20, 'Cargo Pants - 36"': 20, 'Cargo Pants - 38"': 10, 'Cargo Pants - 40"': 10,
+  'Cargo Pants - 42"': 8, 'Cargo Pants - 44"': 6, 'Cargo Pants - 46"': 6, 'Cargo Pants - 48"': 4, 'Cargo Pants - 50"': 4,
+
+  'Company Shirt - XS': 6, 'Company Shirt - S': 10, 'Company Shirt - M': 20, 'Company Shirt - L': 20,
+  'Company Shirt - XL': 20, 'Company Shirt - 2XL': 20, 'Company Shirt - 3XL': 8, 'Company Shirt - 4XL': 6, 'Company Shirt - 5XL': 6,
+
+  'Company Shirt (Long Sleeve) - XS': 6, 'Company Shirt (Long Sleeve) - S': 10, 'Company Shirt (Long Sleeve) - M': 20, 'Company Shirt (Long Sleeve) - L': 20,
+  'Company Shirt (Long Sleeve) - XL': 20, 'Company Shirt (Long Sleeve) - 2XL': 20, 'Company Shirt (Long Sleeve) - 3XL': 8, 'Company Shirt (Long Sleeve) - 4XL': 6, 'Company Shirt (Long Sleeve) - 5XL': 6,
+
+  'Company T-Shirt (Long Sleeve) - XS': 6, 'Company T-Shirt (Long Sleeve) - S': 10, 'Company T-Shirt (Long Sleeve) - M': 20, 'Company T-Shirt (Long Sleeve) - L': 20,
+  'Company T-Shirt (Long Sleeve) - XL': 20, 'Company T-Shirt (Long Sleeve) - 2XL': 20, 'Company T-Shirt (Long Sleeve) - 3XL': 8, 'Company T-Shirt (Long Sleeve) - 4XL': 6, 'Company T-Shirt (Long Sleeve) - 5XL': 6,
+
+  'Company T-Shirt (Short Sleeve) - XS': 6, 'Company T-Shirt (Short Sleeve) - S': 10, 'Company T-Shirt (Short Sleeve) - M': 20, 'Company T-Shirt (Short Sleeve) - L': 20,
+  'Company T-Shirt (Short Sleeve) - XL': 20, 'Company T-Shirt (Short Sleeve) - 2XL': 20, 'Company T-Shirt (Short Sleeve) - 3XL': 10, 'Company T-Shirt (Short Sleeve) - 4XL': 6, 'Company T-Shirt (Short Sleeve) - 5XL': 6,
+
+  'Safety Shoe - Size 3': 3, 'Safety Shoe - Size 4': 3, 'Safety Shoe - Size 5': 5, 'Safety Shoe - Size 6': 5,
+  'Safety Shoe - Size 7': 10, 'Safety Shoe - Size 8': 10, 'Safety Shoe - Size 9': 10, 'Safety Shoe - Size 10': 10,
+  'Safety Shoe - Size 11': 5, 'Safety Shoe - Size 12': 3, 'Safety Shoe - Size 13': 3,
 };
 
-const PPE_ITEMS = ["Goggle", "Helmet", "Safety Boot", "Safety Shoe", "Safety Insert", "Earplug", "Apron", "Crane Vest", "3-ply Mask", "N-95 Mask", "Forklift Vest"];
-const UNIFORM_ITEMS = ["Company T-Shirt (Short Sleeve)", "Company T-Shirt (Long Sleeve)", "Company Shirt", "Company Shirt (Long Sleeve)", "Cargo Pants"];
-const OFFICE_ITEMS = ["Ball Pen", "Permanent Marker", "Highlighter", "Pencil", "Eraser", "Correction Tape", "A4 Paper", "Notebook", "Stapler", "Staple Pin", "Paper Clip", "Binder Clip", "File Folder", "Ring File", "Sticky Notes", "Scissors", "Glue Stick", "Clear Tape", "Calculator", "Whiteboard Marker", "A3 Paper", "A5 Paper"];
+const getSafetyStockLevel = (itemKey: string) => {
+  return SAFETY_STOCK_LEVELS[itemKey] ?? SAFETY_STOCK_LEVELS["default"];
+};
+
+const { PPE_ITEMS: ppeList, UNIFORM_ITEMS: uniformList, OFFICE_ITEMS: officeList } = (() => { // Re-importing from PpeRequestForm to avoid duplication
+  const SHOE_SIZES_UK = [
+    { size: "Size 3" }, { size: "Size 4" }, { size: "Size 5" }, { size: "Size 6" }, { size: "Size 7" }, { size: "Size 8" },
+    { size: "Size 9" }, { size: "Size 10" }, { size: "Size 11" }, { size: "Size 12" }, { size: "Size 13" },
+  ];
+  const CLOTHING_SIZES_EXTENDED = [
+    { size: "XS" }, { size: "S" }, { size: "M" }, { size: "L" }, { size: "XL" }, { size: "2XL" }, { size: "3XL" }, { size: "4XL" }, { size: "5XL" },
+  ];
+  const PANTS_SIZES = [
+    { size: '26"' }, { size: '28"' }, { size: '30"' }, { size: '32"' }, { size: '34"' }, { size: '36"' }, { size: '38"' }, { size: '40"' },
+    { size: '42"' }, { size: '44"' }, { size: '46"' }, { size: '48"' }, { size: '50"' },
+  ];
+  const HELMET_SIZES = [{ size: "M" }, { size: "L" }];
+  return {
+    PPE_ITEMS: [{ name: "3-ply Mask", sizes: [{ size: "Free Size" }] }, { name: "Medical Apron", sizes: [{ size: "Free Size" }] }, { name: "Crane Vest", sizes: [{ size: "Free Size" }] }, { name: "Earplug", sizes: [{ size: "Free Size" }] }, { name: "Forklift Vest", sizes: [{ size: "Free Size" }] }, { name: "Safety Goggles", sizes: [{ size: "Free Size" }] }, { name: "Safety Helmet", sizes: HELMET_SIZES }, { name: "N-95 Mask", sizes: [{ size: "Free Size" }] }, { name: "Safety Boot", sizes: SHOE_SIZES_UK }, { name: "Safety Insert", sizes: [{ size: "Free Size" }] }, { name: "Safety Shoe", sizes: SHOE_SIZES_UK }].sort((a, b) => a.name.localeCompare(b.name)),
+    UNIFORM_ITEMS: [{ name: "Cargo Pants", sizes: PANTS_SIZES }, { name: "Company Shirt", sizes: CLOTHING_SIZES_EXTENDED }, { name: "Company Shirt (Long Sleeve)", sizes: CLOTHING_SIZES_EXTENDED }, { name: "Company T-Shirt (Long Sleeve)", sizes: CLOTHING_SIZES_EXTENDED }, { name: "Company T-Shirt (Short Sleeve)", sizes: CLOTHING_SIZES_EXTENDED }].sort((a, b) => a.name.localeCompare(b.name)),
+    OFFICE_ITEMS: [{ name: "A3 Paper", sizes: [{ size: "80 gsm" }] }, { name: "A4 Paper", sizes: [{ size: "70 gsm" }, { size: "80 gsm" }] }, { name: "Ball Pen", sizes: [{ size: "Black" }, { size: "Blue" }, { size: "Red" }] }, { name: "Binder Clip", sizes: [{ size: "Small" }, { size: "Medium" }, { size: "Large" }] }, { name: "Cellophane Tape", sizes: [{ size: "18 mm" }] }, { name: "Correction Fluid", sizes: [{ size: "White" }] }, { name: "Correction Tape", sizes: [{ size: "5 mm" }] }, { name: "Cutter Blade", sizes: [{ size: "Large" }] }, { name: "Cutter Knife", sizes: [{ size: "Large" }] }, { name: "Document Tray", sizes: [{ size: "Plastic" }] }, { name: "Double-Sided Tape", sizes: [{ size: "24 mm" }] }, { name: "Envelope", sizes: [{ size: "C4" }, { size: "DL" }] }, { name: "Eraser", sizes: [{ size: "Standard" }] }, { name: "Glue Stick", sizes: [{ size: "21 g" }] }, { name: "Highlighter", sizes: [{ size: "Yellow" }, { size: "Green" }, { size: "Pink" }, { size: "Orange" }] }, { name: "Lever Arch File", sizes: [{ size: "2 inch" }, { size: "3 inch" }] }, { name: "Liquid Glue", sizes: [{ size: "50 ml" }] }, { name: "Masking Tape", sizes: [{ size: "24 mm" }] }, { name: "Mechanical Pencil", sizes: [{ size: "0.5 mm" }] }, { name: "Notebook", sizes: [{ size: "A4" }, { size: "A5" }] }, { name: "Paper Clip", sizes: [{ size: "28 mm" }] }, { name: "Pencil", sizes: [{ size: "2B" }] }, { name: "Pencil Lead", sizes: [{ size: "0.5 mm" }] }, { name: "Permanent Marker", sizes: [{ size: "Black" }, { size: "Blue" }, { size: "Red" }] }, { name: "Ring File", sizes: [{ size: "A4" }] }, { name: "Rubber Band", sizes: [{ size: "Small" }, { size: "Large" }] }, { name: "Scissors", sizes: [{ size: "Medium" }] }, { name: "Sharpener", sizes: [{ size: "Standard" }] }, { name: "Stapler", sizes: [{ size: "No.10" }] }, { name: "Stapler Pin", sizes: [{ size: "No.10" }, { size: "3-1M" }] }, { name: "Sticky Notes", sizes: [{ size: '3" x 3"' }] }, { name: "Whiteboard Marker", sizes: [{ size: "Black" }, { size: "Blue" }, { size: "Red" }, { size: "Green" }] }].sort((a, b) => a.name.localeCompare(b.name)),
+  };
+})();
+
+const ALL_ITEMS = [...ppeList, ...uniformList, ...officeList];
 
 const renderValue = (val: any): React.ReactNode => {
   if (val === null || val === undefined || val === "") return "—";
@@ -85,7 +132,13 @@ const renderValue = (val: any): React.ReactNode => {
       const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
       if (validRows.length === 0) return "—";
 
-      const keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+
+      // Specifically for claim forms, enforce the column order.
+      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
+        keys = ['description', 'receiptNo', 'amount'];
+      }
+
       return (
         <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto">
           <Table className="w-full text-left border-collapse bg-background/50">
@@ -157,28 +210,39 @@ const AdminDashboard = () => {
   const [isViewAll, setIsViewAll] = useState(false);
   
   const inventoryStock = useMemo(() => {
-    const stock: Record<string, number> = { ...INITIAL_STOCK };
+    const stock: Record<string, number> = {};
     submissions.filter(s => s.formType === "inventory_addition").forEach(sub => {
-      const { itemName, quantity } = sub.data;
+      const { itemName, quantity, size } = sub.data;
       if (itemName && quantity) {
-        stock[itemName] = (stock[itemName] || 0) + parseInt(quantity);
+        let finalSize = size;
+        if (!finalSize) {
+          const itemInfo = ALL_ITEMS.find(i => i.name === itemName);
+          if (itemInfo && itemInfo.sizes.length === 1) {
+            finalSize = itemInfo.sizes[0].size;
+          }
+        }
+        const key = `${itemName} - ${finalSize || 'default'}`;
+        stock[key] = (stock[key] || 0) + parseInt(quantity);
       }
     });
     return stock;
   }, [submissions]);
 
   const [isStockSheetOpen, setIsStockSheetOpen] = useState(false);
-  const [stockForm, setStockForm] = useState({ itemName: "", quantity: "", poNumber: "" });
+  const [stockForm, setStockForm] = useState({ itemName: "", size: "", quantity: "", poNumber: "" });
   const [customItem, setCustomItem] = useState("");
   const [inventoryTab, setInventoryTab] = useState<"ppe" | "uniform" | "office">("ppe");
   const [inventorySearch, setInventorySearch] = useState("");
   const [stockSheetCategory, setStockSheetCategory] = useState<"ppe" | "uniform" | "office">("ppe");
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPriceSheetOpen, setIsPriceSheetOpen] = useState(false);
+
   const itemCategoryMap = useMemo(() => {
     const map: Record<string, string> = {};
-    PPE_ITEMS.forEach(item => map[item] = "ppe");
-    UNIFORM_ITEMS.forEach(item => map[item] = "uniform");
-    OFFICE_ITEMS.forEach(item => map[item] = "office");
+    ppeList.forEach(item => map[item.name] = "ppe");
+    uniformList.forEach(item => map[item.name] = "uniform");
+    officeList.forEach(item => map[item.name] = "office");
     
     submissions.filter(s => s.formType === "inventory_addition").forEach(sub => {
       const { itemName, category } = sub.data;
@@ -248,6 +312,24 @@ const AdminDashboard = () => {
     return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
   };
 
+  const handlePrint = (sub: Submission) => {
+    const originalTitle = document.title;
+    document.title = `Purchase_${generateRefNo(sub)}`;
+    
+    const isDark = document.documentElement.classList.contains('dark');
+    if (isDark) document.documentElement.classList.remove('dark');
+
+    setTimeout(() => {
+      window.onafterprint = () => {
+        document.title = originalTitle;
+        if (isDark) document.documentElement.classList.add('dark');
+        window.onafterprint = null;
+      };
+      window.print();
+      setTimeout(() => { document.title = originalTitle; }, 2000);
+    }, 50);
+  };
+
   const handleAction = (id: string, status: SubmissionStatus) => {
     updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? "admin" : undefined });
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
@@ -257,8 +339,9 @@ const AdminDashboard = () => {
 
   const handleUpdateStock = async () => {
     const nameToUpdate = stockForm.itemName === "other" ? customItem : stockForm.itemName;
-    if (!nameToUpdate || !stockForm.quantity) {
-      toast.error("Please provide an item name and quantity");
+    const selectedItemInfo = ALL_ITEMS.find(i => i.name === nameToUpdate);
+    if (!nameToUpdate || !stockForm.quantity || (selectedItemInfo && selectedItemInfo.sizes.length > 1 && !stockForm.size)) {
+      toast.error("Please provide an item name, size (if applicable), and quantity.");
       return;
     }
 
@@ -269,13 +352,13 @@ const AdminDashboard = () => {
       submittedBy: user?.id || "",
       employeeName: user?.name || "System Admin",
       department: user?.department || "HR",
-      data: { itemName: nameToUpdate, quantity: qty, category: stockSheetCategory, poNumber: stockForm.poNumber }
+      data: { itemName: nameToUpdate, size: stockForm.size, quantity: qty, category: stockSheetCategory, poNumber: stockForm.poNumber }
     });
 
     if (success) {
       toast.success(`${qty} unit(s) added to ${nameToUpdate} stock`);
       setIsStockSheetOpen(false);
-      setStockForm({ itemName: "", quantity: "", poNumber: "" });
+      setStockForm({ itemName: "", size: "", quantity: "", poNumber: "" });
       setCustomItem("");
     } else {
       toast.error("Failed to add stock to the database.");
@@ -283,29 +366,40 @@ const AdminDashboard = () => {
   };
 
   const distributedItems: Record<string, number> = {};
-  inventorySubmissions.forEach(sub => {
+  [...inventorySubmissions, ...purchaseSubmissions].forEach(sub => {
     if (sub.status === "approved" && sub.data?.items && Array.isArray(sub.data.items)) {
       sub.data.items.forEach((item: any) => {
         const name = item["Item Name"];
+        let size = item.Size;
+        if (!size) {
+          const itemInfo = ALL_ITEMS.find(i => i.name === name);
+          if (itemInfo && itemInfo.sizes.length === 1) {
+            size = itemInfo.sizes[0].size;
+          }
+        }
         const qty = parseInt(item.Quantity) || 0;
-        if (name) distributedItems[name] = (distributedItems[name] || 0) + qty;
+        if (name) {
+          const key = `${name} - ${size || 'default'}`;
+          distributedItems[key] = (distributedItems[key] || 0) + qty;
+        }
       });
     }
   });
 
   const allInventoryKeys = Array.from(new Set([
-    ...PPE_ITEMS,
-    ...UNIFORM_ITEMS,
-    ...OFFICE_ITEMS,
-    ...Object.keys(inventoryStock), 
-    ...Object.keys(distributedItems)
+    ...ALL_ITEMS.flatMap(item => item.sizes.map(s => `${item.name} - ${s.size}`)),
+    ...Object.keys(inventoryStock),
+    ...Object.keys(distributedItems),
   ])).sort();
 
   const filteredInventoryKeys = allInventoryKeys.filter(item => {
-    const matchesTab = getItemCategory(item) === inventoryTab;
-    const matchesSearch = item.toLowerCase().includes(inventorySearch.toLowerCase());
+    const [itemName] = item.split(' - ');
+    const matchesTab = getItemCategory(itemName) === inventoryTab;
+    const matchesSearch = itemName.toLowerCase().includes(inventorySearch.toLowerCase());
     return matchesTab && matchesSearch;
   });
+
+  const lowStockItems = allInventoryKeys.filter(k => (inventoryStock[k] || 0) - (distributedItems[k] || 0) <= getSafetyStockLevel(k));
 
   const recentActivity = useMemo(() => {
     return submissions
@@ -446,6 +540,12 @@ const AdminDashboard = () => {
     );
   };
 
+  const renderPurchaseDetail = (sub: Submission) => {
+    // For now, this can reuse the PPE detail renderer as the data structure is similar
+    // In the future, it can be customized for purchase-specific details
+    return renderPpeDetail(sub);
+  };
+
   const renderPpeDetail = (sub: Submission) => {
     const isOffice = sub.data.requestCategory === "office";
     return (
@@ -466,6 +566,14 @@ const AdminDashboard = () => {
             {sub.data.requestCategory || "PPE"} Collection
           </Badge>
         </div>
+        {sub.data.invoiceUrl && (
+          <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Invoice</span>
+            <a href={sub.data.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2">
+              <FileText className="h-4 w-4" /> View Document
+            </a>
+          </div>
+        )}
         <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">ITEMS COLLECTED / BARANG DIAMBIL</p>
         <div className="border border-border rounded-lg overflow-hidden mb-6">
           <Table>
@@ -473,6 +581,7 @@ const AdminDashboard = () => {
               <TableRow>
                 <TableHead className="text-xs font-bold text-muted-foreground">Item Name</TableHead>
                 {!isOffice && <TableHead className="text-xs font-bold text-muted-foreground">Size</TableHead>}
+                {sub.formType === 'ppe_purchase' && <TableHead className="text-xs font-bold text-muted-foreground text-right">Price (RM)</TableHead>}
                 <TableHead className="text-xs font-bold text-muted-foreground text-right">Qty</TableHead>
               </TableRow>
             </TableHeader>
@@ -481,12 +590,28 @@ const AdminDashboard = () => {
                 <TableRow key={i}>
                   <TableCell className="font-semibold text-xs sm:text-sm">{item["Item Name"]}</TableCell>
                   {!isOffice && <TableCell className="text-xs sm:text-sm text-muted-foreground">{item.Size || "—"}</TableCell>}
+                  {sub.formType === 'ppe_purchase' && (
+                    <TableCell className="text-right font-medium text-xs sm:text-sm">
+                      {(() => {
+                        const priceKey = `${item["Item Name"]}::${item.Size}`;
+                        const storedPrices = JSON.parse(localStorage.getItem("hdsb_item_prices") || "{}");
+                        const price = storedPrices[priceKey] !== undefined ? storedPrices[priceKey] : 0;
+                        return price.toFixed(2);
+                      })()}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right font-bold text-xs sm:text-sm">{item.Quantity}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+        {sub.formType === 'ppe_purchase' && sub.data.totalCost && (
+          <div className="text-right">
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Total Cost</p>
+            <p className="text-3xl font-bold text-primary mt-1">RM {sub.data.totalCost.toFixed(2)}</p>
+          </div>
+        )}
       </>
     );
   };
@@ -495,12 +620,12 @@ const AdminDashboard = () => {
     const isApprovalForm = selectedSubmission.formType === "car_rental" || selectedSubmission.formType === "leave";
     const isPpe = selectedSubmission.formType === "ppe_request";
     const canApprove = selectedSubmission.status === "approved_hod";
-    const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos" || selectedSubmission.status === "approved_hod";
+    const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos";
 
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto">
         {isApprovalForm && renderFormDetails(selectedSubmission)}
-        {isPpe && renderPpeDetail(selectedSubmission)}
+        {(isPpe || selectedSubmission.formType === 'ppe_purchase') && renderPpeDetail(selectedSubmission)}
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
@@ -509,7 +634,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {isPending && !canApprove && !isPpe && (
+        {isPending && !canApprove && isApprovalForm && (
           <div className="p-4 bg-muted/30 rounded-xl text-center">
             <p className="text-sm text-muted-foreground font-medium">
               {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
@@ -519,7 +644,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {canApprove && (
+        {canApprove && isApprovalForm && viewMode === 'approvals' && (
           <>
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
             <Input
@@ -544,13 +669,21 @@ const AdminDashboard = () => {
             </div>
           </>
         )}
+
+        {selectedSubmission.formType === 'ppe_purchase' && (
+          <div className="flex justify-center mt-8">
+            <button onClick={() => handlePrint(selectedSubmission)} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
+              <Printer className="h-4 w-4" /> Print Record
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">HR Admin Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage approvals and track department inventory.</p>
@@ -583,43 +716,43 @@ const AdminDashboard = () => {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Employee</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Category</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Items</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Invoice</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-muted-foreground">Date</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider">Category</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {purchaseSubmissions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                         No purchase submissions yet.
                       </TableCell>
                     </TableRow>
                   ) : (
                     purchaseSubmissions.map(sub => (
-                      <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors">
-                        <TableCell className="font-semibold text-sm cursor-pointer whitespace-nowrap" onClick={() => setSelectedSubmission(sub)}>
-                          {sub.employeeName}
+                      <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors print:hidden">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!sub.data.employeeInfo?.avatar ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
+                              {sub.data.employeeInfo?.avatar ? (
+                                <img src={sub.data.employeeInfo.avatar} alt={sub.employeeName} className="w-full h-full object-cover" />
+                              ) : (
+                                getInitials(sub.employeeName)
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                              <p className="text-xs text-muted-foreground">{sub.data.employeeInfo?.position || sub.department}</p>
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setSelectedSubmission(sub)}>
-                          {sub.data.requestCategory?.toUpperCase() || "PPE"}
-                        </TableCell>
-                        <TableCell className="text-sm cursor-pointer min-w-[200px]" onClick={() => setSelectedSubmission(sub)}>
-                          {sub.data.items?.map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ") || "—"}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {sub.data.invoiceUrl ? (
-                            <a href={sub.data.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                              <FileText className="h-3.5 w-3.5" /> View
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap" onClick={() => setSelectedSubmission(sub)}>
-                          {new Date(sub.submittedAt).toLocaleDateString()}
+                        <TableCell className="text-sm whitespace-nowrap">{sub.data.requestCategory?.toUpperCase() || "PPE"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{new Date(sub.submittedAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-center">
+                          <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
+                            View
+                          </button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -628,6 +761,20 @@ const AdminDashboard = () => {
               </Table>
             </div>
           </div>
+
+          {/* Print-only section for the selected purchase */}
+          {selectedSubmission && viewMode === "purchases" && (
+            <div className="hidden print:block print:bg-white print:text-black">
+              <div className="flex items-center justify-between mb-8 border-b-2 border-black pb-6">
+                <img src={logo} alt="HICOM Diecasting" className="h-16 w-auto object-contain" />
+                <div className="text-right">
+                  <h1 className="text-2xl font-bold uppercase tracking-widest text-black">Purchase Record</h1>
+                  <p className="text-sm text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
+                </div>
+              </div>
+              {renderPurchaseDetail(selectedSubmission)}
+            </div>
+          )}
         </div>
       ) : viewMode === "approvals" ? (
         <div className="animate-in slide-in-from-bottom-2 duration-700">
@@ -704,12 +851,11 @@ const AdminDashboard = () => {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
+                      <TableRow className="bg-muted/30 hover:bg-muted/40">
                         <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
-                        <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
-                        <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Status</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Status</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -718,9 +864,9 @@ const AdminDashboard = () => {
                         const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
                         return (
                           <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
-                            <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-3">
+                                {activeTab === "action_required" && <div className="w-1 h-10 rounded-full bg-primary" />}
                                 <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
                                   {avatarUrl ? (
                                     <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
@@ -728,10 +874,12 @@ const AdminDashboard = () => {
                                     getInitials(sub.employeeName)
                                   )}
                                 </div>
-                                <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
+                                <div>
+                                  <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
+                                  <p className="text-xs text-muted-foreground">{sub.data.position || sub.department}</p>
+                                </div>
                               </div>
                             </TableCell>
-                            <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
                             <TableCell>
                               <div className="flex flex-col items-start gap-1">
                                 <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
@@ -740,7 +888,10 @@ const AdminDashboard = () => {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>{statusBadge(sub.status)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider">{formTypeLabels[sub.formType] || sub.formType}</Badge>
+                            </TableCell>
+                            <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                             <TableCell className="text-center">
                               <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
                                 {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
@@ -777,7 +928,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Item Types</p>
-                <p className="text-3xl font-bold text-foreground">{allInventoryKeys.length}</p>
+                <p className="text-3xl font-bold text-foreground">{filteredInventoryKeys.length}</p>
               </div>
             </div>
             <div className="card-elevated p-5 flex items-center gap-4">
@@ -795,14 +946,12 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Low Stock Alerts</p>
-                <p className="text-3xl font-bold text-foreground">
-                  {allInventoryKeys.filter(k => (inventoryStock[k] || 0) - (distributedItems[k] || 0) <= 10).length}
-                </p>
+                <p className="text-3xl font-bold text-foreground">{lowStockItems.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="xl:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
               <div className="p-5 border-b border-border bg-muted/10 shrink-0 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -810,9 +959,26 @@ const AdminDashboard = () => {
                     <h2 className="text-lg font-bold text-foreground">Stock Levels</h2>
                     <p className="text-xs text-muted-foreground">Monitor remaining inventory across all categories</p>
                   </div>
-                  <button onClick={() => setIsStockSheetOpen(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap">
-                    <Plus className="h-4 w-4" /> Add / Update Stock
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setIsStockSheetOpen(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap">
+                      <Plus className="h-4 w-4" /> Add / Update Stock
+                    </button>
+                    <div className="relative">
+                      <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="h-9 w-9 flex items-center justify-center bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold shadow-sm">
+                        <Settings className="h-4 w-4" />
+                      </button>
+                      {isMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+                          <div className="absolute right-0 top-full mt-2 w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                            <button onClick={() => { setIsPriceSheetOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
+                              <DollarSign className="h-4 w-4 text-muted-foreground" /> Manage Item Prices
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-between">
                   <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -846,7 +1012,6 @@ const AdminDashboard = () => {
                   <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-md z-10">
                     <TableRow>
                       <TableHead className="text-xs font-bold uppercase tracking-wider">Item Name</TableHead>
-                      <TableHead className="text-xs font-bold uppercase tracking-wider">Category</TableHead>
                       <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Total Stock</TableHead>
                       <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Distributed</TableHead>
                       <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Remaining</TableHead>
@@ -855,22 +1020,21 @@ const AdminDashboard = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredInventoryKeys.map(item => {
+                      const [itemName, itemSize] = item.split(' - ');
                       const total = inventoryStock[item] || 0;
                       const dist = distributedItems[item] || 0;
                       const left = total - dist;
+                      const safetyStock = getSafetyStockLevel(item);
                       const percent = total > 0 ? Math.min((dist / total) * 100, 100) : 100;
                       return (
                         <TableRow key={item} className="hover:bg-muted/10">
-                          <TableCell className="font-semibold text-sm">{item}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider">
-                              {getItemCategory(item)}
-                            </Badge>
+                          <TableCell className="font-semibold text-sm">
+                            {itemName} <span className="text-muted-foreground text-xs">({itemSize})</span>
                           </TableCell>
-                          <TableCell className="text-center text-sm font-medium">{total}</TableCell>
-                          <TableCell className="text-center text-sm font-medium text-muted-foreground">{dist}</TableCell>
-                          <TableCell className={`text-center text-sm font-bold ${left <= 10 ? 'text-destructive' : 'text-foreground'}`}>{left}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-center text-sm font-medium bg-blue-500/5">{total}</TableCell>
+                          <TableCell className="text-center text-sm font-medium text-muted-foreground bg-blue-500/5">{dist}</TableCell>
+                          <TableCell className={`text-center text-sm font-bold ${left <= safetyStock ? 'text-destructive' : 'text-foreground'} bg-blue-500/5`}>{left}</TableCell>
+                          <TableCell className="bg-muted/20">
                             <div className="w-24 h-2 rounded-full bg-muted overflow-hidden flex items-center">
                               <div className={`h-full rounded-full ${percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }} />
                             </div>
@@ -916,8 +1080,8 @@ const AdminDashboard = () => {
                           <div className="space-y-1">
                             <p className="text-xs text-muted-foreground line-clamp-2">
                               {isRestock
-                                ? `+${sub.data.quantity}x ${sub.data.itemName}`
-                                : (sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]}`).join(", ")
+                                ? `+${sub.data.quantity}x ${sub.data.itemName} (${sub.data.size})`
+                                : (sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]} (${i.Size})`).join(", ")
                               }
                             </p>
                             {isRestock && sub.data.poNumber && (
@@ -948,9 +1112,9 @@ const AdminDashboard = () => {
             <div>
               <Label className="text-xs font-bold text-primary uppercase tracking-wider block mb-2">1. Select Category</Label>
               <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => { setStockSheetCategory("ppe"); setStockForm({ itemName: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'ppe' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>PPE</button>
-                <button type="button" onClick={() => { setStockSheetCategory("uniform"); setStockForm({ itemName: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'uniform' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Uniforms</button>
-                <button type="button" onClick={() => { setStockSheetCategory("office"); setStockForm({ itemName: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'office' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Office</button>
+                <button type="button" onClick={() => { setStockSheetCategory("ppe"); setStockForm({ itemName: "", size: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'ppe' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>PPE</button>
+                <button type="button" onClick={() => { setStockSheetCategory("uniform"); setStockForm({ itemName: "", size: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'uniform' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Uniforms</button>
+                <button type="button" onClick={() => { setStockSheetCategory("office"); setStockForm({ itemName: "", size: "", quantity: stockForm.quantity, poNumber: stockForm.poNumber }); setCustomItem(""); }} className={`py-2 rounded-lg text-xs font-bold border transition-colors ${stockSheetCategory === 'office' ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}>Office</button>
               </div>
             </div>
 
@@ -965,19 +1129,30 @@ const AdminDashboard = () => {
                   } />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {Array.from(new Set([
-                    ...(stockSheetCategory === "ppe" ? PPE_ITEMS : []),
-                    ...(stockSheetCategory === "uniform" ? UNIFORM_ITEMS : []),
-                    ...(stockSheetCategory === "office" ? OFFICE_ITEMS : []),
-                    ...allInventoryKeys.filter(k => itemCategoryMap[k] === stockSheetCategory)
-                  ])).sort().map(k => (
-                    <SelectItem key={k} value={k}>{k}</SelectItem>
+                  {(stockSheetCategory === "ppe" ? ppeList : stockSheetCategory === "uniform" ? uniformList : officeList).map(item => (
+                    <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>
                   ))}
                   <SelectItem value="other" className="font-bold text-primary italic">+ Add New Item to {stockSheetCategory.toUpperCase()}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
+            {stockForm.itemName && stockForm.itemName !== "other" && ALL_ITEMS.find(i => i.name === stockForm.itemName)?.sizes.length > 1 && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label className="text-xs font-bold text-primary uppercase tracking-wider">Size / Type</Label>
+                <Select value={stockForm.size} onValueChange={val => setStockForm(p => ({...p, size: val}))}>
+                  <SelectTrigger className="h-11 text-base sm:text-sm">
+                    <SelectValue placeholder="Choose a size/type..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {ALL_ITEMS.find(i => i.name === stockForm.itemName)?.sizes.map(s => (
+                      <SelectItem key={s.size} value={s.size}>{s.size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {stockForm.itemName === "other" && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                 <Label className="text-xs font-bold text-primary uppercase tracking-wider">New Item Name</Label>
@@ -1004,7 +1179,117 @@ const AdminDashboard = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Manage Prices Sheet */}
+      {isPriceSheetOpen && <PriceManagementSheet isOpen={isPriceSheetOpen} onOpenChange={setIsPriceSheetOpen} />}
     </div>
+  );
+};
+
+const PriceManagementSheet = ({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (open: boolean) => void; }) => {
+  const [prices, setPrices] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("hdsb_item_prices") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [activeTab, setActiveTab] = useState<'ppe' | 'uniform' | 'office'>('ppe');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handlePriceChange = (key: string, value: string) => {
+    const newPrice = parseFloat(value);
+    if (!isNaN(newPrice) && newPrice >= 0) {
+      setPrices(prev => ({ ...prev, [key]: newPrice }));
+    } else if (value === "") {
+      setPrices(prev => {
+        const newPrices = { ...prev };
+        delete newPrices[key];
+        return newPrices;
+      });
+    }
+  };
+
+  const handleSave = () => {
+    setIsSaving(true);
+    localStorage.setItem("hdsb_item_prices", JSON.stringify(prices));
+    setTimeout(() => {
+      toast.success("Prices saved successfully!");
+      setIsSaving(false);
+      onOpenChange(false);
+      // Optional: force a refresh if other components need to see the new prices immediately
+      // window.location.reload();
+    }, 500);
+  };
+
+  const renderCategory = (title: string, items: any[]) => (
+    <div key={title}>
+      {/* <h3 className="text-sm font-bold text-primary uppercase tracking-wider mb-3 sticky top-0 bg-background py-2">{title}</h3> */}
+      <div className="space-y-3">
+        {items.map(item => (
+          <div key={item.name} className="p-3 border border-border rounded-lg bg-muted/20">
+            <p className="text-sm font-semibold text-foreground mb-2">{item.name}</p>
+            <div className="space-y-2">
+              {item.sizes.map((size: any) => {
+                const priceKey = `${item.name}::${size.size}`;
+                return (
+                  <div key={size.size} className="flex items-center gap-2">
+                    <Label htmlFor={priceKey} className="text-xs text-muted-foreground flex-1">{size.size}</Label>
+                    <div className="relative w-28">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">RM</span>
+                      <Input
+                        id={priceKey}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={prices[priceKey] !== undefined ? prices[priceKey] : ""}
+                        onChange={e => handlePriceChange(priceKey, e.target.value)}
+                        placeholder="0.00"
+                        className="h-8 pl-8 text-right no-spinner"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-lg flex flex-col">
+        <SheetHeader className="border-b border-border pb-4">
+          <SheetTitle className="text-xl font-bold">Manage Item Prices</SheetTitle>
+          <p className="text-sm text-muted-foreground">Set the purchase price for each item and size.</p>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto pr-4 -mr-4 space-y-6">
+          <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-4 border-b border-border">
+            {[
+              { id: "ppe", label: "PPE" },
+              { id: "uniform", label: "Uniform" },
+              { id: "office", label: "Office Supply" },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 sm:flex-none whitespace-nowrap px-5 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === tab.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="animate-in fade-in-50">
+            {activeTab === 'ppe' ? renderCategory("PPE", ppeList) : activeTab === 'uniform' ? renderCategory("Uniforms", uniformList) : renderCategory("Office Supplies", officeList)}
+          </div>
+        </div>
+        <div className="border-t border-border pt-4 flex gap-3">
+          <button onClick={() => onOpenChange(false)} className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted/50">Cancel</button>
+          <button onClick={handleSave} disabled={isSaving} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-70">
+            {isSaving ? <Save className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? "Saving..." : "Save Prices"}
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 

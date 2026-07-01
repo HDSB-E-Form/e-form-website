@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, LogOut, LogIn } from "lucide-react";
+import { Clock, Search, ArrowLeft, LogOut, LogIn, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,7 @@ const SecurityDashboard = () => {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "on_leave" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [securityLog, setSecurityLog] = useState({
     actualTimeOut: "",
     actualTimeIn: "",

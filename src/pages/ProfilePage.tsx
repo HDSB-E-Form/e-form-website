@@ -251,7 +251,7 @@ const ProfilePage = () => {
         <p className="text-muted-foreground text-sm mt-1">Manage your personal information and security settings.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Left side: Profile form */}
         <div className="lg:col-span-2">
           {!isEditing ? (

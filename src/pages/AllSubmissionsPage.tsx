@@ -33,7 +33,13 @@ const renderValue = (val: any): React.ReactNode => {
       const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
       if (validRows.length === 0) return "—";
 
-      const keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+
+      // Specifically for claim forms, enforce the column order.
+      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
+        keys = ['description', 'receiptNo', 'amount'];
+      }
+
       return (
         <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto print:border-gray-400">
           <Table className="w-full text-left border-collapse">
@@ -98,11 +104,17 @@ const renderValue = (val: any): React.ReactNode => {
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-    case "approved_hos":
-    case "approved_hod":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">APPROVED</Badge>;
     case "rejected":
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">REJECTED</Badge>;
+    case "approved_hof":
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+    case "approved_hop":
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+    case "approved_hod":
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+    case "approved_hos":
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
     case "pending":
     default:
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">PENDING</Badge>;

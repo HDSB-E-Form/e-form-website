@@ -133,13 +133,11 @@ const ClaimForm = () => {
       return;
     }
 
-    let initialStatus: "pending" | "approved_hos" | "approved_hod" | "approved_hop" | "approved_hof" = "pending";
-    if (hosName === "N/A") {
-      initialStatus = "approved_hos";
-      if (hodName === "N/A") {
-        initialStatus = "approved_hod";
-      }
-    }
+    const initialStatus: "pending" | "approved_hos" | "approved_hod" = 
+      (hodName === "N/A" && hosName === "N/A") ? "approved_hod" :
+      (hosName === "N/A") ? "approved_hos" :
+      "pending";
+
     setIsSubmitting(true);
 
     let attachmentUrls: string[] = [];
@@ -400,7 +398,7 @@ const ClaimForm = () => {
                   <SelectValue placeholder="Choose Head of Section" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">Not Applicable</SelectItem>
+                  <SelectItem value="N/A">N/A</SelectItem>
                   {hosUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
@@ -416,7 +414,7 @@ const ClaimForm = () => {
                   <SelectValue placeholder="Choose Head of Department" />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">Not Applicable</SelectItem>
+                  <SelectItem value="N/A">N/A</SelectItem>
                   {hodUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}

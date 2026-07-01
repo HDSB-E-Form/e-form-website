@@ -19,10 +19,6 @@ type FilterType = "all" | "pending" | "approved" | "rejected";
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-    case "approved_hos":
-    case "approved_hod":
-    case "approved_hop":
-    case "approved_hof":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
     case "rejected":
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REJECTED</Badge>;
@@ -39,11 +35,16 @@ const naStatus = () => (
 const getOverallStatus = (sub: Submission) => {
   if (sub.status === "rejected") return { label: "Rejected", color: "bg-destructive", progress: 100 };
   if (sub.status === "approved") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
-  if (sub.status === "approved_hod") return { label: "Under Review", color: "bg-emerald-500", progress: 75 };
-  if (sub.status === "approved_hop") return { label: "Under Review", color: "bg-emerald-500", progress: 85 }; // Added HOP stage
-  if (sub.status === "approved_hof") return { label: "Under Review", color: "bg-emerald-500", progress: 95 }; // Added HOF stage
-  if (sub.status === "approved_hos") return { label: "Under Review", color: "bg-emerald-500", progress: 50 };
-  return { label: "Pending", color: "bg-muted-foreground/50", progress: 25 };
+  if (sub.formType === 'claim') {
+    if (sub.status === "approved_hof") return { label: "Pending Finance Admin", color: "bg-teal-500", progress: 95 };
+    if (sub.status === "approved_hop") return { label: "Pending HOF", color: "bg-sky-500", progress: 85 };
+    if (sub.status === "approved_hod") return { label: "Pending HOP", color: "bg-blue-500", progress: 75 };
+  } else {
+    // Standard HOD approval for other forms
+    if (sub.status === "approved_hod") return { label: "Pending Admin", color: "bg-blue-500", progress: 75 };
+  }
+  if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 50 };
+  return { label: "Pending HOS", color: "bg-muted-foreground/50", progress: 25 };
 };
 
 const renderValue = (val: any): React.ReactNode => {
@@ -67,7 +68,13 @@ const renderValue = (val: any): React.ReactNode => {
       const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
       if (validRows.length === 0) return "—";
 
-      const keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+
+      // Specifically for claim forms, enforce the column order.
+      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
+        keys = ['description', 'receiptNo', 'amount'];
+      }
+
       return (
         <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto print:border-gray-400">
           <Table className="w-full text-left border-collapse">
@@ -178,10 +185,16 @@ const MySubmissions = () => {
   if (selectedSubmission) {
     const overall = getOverallStatus(selectedSubmission);
     
-    const rejectedStage = selectedSubmission.data.rejectedStage || (selectedSubmission.status === "rejected" ? "hos" : null);
+    const rejectedStage = selectedSubmission.data.rejectedStage;
 
-    const isApprovedHOS = ["approved_hos", "approved_hod", "approved"].includes(selectedSubmission.status) || rejectedStage === "hod" || rejectedStage === "admin";
-    const isApprovedHOD = ["approved_hod", "approved"].includes(selectedSubmission.status) || rejectedStage === "admin";
+    const isApprovedHOS = ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status) || 
+                          ["hod", "hop", "hof", "admin"].includes(rejectedStage);
+    const isApprovedHOD = ["approved_hod", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status) || 
+                          ["hop", "hof", "admin"].includes(rejectedStage);
+    const isApprovedHOP = ["approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status) || 
+                          ["hof", "admin"].includes(rejectedStage);
+    const isApprovedHOF = ["approved_hof", "approved"].includes(selectedSubmission.status) || 
+                          ["admin"].includes(rejectedStage);
     const isRejected = selectedSubmission.status === "rejected";
 
     return (
@@ -360,6 +373,40 @@ const MySubmissions = () => {
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
                 </div>
               </>
+            ) : selectedSubmission.formType === 'claim' ? (
+              <>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
+                </div>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+                </div>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department Code</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
+                </div>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Amount</span>
+                  <div className="text-xs sm:text-sm font-bold text-primary print:text-black text-left break-words sm:col-span-2 print:col-span-2">RM {selectedSubmission.data.totalAmount || "0.00"}</div>
+                </div>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details</span>
+                  <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
+                    {renderValue(selectedSubmission.data.claimRows)}
+                  </div>
+                </div>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    HOS: {selectedSubmission.data.hosName || "—"}<br/>
+                    HOD: {selectedSubmission.data.hodName || "—"}<br/>
+                    HOP: {selectedSubmission.data.hopName || "—"}<br/>
+                    HOF: {selectedSubmission.data.hofName || "—"}
+                  </div>
+                </div>
+              </>
             ) : (
               <>
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
@@ -370,7 +417,7 @@ const MySubmissions = () => {
                 </div>
                 
                 {Object.entries(selectedSubmission.data)
-                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position'].includes(key) && !/^\d+$/.test(key))
+                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hopName', 'hofName'].includes(key) && !/^\d+$/.test(key))
                   .map(([key, value]) => {
                     let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                     if (key === 'hosName') formattedKey = 'Head of Section';
@@ -432,19 +479,19 @@ const MySubmissions = () => {
           {selectedSubmission.formType === 'claim' ? (
             <div className="grid grid-cols-5 gap-1 sm:gap-2 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
               {[
-                { name: "Section Head", status: selectedSubmission.status, approved: ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved"], rejected: rejectedStage === "hos" },
-                { name: "Dept Head", status: selectedSubmission.status, approved: ["approved_hod", "approved_hop", "approved_hof", "approved"], rejected: rejectedStage === "hod" },
-                { name: "Purchasing", status: selectedSubmission.status, approved: ["approved_hop", "approved_hof", "approved"], rejected: rejectedStage === "hop" },
-                { name: "Finance Head", status: selectedSubmission.status, approved: ["approved_hof", "approved"], rejected: rejectedStage === "hof" },
-                { name: "Finance Admin", status: selectedSubmission.status, approved: ["approved"], rejected: rejectedStage === "admin" },
+                { name: "Section Head", isApproved: isApprovedHOS, isRejected: isRejected && rejectedStage === "hos" },
+                { name: "Dept Head", isApproved: isApprovedHOD, isRejected: isRejected && rejectedStage === "hod" },
+                { name: "Purchasing", isApproved: isApprovedHOP, isRejected: isRejected && rejectedStage === "hop" },
+                { name: "Finance Head", isApproved: isApprovedHOF, isRejected: isRejected && rejectedStage === "hof" },
+                { name: "Finance Admin", isApproved: selectedSubmission.status === "approved", isRejected: isRejected && rejectedStage === "admin" },
               ].map((stage, index) => (
                 <div key={index} className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
                   <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">{stage.name}</p>
                   <div className="print:hidden w-full flex justify-center">
-                    {stage.approved.includes(stage.status) ? statusBadge("approved") : stage.rejected ? statusBadge("rejected") : statusBadge("pending")}
+                    {stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
                   </div>
                   <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                    {stage.approved.includes(stage.status) ? "APPROVED" : stage.rejected ? "REJECTED" : "PENDING"}
+                    {stage.isApproved ? "APPROVED" : stage.isRejected ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
                   </div>
                 </div>
               ))}
@@ -462,8 +509,7 @@ const MySubmissions = () => {
               </div>
               <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
                 <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Dept Head</p>
-                <div className="print:hidden w-full flex justify-center">
-                  {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
+                <div className="print:hidden w-full flex justify-center">                  {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
                 </div>
                 <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                   {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && rejectedStage === "hos") ? "N/A" : "PENDING"}
@@ -471,8 +517,7 @@ const MySubmissions = () => {
               </div>
               <div className="text-center flex flex-col items-center justify-between">
                 <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Admin</p>
-                <div className="print:hidden w-full flex justify-center">
-                  {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
+                <div className="print:hidden w-full flex justify-center">                  {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
                 </div>
                 <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                   {selectedSubmission.status === "approved" ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
@@ -633,13 +678,13 @@ const MySubmissions = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Ref No.</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Department</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Ref No.</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider hidden sm:table-cell">Department</TableHead>
                 <TableHead className="text-xs font-bold uppercase tracking-wider">Form Type</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Section Head</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Department Head</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Admin</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Overall Status</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Section Head</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Dept Head</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Admin</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider min-w-[180px]">Overall Status</TableHead>
                 <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -648,28 +693,28 @@ const MySubmissions = () => {
                 const overall = getOverallStatus(sub);
                 const isApprovedCarRental = sub.formType === 'car_rental' && sub.status === 'approved';
                 const rejectedStage = sub.data.rejectedStage || (sub.status === "rejected" ? "hos" : null);
-                const isApprovedHOS = ["approved_hos", "approved_hod", "approved"].includes(sub.status) || rejectedStage === "hod" || rejectedStage === "admin";
-                const isApprovedHOD = ["approved_hod", "approved"].includes(sub.status) || rejectedStage === "admin";
+                const isApprovedHOS = ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved"].includes(sub.status) || ["hod", "hop", "hof", "admin"].includes(rejectedStage);
+                const isApprovedHOD = ["approved_hod", "approved_hop", "approved_hof", "approved"].includes(sub.status) || ["hop", "hof", "admin"].includes(rejectedStage);
                 const isRejected = sub.status === "rejected";
 
                 return (
                   <TableRow key={sub.id} className="hover:bg-muted/20">
-                    <TableCell className="font-medium text-primary text-sm">{generateRefNo(sub)}</TableCell>
-                    <TableCell className="text-sm text-foreground">{sub.department}</TableCell>
+                    <TableCell className="font-medium text-primary text-sm whitespace-nowrap">{generateRefNo(sub)}</TableCell>
+                    <TableCell className="text-sm text-foreground hidden sm:table-cell">{sub.department}</TableCell>
                     <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center hidden md:table-cell">
                       {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center hidden md:table-cell">
                       {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center hidden md:table-cell">
                       {sub.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full ${sub.status === "rejected" ? "bg-destructive" : overall.progress === 100 ? "bg-emerald-500" : "bg-primary"}`} style={{ width: `${overall.progress}%` }} />
+                          <div className={`h-full rounded-full ${overall.color}`} style={{ width: `${overall.progress}%` }} />
                         </div>
                         <span className="text-xs font-medium text-foreground whitespace-nowrap">{overall.label}</span>
                       </div>

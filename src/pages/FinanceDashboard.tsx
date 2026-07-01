@@ -2,9 +2,10 @@ import { useState, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, ExternalLink } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, ExternalLink, Printer, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import logo from "@/assets/logo.png";
 
 const formTypeLabels: Record<string, string> = {
   claim: "PETTY CASH CLAIM",
@@ -13,7 +14,7 @@ const formTypeLabels: Record<string, string> = {
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved_hof":
-      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">Pending Admin</Badge>;
     case "approved_hop":
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved":
@@ -43,6 +44,66 @@ const getInitialColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+const renderValue = (val: any): React.ReactNode => {
+  if (val === null || val === undefined || val === "") return "—";
+  
+  if (Array.isArray(val)) {
+    if (val.length === 0) return "—";
+    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
+      return (
+        <div className="flex flex-col gap-2 mt-1">
+          {val.map((url, idx) => (
+            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
+              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
+            </a>
+          ))}
+        </div>
+      );
+    }
+    if (typeof val[0] === 'object' && val[0] !== null) {
+      // Filter out rows that are entirely empty
+      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
+      if (validRows.length === 0) return "—";
+
+      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
+
+      // Specifically for claim forms, enforce the column order.
+      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
+        keys = ['description', 'receiptNo', 'amount'];
+      }
+
+      return (
+        <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto">
+          <Table className="w-full text-left border-collapse bg-background/50">
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                {keys.map(k => (
+                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground whitespace-nowrap">
+                    {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {validRows.map((row, i) => (
+                <TableRow key={i} className="border-b border-border last:border-0 hover:bg-muted/20">
+                  {keys.map((k, j) => (
+                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap">
+                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    return val.join(", ");
+  }
+  return String(val);
+};
+
 const FinanceDashboard = () => {
   const { submissions, updateSubmissionStatus } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
@@ -50,6 +111,7 @@ const FinanceDashboard = () => {
   const [remarks, setRemarks] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Finance admin only sees claim forms
   const filtered = submissions
@@ -116,54 +178,92 @@ const FinanceDashboard = () => {
   // Review detail view matching the template (image-9)
   if (selectedSubmission) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-        <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
-        </button>
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
+          <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
+          </button>
+          <button onClick={() => {
+            const originalTitle = document.title;
+            document.title = generateRefNo(selectedSubmission);
+            
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) document.documentElement.classList.remove('dark');
 
-        {/* Employee Summary */}
-        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-6">
-          <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-1">Staff ID: {selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy}</p>
-          <p className="text-sm text-muted-foreground mb-1">Department: {selectedSubmission.department}</p>
-          <p className="text-sm text-muted-foreground mb-3">Position: {selectedSubmission.data.employeeInfo?.position || selectedSubmission.data.position || "—"}</p>
+            setTimeout(() => {
+              window.onafterprint = () => {
+                document.title = originalTitle;
+                if (isDark) document.documentElement.classList.add('dark');
+                window.onafterprint = null;
+              };
+              window.print();
+              setTimeout(() => { document.title = originalTitle; }, 2000);
+            }, 50);
+          }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm">
+            <Printer className="h-4 w-4" /> Print
+          </button>
         </div>
 
-        {/* Submission Summary */}
-        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-6">
-          <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Print Header */}
+        <div className="hidden print:flex items-center mb-8 border-b-2 border-black pb-6">
+          <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
+          <div className="text-left">
+            <h1 className="text-2xl font-bold uppercase tracking-widest text-black">HICOM Diecastings Sdn Bhd</h1>
+            <p className="text-sm text-gray-600 mt-1 uppercase tracking-wide">Official Form Submission Document</p>
+          </div>
+        </div>
+
+        <div className="card-elevated p-4 sm:p-6 print:border-none print:shadow-none print:p-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
-              <p className="text-xs text-muted-foreground">Ref No / No. Rujukan</p>
-              <p className="text-sm font-bold text-foreground">{generateRefNo(selectedSubmission)}</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
+                {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType}
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Form Type / Jenis Borang</p>
-              <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1">
-                {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType.toUpperCase()}
-              </Badge>
+            <div className="print:hidden">
+              {statusBadge(selectedSubmission.status)}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Date</p>
-              <p className="text-sm font-bold text-foreground">
-                {new Date(selectedSubmission.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-              </p>
+
+          <div className="space-y-4 mb-8">
+            <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                {selectedSubmission.employeeName}
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Amount</p>
-              <p className="text-sm font-bold text-primary">
-                RM {selectedSubmission.data.amount || selectedSubmission.data.totalAmount || "0.00"}
-              </p>
+            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
             </div>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Details</p>
-            <p className="text-sm text-foreground mt-1">
-              {selectedSubmission.data.description || selectedSubmission.data.purpose || "No details provided"}
-            </p>
+            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+            </div>
+            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department Code</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
+            </div>
+            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details</span>
+              <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
+                {renderValue(selectedSubmission.data.claimRows)}
+              </div>
+            </div>
+            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Amount</span>
+              <div className="text-xs sm:text-sm font-bold text-primary print:text-black text-left break-words sm:col-span-2 print:col-span-2">RM {selectedSubmission.data.totalAmount || "0.00"}</div>
+            </div>
+            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
+              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                HOS: {selectedSubmission.data.hosName || "—"}<br/>
+                HOD: {selectedSubmission.data.hodName || "—"}<br/>
+                HOP: {selectedSubmission.data.hopName || "—"}<br/>
+                HOF: {selectedSubmission.data.hofName || "—"}
+              </div>
+            </div>
           </div>
         </div>
 
