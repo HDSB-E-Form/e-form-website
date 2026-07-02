@@ -277,11 +277,11 @@ const SuperAdminDashboard = () => {
   };
 
   const handleResetAllForms = async () => {
-    const confirm1 = window.confirm("⚠️ WARNING: This will permanently delete ALL form submissions (Gate Passes, Claims, etc) across the entire system to prepare for launch. Are you absolutely sure?");
+    const confirm1 = window.confirm("⚠️WARNING: This will permanently delete all form submissions across the entire system to prepare for launch. Are you absolutely sure?");
     if (!confirm1) return;
     
-    const confirm2 = window.prompt('To prevent accidental deletion, please type "RESET" in all caps to confirm:');
-    if (confirm2 !== "RESET") {
+    const confirm2 = window.prompt('To prevent accidental deletion, please type "RESET_SUBMISSIONS" in all caps to confirm:');
+    if (confirm2 !== "RESET_SUBMISSIONS") {
       toast.info("System reset cancelled.");
       return;
     }
@@ -292,7 +292,7 @@ const SuperAdminDashboard = () => {
       const { error } = await supabase.from("submissions").delete().neq("id", "0");
       if (error) throw error;
 
-      toast.success("✅ System Reset Complete! All old forms are wiped.");
+      toast.success("System Reset Completed! All old forms are wiped.");
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       console.error("Error wiping forms:", err);

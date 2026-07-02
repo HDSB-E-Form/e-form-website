@@ -172,7 +172,12 @@ const FinanceDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    const updateData: any = { remarks, rejectedStage: status === "rejected" ? "admin" : undefined };
+    const updateData: any = { 
+      // Save finance admin remarks in a separate field
+      finance_admin_remarks: remarks, 
+      // Keep original remarks if any, or set to current remarks if it's a rejection with new comments
+      remarks: status === "rejected" && remarks ? remarks : selectedSubmission?.data.remarks,
+      rejectedStage: status === "rejected" ? "admin" : undefined };
 
     if (selectedSubmission?.formType === 'claim' && status === 'approved') {
       updateData.financeCode = financeCode;
@@ -320,8 +325,18 @@ const FinanceDashboard = () => {
 
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-6 print:bg-white ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks / Ulasan Terdahulu</p>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks / Ulasan Pelulus</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
+          </div>
+        )}
+
+        {/* Display Finance Admin specific remarks */}
+        {selectedSubmission.data.finance_admin_remarks && (
+          <div className="p-4 rounded-xl border mb-6 print:bg-white bg-teal-500/10 border-teal-500/20 text-teal-800 dark:text-teal-300">
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">
+              Finance Admin Remarks / Ulasan Pentadbir Kewangan
+            </p>
+            <p className="text-sm font-medium">"{selectedSubmission.data.finance_admin_remarks}"</p>
           </div>
         )}
 
