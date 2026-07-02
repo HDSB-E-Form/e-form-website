@@ -598,13 +598,13 @@ const PpeRequestForm = () => {
       <div className="hidden print:block mt-12 pt-6">
         <div className="grid grid-cols-2 gap-16">
           <div className="text-left">
-            <div className="border-b-2 border-black pb-2"></div>
+            <div className="border-b-2 border-black pb-2" />
             <p className="mt-2 text-xs font-bold">Requester's Signature</p>
             <p className="mt-4 text-xs text-gray-600">Name:</p>
             <p className="mt-4 text-xs text-gray-600">Date:</p>
           </div>
           <div className="text-left">
-            <div className="border-b-2 border-black pb-2"></div>
+            <div className="border-b-2 border-black pb-2" />
             <p className="mt-2 text-xs font-bold">Finance Department</p>
             <p className="mt-4 text-xs text-gray-600">Name:</p>
             <p className="mt-4 text-xs text-gray-600">Date:</p>

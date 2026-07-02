@@ -4,101 +4,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Clock, ArrowLeft, Printer, FileText } from "lucide-react";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import logo from "@/assets/logo.png";
+import { renderValue } from "@/components/DataRenderer";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request / Permintaan Kenderaan",
   leave: "Gate Pass",
   claim: "Petty Cash Claim / Tuntutan Panjar Wang Runcit",
   ppe_request: "PPE / Uniform / Office Supplies",
-};
-
-const renderValue = (val: any): React.ReactNode => {
-  if (val === null || val === undefined || val === "") return "—";
-  
-  if (Array.isArray(val)) {
-    if (val.length === 0) return "—";
-    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
-      return (
-        <div className="flex flex-col gap-2 mt-1">
-          {val.map((url, idx) => (
-            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
-              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
-            </a>
-          ))}
-        </div>
-      );
-    }
-    if (typeof val[0] === 'object' && val[0] !== null) {
-      // Filter out rows that are entirely empty (e.g. empty passenger slots)
-      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
-      if (validRows.length === 0) return "—";
-
-      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
-
-      // Specifically for claim forms, enforce the column order.
-      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
-        keys = ['description', 'receiptNo', 'amount'];
-      }
-
-      return (
-        <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto print:border-gray-400">
-          <Table className="w-full text-left border-collapse">
-            <TableHeader className="bg-muted/50 print:bg-gray-100">
-              <TableRow>
-                {keys.map(k => (
-                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground print:text-gray-600 whitespace-nowrap">
-                    {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {validRows.map((row, i) => (
-                <TableRow key={i} className="border-b border-border print:border-gray-300 last:border-0 hover:bg-muted/20">
-                  {keys.map((k, j) => (
-                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap print:text-black">
-                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      );
-    }
-    return val.join(", ");
-  }
-  
-  if (typeof val === 'object' && val !== null) {
-    const entries = Object.entries(val).filter(([k, v]) => v !== "" && v !== null && k !== 'avatar');
-    if (entries.length === 0) return "—";
-    return (
-      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mt-2 sm:mt-3 bg-muted/5 print:bg-transparent p-3 sm:p-4 rounded-lg border border-border print:border-gray-400">
-        {entries.map(([k, v]) => (
-          <div key={k} className="flex flex-col border-b border-border/50 print:border-gray-300 pb-1.5 last:border-0 last:pb-0 sm:last:pb-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1">
-              {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
-            </span>
-            <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black">
-              {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  
-  // Format URL strings beautifully as clickable links
-  if (typeof val === 'string' && val.startsWith('http')) {
-    return (
-      <a href={val} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5">
-         <FileText className="h-4 w-4" /> View Attachment
-      </a>
-    );
-  }
-
-  return String(val);
 };
 
 const statusBadge = (status: string) => {

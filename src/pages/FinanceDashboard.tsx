@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, ExternalLink, Printer, Settings } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; 
+import { Clock, Search, ArrowLeft, FileText, ExternalLink, Printer, Settings, Wallet, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
+import { renderValue } from "@/components/DataRenderer";
 
 const formTypeLabels: Record<string, string> = {
   claim: "PETTY CASH CLAIM",
@@ -16,6 +17,10 @@ const statusBadge = (status: string) => {
   switch (status) {
     case "approved_hof":
       return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">Pending Admin</Badge>;
+    case "paid":
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Paid</Badge>;
+    case "completed":
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Completed</Badge>;
     case "approved_hop":
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved":
@@ -45,66 +50,6 @@ const getInitialColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
-const renderValue = (val: any): React.ReactNode => {
-  if (val === null || val === undefined || val === "") return "—";
-  
-  if (Array.isArray(val)) {
-    if (val.length === 0) return "—";
-    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
-      return (
-        <div className="flex flex-col gap-2 mt-1">
-          {val.map((url, idx) => (
-            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
-              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
-            </a>
-          ))}
-        </div>
-      );
-    }
-    if (typeof val[0] === 'object' && val[0] !== null) {
-      // Filter out rows that are entirely empty
-      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
-      if (validRows.length === 0) return "—";
-
-      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
-
-      // Specifically for claim forms, enforce the column order.
-      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
-        keys = ['description', 'receiptNo', 'amount'];
-      }
-
-      return (
-        <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto">
-          <Table className="w-full text-left border-collapse bg-background/50">
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                {keys.map(k => (
-                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground whitespace-nowrap">
-                    {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {validRows.map((row, i) => (
-                <TableRow key={i} className="border-b border-border last:border-0 hover:bg-muted/20">
-                  {keys.map((k, j) => (
-                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap">
-                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      );
-    }
-    return val.join(", ");
-  }
-  return String(val);
-};
-
 const FinanceDashboard = () => {
   const { submissions, updateSubmissionStatus } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
@@ -113,7 +58,7 @@ const FinanceDashboard = () => {
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
   const [financeCode, setFinanceCode] = useState("");
-  const [amountReceived, setAmountReceived] = useState("");
+  const [amountPaid, setAmountPaid] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Finance admin only sees claim forms
@@ -141,7 +86,7 @@ const FinanceDashboard = () => {
   const tabFiltered = filtered.filter(s => {
     if (activeTab === "action_required") return s.status === "approved_hof";
     if (activeTab === "in_progress") return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status);
-    if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
+    if (activeTab === "history") return ["approved", "rejected", "paid", "completed"].includes(s.status);
     return true;
   });
 
@@ -149,7 +94,7 @@ const FinanceDashboard = () => {
     total: filtered.length,
     actionRequired: filtered.filter(s => s.status === "approved_hof").length,
     inProgress: filtered.filter(s => ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status)).length,
-    approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
+    approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => ["approved", "paid", "completed"].includes(s.status)).length / filtered.length) * 100) : 0,
   };
 
   const refNoMap = useMemo(() => {
@@ -179,23 +124,27 @@ const FinanceDashboard = () => {
       remarks: status === "rejected" && remarks ? remarks : selectedSubmission?.data.remarks,
       rejectedStage: status === "rejected" ? "admin" : undefined };
 
-    if (selectedSubmission?.formType === 'claim' && status === 'approved') {
+    if (selectedSubmission?.formType === 'claim' && status === 'paid') {
       updateData.financeCode = financeCode;
-      updateData.amountReceived = amountReceived;
+      updateData.amountPaid = amountPaid;
     }
 
     updateSubmissionStatus(id, status, updateData);
-    toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
+    if (status === 'paid') {
+      toast.success(`Payment processed for ${selectedSubmission?.employeeName}. Waiting for acknowledgement.`);
+    } else {
+      toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
+    }
     setSelectedSubmission(null);
     setRemarks("");
     setFinanceCode("");
-    setAmountReceived("");
+    setAmountPaid("");
   };
 
   // Review detail view matching the template (image-9)
   if (selectedSubmission) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0 animate-in fade-in-5">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
           <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
@@ -271,11 +220,16 @@ const FinanceDashboard = () => {
                 <p>HOF: {selectedSubmission.data.hofName || "—"}</p>
               </div>
             </div>
-            {(selectedSubmission.data.financeCode || selectedSubmission.data.amountReceived) && (
+            {(selectedSubmission.data.financeCode || selectedSubmission.data.amountPaid) && (
               <div className="py-2 border-b border-border print:border-gray-300 flex items-center gap-4">
                 <p className="text-sm font-medium print:text-xs">
                   <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">GL Code:</span>
                   <span className="font-bold text-foreground print:text-black">{selectedSubmission.data.financeCode || "—"}</span>
+                </p>
+                <div className="h-4 w-px bg-border print:bg-gray-400 mx-2"></div>
+                <p className="text-sm font-medium print:text-xs">
+                  <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">Amount Paid:</span>
+                  <span className="font-bold text-foreground print:text-black">RM {selectedSubmission.data.amountPaid || "0.00"}</span>
                 </p>
                 <div className="h-4 w-px bg-border print:bg-gray-400 mx-2"></div>
                 <p className="text-sm font-medium print:text-xs">
@@ -356,13 +310,13 @@ const FinanceDashboard = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Amount Received / Jumlah Diterima <span className="text-destructive">*</span></Label>
-                  <Input placeholder="Enter amount" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} className="h-11 bg-muted/20 text-base sm:text-sm" />
+                  <Label className="text-sm font-medium">Amount Paid / Jumlah Dibayar <span className="text-destructive">*</span></Label>
+                  <Input placeholder="Enter amount" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} className="h-11 bg-muted/20 text-base sm:text-sm" />
                 </div>
               </div>
             </div>
             <>
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE REMARKS / ULASAN KEWANGAN</p>
               <Input
                 placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
                 value={remarks}
@@ -379,10 +333,10 @@ const FinanceDashboard = () => {
                   REJECT / TOLAK
                 </button>
                 <button
-                  onClick={() => handleAction(selectedSubmission.id, "approved")}
-                  className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
+                  onClick={() => handleAction(selectedSubmission.id, "paid")}
+                  className="w-2/3 px-6 py-4 rounded-xl bg-blue-500 text-white font-bold text-center hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
                 >
-                  APPROVE / LULUS
+                  <Wallet className="h-4 w-4" /> PROCESS PAYMENT
                 </button>
               </div>
             </>
@@ -404,7 +358,7 @@ const FinanceDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Department Overview / Gambaran Keseluruhan Jabatan</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming finance requests.</p>

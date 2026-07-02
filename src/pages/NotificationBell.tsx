@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { Bell, CheckCircle, XCircle, FileText, AlertCircle } from "lucide-react";
+import { Bell, CheckCircle, XCircle, FileText, AlertCircle, HandCoins } from "lucide-react";
+import notificationSound from "@/assets/notification.mp3";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Company Car Request",
@@ -11,7 +12,8 @@ const formTypeLabels: Record<string, string> = {
   ppe_request: "PPE/Uniform Request",
   waste_inventory: "Waste Inventory",
   mixing_chemical_stages: "Mixing Log",
-  final_discharge: "Discharge Log"
+  final_discharge: "Discharge Log",
+  ppe_purchase: "PPE Purchase",
 };
 
 interface Notification {
@@ -23,6 +25,7 @@ interface Notification {
   isRead: boolean;
   path: string;
   type: 'action' | 'success' | 'error' | 'info';
+  status?: string;
 }
 
 export const NotificationBell = () => {
@@ -78,12 +81,17 @@ export const NotificationBell = () => {
       // 2. Approvers (HOD)
       else if (user.role === 'hod' && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name)) {
         isRelevant = true;
-        message = `${s.employeeName}'s form requires HOD approval.`;
+        message = `${s.employeeName}'s form requires your approval.`;
         path = "/admin/approvals";
       }
       // 3. HR Admin
       else if (user.role === 'hr_admin') {
         if (['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
+          isRelevant = true;
+          message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
+          path = "/admin/hr";
+        }
+        if (s.formType === 'ppe_purchase' && s.status === 'approved') {
           isRelevant = true;
           message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
           path = "/admin/hr";
@@ -118,10 +126,25 @@ export const NotificationBell = () => {
       
       // 6. Submitter (Employee) - Notify if their OWN form status changed
       if (s.submittedBy === user.id) {
-        if (s.status === 'approved') {
-          notifs.push({ id: `${s.id}-approved`, submissionId: s.id, title: formTypeLabels[s.formType] || s.formType, message: `Your form has been fully approved!`, date: s.submittedAt, isRead: readIds.includes(`${s.id}-approved`), path: "/submissions", type: 'success' });
-        } else if (s.status === 'rejected') {
-          notifs.push({ id: `${s.id}-rejected`, submissionId: s.id, title: formTypeLabels[s.formType] || s.formType, message: `Your form has been rejected.`, date: s.submittedAt, isRead: readIds.includes(`${s.id}-rejected`), path: "/submissions", type: 'error' });
+        if (s.status === 'approved' || s.status === 'rejected' || s.status === 'paid') {
+          let type: 'success' | 'error' | 'info' = 'info';
+          let message = `Your form status has been updated.`;
+          if (s.status === 'approved') {
+            type = 'success';
+            message = 'Your form has been fully approved!';
+          } else if (s.status === 'rejected') {
+            type = 'error';
+            message = 'Your form has been rejected.';
+          } else if (s.status === 'paid') {
+            type = 'info';
+            message = 'Your claim has been paid. Please acknowledge receipt.';
+          }
+
+          notifs.push({ 
+            id: `${s.id}-${s.status}`, submissionId: s.id, title: formTypeLabels[s.formType] || s.formType, 
+            message, date: s.updatedAt || s.submittedAt, isRead: readIds.includes(`${s.id}-${s.status}`), 
+            path: "/submissions", type, status: s.status 
+          });
         }
       }
     });
@@ -130,6 +153,18 @@ export const NotificationBell = () => {
   }, [submissions, user, readIds]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const prevUnreadCountRef = useRef(unreadCount);
+
+  // Play sound when new unread notifications arrive
+  useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current) {
+      const audio = new Audio(notificationSound);
+      audio.play().catch(error => {
+        console.log("Notification sound playback blocked by browser:", error.message);
+      });
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
 
   const markAsRead = (id: string, path: string) => {
     if (!readIds.includes(id)) {

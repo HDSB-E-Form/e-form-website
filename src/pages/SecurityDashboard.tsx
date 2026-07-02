@@ -195,7 +195,7 @@ const SecurityDashboard = () => {
     const isOnLeave = selectedSubmission.status === "on_leave";
 
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in fade-in-5">
         <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
         </button>
@@ -283,7 +283,7 @@ const SecurityDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Security Dashboard / Papan Pemuka Keselamatan</h1>
         <p className="text-muted-foreground text-sm mt-1">Review and approve all incoming Gate Pass requests.</p>

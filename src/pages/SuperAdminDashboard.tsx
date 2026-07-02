@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -95,6 +95,7 @@ const SuperAdminDashboard = () => {
   const [editSecondaryRoles, setEditSecondaryRoles] = useState<UserRole[]>([]);
   const [isViewAll, setIsViewAll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const [addDeptOpen, setAddDeptOpen] = useState(false);
@@ -124,7 +125,7 @@ const SuperAdminDashboard = () => {
           department: doc.department,
           position: doc.position,
           role: doc.role || "employee",
-          createdAt: doc.createdAt ? new Date(doc.createdAt) : undefined,
+          createdAt: doc.created_at ? new Date(doc.created_at) : undefined,
           is_head_of_finance: doc.is_head_of_finance || false,
           avatar: doc.avatar,
           secondary_roles: doc.secondary_roles || [],
@@ -314,6 +315,17 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Fullscreen Image Preview Modal */}
+      {fullscreenImage && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-0 cursor-zoom-out" onClick={() => setFullscreenImage(null)}>
+          <button onClick={() => setFullscreenImage(null)} className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full bg-black/50 transition-colors">
+            <XCircle className="h-8 w-8" />
+          </button>
+          <img src={fullscreenImage} alt="User avatar fullscreen preview" className="max-w-full max-h-full object-contain" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
+
+
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -415,9 +427,11 @@ const SuperAdminDashboard = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'}`}>
+                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'} ${u.avatar ? 'cursor-pointer' : ''}`}
+                         onClick={() => u.avatar && setFullscreenImage(u.avatar)}
+                    >
                       {u.avatar ? (
-                        <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
+                        <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" title="Click to enlarge"/>
                       ) : (
                         getInitials(u.name)
                       )}

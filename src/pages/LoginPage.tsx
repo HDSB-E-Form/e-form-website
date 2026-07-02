@@ -69,31 +69,7 @@ const LoginPage = () => {
 
     const success = await login(email, password, rememberMe);
     if (success) {
-      // Check the stored user to determine their initial landing page
-      const storedUser = localStorage.getItem("hr_user") || sessionStorage.getItem("hr_user");
-      let userData = null;
-      try {
-        userData = storedUser && storedUser !== "undefined" ? JSON.parse(storedUser) : null;
-      } catch (err) {
-        console.error("Error parsing user data:", err);
-        userData = null;
-      }
-      
-      if (userData?.role === "hr_admin") {
-        window.location.href = "/admin/hr";
-      } else if (userData?.role === "finance_admin") {
-        window.location.href = "/admin/finance";
-      } else if (userData?.role === "safety_admin") {
-        window.location.href = "/admin/safety";
-      } else if (userData?.role === "security_guard") {
-        window.location.href = "/admin/security";
-      } else if (userData?.role === "hod" || userData?.role === "hos") {
-        window.location.href = "/admin/approvals";
-      } else if (userData?.role === "super_admin") {
-        window.location.href = "/admin/users";
-      } else {
-        window.location.href = "/home";
-      }
+      navigate("/home", { replace: true });
     } else {
       setError("Invalid credentials");
       setShowForgotPassword(true);
@@ -143,7 +119,7 @@ const LoginPage = () => {
       if (updateError) throw updateError;
       toast.success("Password updated successfully! You can now continue.");
       setIsUpdatePasswordMode(false);
-      window.location.href = "/home";
+      navigate("/home", { replace: true });
     } catch (err: any) {
       console.error("Update password error:", err);
       setError(err.message || "Failed to update password.");

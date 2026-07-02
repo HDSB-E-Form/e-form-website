@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { renderValue } from "@/components/DataRenderer";
 
 const formTypeLabels: Record<string, { en: string; ms: string }> = {
   car_rental: { en: "TRAVEL / PERJALANAN", ms: "Perjalanan" },
@@ -45,64 +46,6 @@ const getInitialColor = (name: string) => {
     hash = safeName.charCodeAt(i) + ((hash << 5) - hash);
   }
   return colors[Math.abs(hash) % colors.length];
-};
-
-const renderValue = (val: any): React.ReactNode => {
-  if (val === null || val === undefined || val === "") return "—";
-  
-  if (Array.isArray(val)) {
-    if (val.length === 0) return "—";
-    if (typeof val[0] === 'string' && val[0].startsWith('http')) {
-      return (
-        <div className="flex flex-col gap-2 mt-1">
-          {val.map((url, idx) => (
-            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm text-primary font-bold hover:underline inline-flex items-center gap-1.5 w-fit">
-              <FileText className="h-4 w-4" /> View Attachment {idx + 1}
-            </a>
-          ))}
-        </div>
-      );
-    }
-    if (typeof val[0] === 'object' && val[0] !== null) {
-      const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
-      if (validRows.length === 0) return "—";
-
-      let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
-
-      if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
-        keys = ['description', 'receiptNo', 'amount'];
-      }
-
-      return (
-        <div className="mt-3 w-full border border-border rounded-lg overflow-x-auto print:border-gray-400">
-          <Table className="w-full text-left border-collapse">
-            <TableHeader className="bg-muted/50 print:bg-gray-100">
-              <TableRow>
-                {keys.map(k => (
-                  <TableHead key={k} className="text-[10px] sm:text-xs uppercase font-bold p-2 sm:p-3 text-muted-foreground print:text-gray-600 whitespace-nowrap">
-                    {k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, " $1")}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {validRows.map((row, i) => (
-                <TableRow key={i} className="border-b border-border print:border-gray-300 last:border-0 hover:bg-muted/20">
-                  {keys.map((k, j) => (
-                    <TableCell key={j} className="text-xs sm:text-sm p-2 sm:p-3 whitespace-nowrap print:text-black">
-                      {row[k] !== undefined && row[k] !== null && row[k] !== "" ? String(row[k]) : "—"}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      );
-    }
-    return val.join(", ");
-  }
-  return String(val);
 };
 
 const ApproverDashboard = () => {
@@ -209,7 +152,7 @@ const ApproverDashboard = () => {
 
   if (selectedSubmission) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0 animate-in fade-in-5">
         <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
         </button>
@@ -451,7 +394,7 @@ const ApproverDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Pending Approvals / Kelulusan Tertangguh</h1>
       </div>

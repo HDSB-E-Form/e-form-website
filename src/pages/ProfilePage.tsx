@@ -245,7 +245,7 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your personal information and security settings.</p>

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Check, Trash2 } from "lucide-react";
+import { Bell, Check, Trash2, HandCoins, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import notificationSound from "@/assets/notification.mp3";
 
 interface AppNotification {
   id: string;
@@ -70,9 +71,17 @@ export function NotificationBell() {
         isRelevant = true; path = "/admin/finance";
       } 
       // Check if the user is the original submitter getting approved/rejected
-      else if (s.submittedBy === user.id && (s.status === 'approved' || s.status === 'rejected')) {
-         notifs.push({ id: `${s.id}-${s.status}`, formType: s.formType, employeeName: "You", createdAt: s.updatedAt || s.submittedAt, read: readIds.includes(`${s.id}-${s.status}`), url: "/submissions", type: 'self', status: s.status });
-         return;
+      else if (s.submittedBy === user.id) {
+        if (s.status === 'approved' || s.status === 'rejected' || s.status === 'paid') {
+          notifs.push({ 
+            id: `${s.id}-${s.status}`, 
+            formType: s.formType, 
+            employeeName: "You", 
+            createdAt: s.updatedAt || s.submittedAt, 
+            read: readIds.includes(`${s.id}-${s.status}`), 
+            url: "/submissions", type: 'self', status: s.status 
+          });
+        }
       }
 
       // Add action notification
@@ -87,6 +96,21 @@ export function NotificationBell() {
   // Filter out the ones the user manually cleared
   const notifications = allNotifications.filter(n => !hiddenIds.includes(n.id));
   const unreadCount = notifications.filter(n => !n.read).length;
+  const prevUnreadCountRef = useRef(unreadCount);
+
+  // Play sound when new unread notifications arrive
+  useEffect(() => {
+    // Only play sound if the count of unread notifications has increased
+    if (unreadCount > prevUnreadCountRef.current) {
+      const audio = new Audio(notificationSound);
+      audio.play().catch(error => {
+        // Autoplay is often blocked by browsers until the user interacts with the page.
+        // This is expected and we don't need to log it as an error.
+        console.log("Notification sound playback blocked by browser:", error.message);
+      });
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
 
   const handleNotificationClick = (notif: AppNotification) => {
     if (!hiddenIds.includes(notif.id)) {
@@ -173,7 +197,11 @@ export function NotificationBell() {
                         </div>
                         <p className={`text-sm ${!notif.read ? 'text-foreground/90' : 'text-muted-foreground'}`}>
                           {notif.type === 'self' ? (
-                            <>Your form was <span className={`font-bold uppercase ${notif.status === 'rejected' ? 'text-destructive' : 'text-emerald-500'}`}>{notif.status}</span>.</>
+                            notif.status === 'paid' ? (
+                              <span className="flex items-center gap-1.5"><HandCoins className="h-4 w-4 text-blue-500" /> Your claim has been paid. Please acknowledge receipt.</span>
+                            ) : (
+                              <>Your form was <span className={`font-bold uppercase ${notif.status === 'rejected' ? 'text-destructive' : 'text-emerald-500'}`}>{notif.status}</span>.</>
+                            )
                           ) : (
                             <><span className="font-semibold">{notif.employeeName}</span> has submitted a new form for review.</>
                           )}

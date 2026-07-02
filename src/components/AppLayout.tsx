@@ -1,11 +1,12 @@
 import React from "react";
+import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
 
-const AppLayout = ({ children }: { children: React.ReactNode }) => {
-
+const AppLayout = () => {
+  // The `children` prop is no longer needed as child routes are rendered via <Outlet />
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background text-foreground">
@@ -28,7 +29,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </header>
           
           <main className="flex-1 relative">
-            {children}
+            <Outlet />
           </main>
         </div>
       </div>
