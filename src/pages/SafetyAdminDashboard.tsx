@@ -20,10 +20,18 @@ const parameterOptions = [
 const SafetyAdminDashboard = () => {
     const { submissions, addSubmission } = useSubmissions();
     const [selectedParameter, setSelectedParameter] = useState("ph4");
-    const [dischargeStartDate, setDischargeStartDate] = useState("");
-    const [dischargeEndDate, setDischargeEndDate] = useState("");
-    const [mixingStartDate, setMixingStartDate] = useState("");
-    const [mixingEndDate, setMixingEndDate] = useState("");
+
+    const getToday = () => new Date().toISOString().split('T')[0];
+    const getOneMonthAgo = () => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - 1);
+        return date.toISOString().split('T')[0];
+    };
+
+    const [dischargeStartDate, setDischargeStartDate] = useState(getOneMonthAgo());
+    const [dischargeEndDate, setDischargeEndDate] = useState(getToday());
+    const [mixingStartDate, setMixingStartDate] = useState(getOneMonthAgo());
+    const [mixingEndDate, setMixingEndDate] = useState(getToday());
     const [wasteStartDate, setWasteStartDate] = useState("");
     const [wasteEndDate, setWasteEndDate] = useState("");
     const [exportStartDate, setExportStartDate] = useState("");

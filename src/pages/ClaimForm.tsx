@@ -63,8 +63,6 @@ const ClaimForm = () => {
   const [hodName, setHodName] = useState("");
   const [hopName, setHopName] = useState(""); // Head of Purchasing
   const [hofName, setHofName] = useState(""); // Head of Finance
-  const [financeCode, setFinanceCode] = useState("");
-  const [amtReceived, setAmtReceived] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,10 +112,10 @@ const ClaimForm = () => {
     setClaimRows(updated);
   };
 
-  const totalAmount = Math.round(claimRows.reduce((sum, row) => {
+  const totalAmount = claimRows.reduce((sum, row) => {
     const amountVal = parseFloat(row.amount) || 0;
     return sum + amountVal;
-  }, 0));
+  }, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,8 +126,8 @@ const ClaimForm = () => {
       return;
     }
 
-    if (totalAmount > 500) {
-      toast.error("The total claim amount cannot exceed RM 500.");
+    if (totalAmount > 5000) {
+      toast.error("The total claim amount cannot exceed RM 5000.");
       return;
     }
 
@@ -176,8 +174,6 @@ const ClaimForm = () => {
         hodName,
         hopName,
         hofName,
-        financeCode, 
-        amtReceived, 
         totalAmount, 
         attachment: attachmentUrls.length > 0 ? attachmentUrls[0] : null,
         attachments: attachmentUrls,
@@ -365,10 +361,10 @@ const ClaimForm = () => {
                 ))}
                 <tr className="bg-muted/30">
                   <td colSpan={2} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
-                    Total (RM) <span className="text-[10px] text-destructive ml-2 font-bold">(Max RM 500)</span>
+                    Total (RM) <span className="text-[10px] text-destructive ml-2 font-bold">(Max RM 5000)</span>
                   </td>
                   <td className="p-3 border border-border text-right font-bold text-foreground text-lg">
-                    RM {totalAmount}
+                    RM {totalAmount.toFixed(2)}
                   </td>
                   <td className="border border-border"></td>
                 </tr>
@@ -511,36 +507,6 @@ const ClaimForm = () => {
               </p>
               <p className="text-xs text-muted-foreground mt-1">(PDF, JPG, PNG)</p>
             </label>
-        </div>
-
-        {/* Finance Department */}
-        <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Wallet className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
-              Finance Department / <span className="font-normal">Kegunaan Kewangan</span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Code / Kod <span className="text-destructive">*</span></Label>
-              <Input
-                value={financeCode}
-                onChange={e => setFinanceCode(e.target.value)}
-                className="h-11"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Amt Received / J.Diterima <span className="text-destructive">*</span></Label>
-              <Input
-                value={amtReceived}
-                onChange={e => setAmtReceived(e.target.value)}
-                className="h-11"
-                required
-              />
-            </div>
-          </div>
         </div>
 
         {/* Actions */}

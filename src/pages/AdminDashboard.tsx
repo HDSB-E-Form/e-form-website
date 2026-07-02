@@ -331,7 +331,9 @@ const AdminDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? "admin" : undefined });
+    const updateData: any = { remarks, rejectedStage: status === "rejected" ? "admin" : undefined };
+    
+    updateSubmissionStatus(id, status, updateData);
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");

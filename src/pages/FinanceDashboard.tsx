@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Clock, Search, ArrowLeft, FileText, ExternalLink, Printer, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 
 const formTypeLabels: Record<string, string> = {
@@ -111,6 +112,8 @@ const FinanceDashboard = () => {
   const [remarks, setRemarks] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
+  const [financeCode, setFinanceCode] = useState("");
+  const [amountReceived, setAmountReceived] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Finance admin only sees claim forms
@@ -169,10 +172,19 @@ const FinanceDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? "admin" : undefined });
+    const updateData: any = { remarks, rejectedStage: status === "rejected" ? "admin" : undefined };
+
+    if (selectedSubmission?.formType === 'claim' && status === 'approved') {
+      updateData.financeCode = financeCode;
+      updateData.amountReceived = amountReceived;
+    }
+
+    updateSubmissionStatus(id, status, updateData);
     toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
+    setFinanceCode("");
+    setAmountReceived("");
   };
 
   // Review detail view matching the template (image-9)
@@ -213,7 +225,7 @@ const FinanceDashboard = () => {
           </div>
         </div>
 
-        <div className="card-elevated p-4 sm:p-6 print:border-none print:shadow-none print:p-0">
+        <div className="card-elevated p-4 sm:p-6 print:bg-white print:border-none print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
@@ -226,42 +238,58 @@ const FinanceDashboard = () => {
             </div>
           </div>
 
-          <div className="space-y-4 mb-8">
-            <div className="py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+          <div className="mb-8">
+            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Employee Name</span>
+              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">
                 {selectedSubmission.employeeName}
               </div>
             </div>
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
+            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Staff ID</span>
+              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
             </div>
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Department</span>
+              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.department || "—"}</div>
             </div>
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department Code</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
+            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Department Code</span>
+              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || selectedSubmission.data.departmentCode || "—"}</div>
             </div>
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details</span>
-              <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
+            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Approvers</span>
+              <div className="flex flex-col gap-0.5 text-sm font-medium text-foreground print:text-xs print:text-black sm:col-span-2">
+                <p>HOS: {selectedSubmission.data.hosName || "—"}</p>
+                <p>HOD: {selectedSubmission.data.hodName || "—"}</p>
+                <p>HOP: {selectedSubmission.data.hopName || "—"}</p>
+                <p>HOF: {selectedSubmission.data.hofName || "—"}</p>
+              </div>
+            </div>
+            {(selectedSubmission.data.financeCode || selectedSubmission.data.amountReceived) && (
+              <div className="py-2 border-b border-border print:border-gray-300 flex items-center gap-4">
+                <p className="text-sm font-medium print:text-xs">
+                  <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">GL Code:</span>
+                  <span className="font-bold text-foreground print:text-black">{selectedSubmission.data.financeCode || "—"}</span>
+                </p>
+                <div className="h-4 w-px bg-border print:bg-gray-400 mx-2"></div>
+                <p className="text-sm font-medium print:text-xs">
+                  <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">Amount Received:</span>
+                  <span className="font-bold text-foreground print:text-black">{selectedSubmission.data.amountReceived || "—"}</span>
+                </p>
+              </div>
+            )}
+            <div className="py-2 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details / Description</span>
+              <div className="w-full text-sm font-medium text-foreground print:text-xs print:text-black">
                 {renderValue(selectedSubmission.data.claimRows)}
               </div>
             </div>
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Amount</span>
-              <div className="text-xs sm:text-sm font-bold text-primary print:text-black text-left break-words sm:col-span-2 print:col-span-2">RM {selectedSubmission.data.totalAmount || "0.00"}</div>
-            </div>
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                HOS: {selectedSubmission.data.hosName || "—"}<br/>
-                HOD: {selectedSubmission.data.hodName || "—"}<br/>
-                HOP: {selectedSubmission.data.hopName || "—"}<br/>
-                HOF: {selectedSubmission.data.hofName || "—"}
+            <div className="py-2 border-b border-border print:border-gray-300 text-right">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold">Total Amount</span>
+              <div className="text-2xl font-bold text-primary print:text-lg print:text-black">
+                <span className="text-lg print:text-sm">RM</span>
+                {selectedSubmission.data.totalAmount?.toFixed(2) || "0.00"}
               </div>
             </div>
           </div>
@@ -291,7 +319,7 @@ const FinanceDashboard = () => {
         )}
 
         {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
+          <div className={`p-4 rounded-xl border mb-6 print:bg-white ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
             <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks / Ulasan Terdahulu</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
@@ -299,31 +327,51 @@ const FinanceDashboard = () => {
 
         {/* Remarks & Actions - only when HOD has approved */}
         {selectedSubmission.status === "approved_hof" && (
-          <>
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
-            <Input
-              placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
-              value={remarks}
-              onChange={e => setRemarks(e.target.value)}
-              className="mb-6 h-12 bg-muted/20"
-            />
-
-            {/* Action Buttons */}
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
-              >
-                REJECT / TOLAK
-              </button>
-              <button
-                onClick={() => handleAction(selectedSubmission.id, "approved")}
-                className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
-              >
-                APPROVE / LULUS
-              </button>
+          <div className="mt-6 pt-6 border-t border-border">
+            <div className="my-6">
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE USE / KEGUNAAN KEWANGAN</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">GL Code / GL Kod <span className="text-destructive">*</span></Label>
+                  <Input
+                    placeholder="Enter GL Code"
+                    value={financeCode}
+                    onChange={e => setFinanceCode(e.target.value)}
+                    className="h-11 bg-muted/20 text-base sm:text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Amount Received / Jumlah Diterima <span className="text-destructive">*</span></Label>
+                  <Input placeholder="Enter amount" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} className="h-11 bg-muted/20 text-base sm:text-sm" />
+                </div>
+              </div>
             </div>
-          </>
+            <>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
+              <Input
+                placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
+                value={remarks}
+                onChange={e => setRemarks(e.target.value)}
+                className="mb-6 h-12 bg-muted/20"
+              />
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleAction(selectedSubmission.id, "rejected")}
+                  className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
+                >
+                  REJECT / TOLAK
+                </button>
+                <button
+                  onClick={() => handleAction(selectedSubmission.id, "approved")}
+                  className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
+                >
+                  APPROVE / LULUS
+                </button>
+              </div>
+            </>
+          </div>
         )}
 
         {["pending", "approved_hos", "approved_hod", "approved_hop"].includes(selectedSubmission.status) && (

@@ -42,15 +42,10 @@ const LoginPage = () => {
 
   // Detect password recovery token in URL
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const hash = window.location.hash;
-    if (searchParams.get("type") === "recovery" || (hash && hash.includes("type=recovery"))) {
-      setIsUpdatePasswordMode(true);
-    }
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setIsUpdatePasswordMode(true);
+        toast.info("Please set your new password.");
       }
     });
 
@@ -117,7 +112,7 @@ const LoginPage = () => {
     
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/login?type=recovery`, // Explicitly add recovery param
+        redirectTo: `${window.location.origin}/login`,
       });
       if (resetError) throw resetError;
       toast.success("Password reset email sent! Please check your inbox.");

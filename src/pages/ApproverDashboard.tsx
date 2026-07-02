@@ -22,10 +22,6 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
     case "approved_hop":
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
-    case "approved_hof":
-      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
-    case "approved_hop":
-      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved_hod":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
     case "approved_hos":
@@ -68,13 +64,11 @@ const renderValue = (val: any): React.ReactNode => {
       );
     }
     if (typeof val[0] === 'object' && val[0] !== null) {
-      // Filter out rows that are entirely empty (e.g. empty passenger slots)
       const validRows = val.filter(row => row && typeof row === 'object' && Object.values(row).some(v => v !== "" && v !== null));
       if (validRows.length === 0) return "—";
 
       let keys = Object.keys(validRows[0]).filter(k => k !== 'avatar');
 
-      // Specifically for claim forms, enforce the column order.
       if (keys.includes('description') && keys.includes('receiptNo') && keys.includes('amount')) {
         keys = ['description', 'receiptNo', 'amount'];
       }
@@ -125,8 +119,6 @@ const ApproverDashboard = () => {
   const isHOP = user?.role === "head_of_purchasing" || user?.secondary_roles?.includes('head_of_purchasing');
   const isHOF = user?.role === "head_of_finance" || user?.secondary_roles?.includes('head_of_finance');
 
-  // HOD/HOS only sees forms where they were selected as approver
-  // Also check car rental form's hos/hod fields
   const filtered = submissions
     .filter(s => {
       const hosValue = s.data.hosName || s.data.hos;
@@ -163,15 +155,15 @@ const ApproverDashboard = () => {
       const conditions = [];
       if (isHOS) conditions.push(s.status === "pending");
       if (isHOD) conditions.push(s.status === "approved_hos");
-      if (isHOP) conditions.push(s.formType === 'claim' && s.status === "approved_hod"); // HOP is only for claims
-      if (isHOF) conditions.push(s.formType === 'claim' && s.status === "approved_hop"); // HOF is only for claims
+      if (isHOP) conditions.push(s.formType === 'claim' && s.status === "approved_hod");
+      if (isHOF) conditions.push(s.formType === 'claim' && s.status === "approved_hop");
       return conditions.some(Boolean);
     }
     if (activeTab === "in_progress") {
-      if (isHOS) return ["approved_hod", "approved_hop", "approved_hof"].includes(s.status); // HOS sees later stages
-      if (isHOD) return s.status === "pending"; // HOD sees HOS pending
-      if (isHOP && s.formType === 'claim') return ["pending", "approved_hos"].includes(s.status); // HOP sees HOS/HOD pending
-      if (isHOF) return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status); // HOF sees HOS/HOD/HOP pending
+      if (isHOS) return ["approved_hod", "approved_hop", "approved_hof"].includes(s.status);
+      if (isHOD) return s.status === "pending";
+      if (isHOP && s.formType === 'claim') return ["pending", "approved_hos"].includes(s.status);
+      if (isHOF) return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status);
       return false;
     }
     if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
@@ -215,7 +207,6 @@ const ApproverDashboard = () => {
     setRemarks("");
   };
 
-  // Review detail view
   if (selectedSubmission) {
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
@@ -249,13 +240,6 @@ const ApproverDashboard = () => {
               </Badge>
             </div>
           </div>
-          {/* Moved Details / Butiran to appear first */}
-          <div>
-            <p className="text-xs text-muted-foreground">Details / Butiran</p>
-            <p className="text-sm font-bold text-foreground mt-1">
-              {selectedSubmission.data.description || selectedSubmission.data.purpose || selectedSubmission.data.reason || selectedSubmission.data.companyDetails?.purpose || selectedSubmission.data.personalDetails?.purpose || "No details provided"}
-            </p>
-          </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-xs text-muted-foreground">Date / Tarikh</p>
@@ -267,12 +251,6 @@ const ApproverDashboard = () => {
               <div>
                 <p className="text-xs text-muted-foreground">Amount / Amaun</p>
                 <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.amount}</p>
-              </div>
-            )}
-            {selectedSubmission.formType === 'claim' && selectedSubmission.data.totalAmount && (
-              <div>
-                <p className="text-xs text-muted-foreground">Total Amount / Amaun</p>
-                <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.totalAmount}</p>
               </div>
             )}
           </div>
@@ -358,7 +336,6 @@ const ApproverDashboard = () => {
           </div>
         )}
 
-        {/* Show action buttons only when it's this approver's turn */}
         {(() => {
           const canApprove = (isHOS && selectedSubmission.status === "pending") || 
                              (isHOD && selectedSubmission.status === "approved_hos") ||
@@ -370,7 +347,7 @@ const ApproverDashboard = () => {
                                     (isHOP && ["approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
                                     (isHOF && ["approved_hof", "approved"].includes(selectedSubmission.status));
 
-            if (selectedSubmission.status === "rejected") { // This check is fine
+            if (selectedSubmission.status === "rejected") {
               return (
                 <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center flex items-center justify-center gap-2">
                   <XCircle className="h-5 w-5 text-red-600" />
@@ -452,11 +429,11 @@ const ApproverDashboard = () => {
                     let nextStatus: SubmissionStatus = "approved";
                     if (isHOS && selectedSubmission.status === "pending") {
                       nextStatus = "approved_hos";
-                    } else if (isHOD && selectedSubmission.status === "approved_hos") { // This was correct
+                    } else if (isHOD && selectedSubmission.status === "approved_hos") {
                       nextStatus = "approved_hod";
                     } else if (isHOP && selectedSubmission.status === "approved_hod") {
                       nextStatus = "approved_hop";
-                    } else if (isHOF && selectedSubmission.status === "approved_hop") { // This was correct
+                    } else if (isHOF && selectedSubmission.status === "approved_hop") {
                       nextStatus = "approved_hof";
                     }
                     handleAction(selectedSubmission.id, nextStatus);
@@ -479,7 +456,6 @@ const ApproverDashboard = () => {
         <h1 className="text-2xl font-bold text-foreground">Pending Approvals / Kelulusan Tertangguh</h1>
       </div>
 
-      {/* Stats Cards - 4 columns like image-11 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="card-elevated p-5 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
@@ -515,7 +491,6 @@ const ApproverDashboard = () => {
         </div>
       </div>
 
-      {/* Action Tabs */}
       <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6">
         <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "action_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
           Action Required
@@ -534,7 +509,6 @@ const ApproverDashboard = () => {
         </button>
       </div>
 
-      {/* Table */}
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">Submissions / Penyerahan</h2>

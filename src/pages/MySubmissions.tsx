@@ -409,7 +409,7 @@ const MySubmissions = () => {
               </>
             ) : (
               <>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
@@ -417,7 +417,7 @@ const MySubmissions = () => {
                 </div>
                 
                 {Object.entries(selectedSubmission.data)
-                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hopName', 'hofName'].includes(key) && !/^\d+$/.test(key))
+                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hopName', 'hofName', 'financeCode', 'amountReceived'].includes(key) && !/^\d+$/.test(key))
                   .map(([key, value]) => {
                     let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                     if (key === 'hosName') formattedKey = 'Head of Section';
