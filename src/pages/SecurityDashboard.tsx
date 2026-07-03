@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, LogOut, LogIn, Settings } from "lucide-react";
+import { Clock, Search, ArrowLeft, LogOut, LogIn, Settings, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import logo from "@/assets/logo.png";
 
 const formTypeLabels: Record<string, string> = {
   leave: "Gate Pass",
@@ -62,7 +63,9 @@ const SecurityDashboard = () => {
         actualTimeOut: selectedSubmission.data.securityLog?.actualTimeOut || new Date().toTimeString().slice(0, 5),
         actualTimeIn: selectedSubmission.data.securityLog?.actualTimeIn || '',
         vehicleNo: selectedSubmission.data.securityLog?.vehicleNo || '',
-        remarks: selectedSubmission.data.remarks || '',
+        // Only load remarks if the form is for logging EXIT.
+        // For logging ENTRY, the remarks field should start fresh. Do not carry over HOD remarks.
+        remarks: '',
       });
     }
   }, [selectedSubmission]);
@@ -138,49 +141,58 @@ const SecurityDashboard = () => {
 
   const renderLeaveDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
-    const passType = sub.data.purposeType === 'company' ? 'Company Business' : 'Personal Matter';
+    const passType = sub.data.purposeType === 'company' ? 'Company Business / Urusan Syarikat' : 'Personal Matter / Urusan Peribadi';
 
     return (
       <>
-        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">MAKLUMAT PEKERJA / EMPLOYEE SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-8">
+        <p className="text-xs font-bold text-primary print:text-black uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
+        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50 print:bg-transparent print:p-0 print:border-none print:rounded-none print:mb-6">
           <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
           <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
           <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
           <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
         </div>
 
-        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">RINGKASAN PERMOHONAN / SUBMISSION SUMMARY</p>
-        <div className="bg-muted/30 rounded-xl divide-y divide-border mb-8">
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Ref No</span>
-            <span className="text-sm font-bold text-foreground">{refNo}</span>
+        <p className="text-xs font-bold text-primary print:text-black uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
+        <div className="bg-muted/30 rounded-xl divide-y divide-border/50 mb-8 border border-border/50 print:bg-transparent print:border-gray-300 print:rounded-none">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Ref No</span>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{refNo}</div>
           </div>
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Form Type</span>
-            <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold">Gate Pass</Badge>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Form Type / Jenis Borang</span>
+            <div className="sm:col-span-2 text-left">
+              <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold print:bg-transparent print:text-black print:border print:border-black print:px-2 print:py-0.5">Gate Pass</Badge>
+            </div>
           </div>
-          <div className="flex justify-between items-center px-5 py-3">
-            <span className="text-sm text-primary">Pass Type</span>
-            <span className="text-sm font-bold text-foreground">{passType}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type / Jenis Pas</span>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{passType}</div>
           </div>
-          <div className="flex justify-between items-start px-5 py-3">
-            <span className="text-sm text-primary shrink-0 mr-4">Reason</span>
-            <span className="text-sm font-bold text-foreground text-right">{sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Reason / Sebab</span>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"}</div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+              HOS: {sub.data.hosName || sub.data.hos || "—"}<br/>
+              HOD: {sub.data.hodName || sub.data.hod || "—"}
+            </div>
           </div>
           {sub.data.securityLog && (sub.data.securityLog.actualTimeOut || sub.data.securityLog.actualTimeIn) && (
             <>
-              <div className="flex justify-between items-center px-5 py-3">
-                <span className="text-sm text-primary">Actual Time Out</span>
-                <span className="text-sm font-bold text-foreground">{sub.data.securityLog.actualTimeOut || '—'}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut || '—'}</div>
               </div>
-              <div className="flex justify-between items-center px-5 py-3">
-                <span className="text-sm text-primary">Actual Time In</span>
-                <span className="text-sm font-bold text-foreground">{sub.data.securityLog.actualTimeIn || '—'}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn || '—'}</div>
               </div>
-              <div className="flex justify-between items-center px-5 py-3">
-                <span className="text-sm text-primary">Vehicle No.</span>
-                <span className="text-sm font-bold text-foreground">{sub.data.securityLog.vehicleNo || '—'}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Vehicle No.</span>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.vehicleNo || '—'}</div>
               </div>
             </>
           )}
@@ -195,26 +207,68 @@ const SecurityDashboard = () => {
     const isOnLeave = selectedSubmission.status === "on_leave";
 
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in fade-in-5">
-        <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
-        </button>
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in fade-in-5 print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
+          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
+          </button>
+          {activeTab === 'history' && (
+            <button onClick={() => {
+              const originalTitle = document.title;
+              document.title = generateRefNo(selectedSubmission);
+              
+              const isDark = document.documentElement.classList.contains('dark');
+              if (isDark) document.documentElement.classList.remove('dark');
+
+              setTimeout(() => {
+                window.onafterprint = () => {
+                  document.title = originalTitle;
+                  if (isDark) document.documentElement.classList.add('dark');
+                  window.onafterprint = null;
+                };
+                window.print();
+                setTimeout(() => { document.title = originalTitle; }, 2000);
+              }, 50);
+            }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm">
+              <Printer className="h-4 w-4" /> Print
+            </button>
+          )}
+        </div>
+
+        {/* Print Header */}
+        <div className="hidden print:flex items-start justify-between mb-8 border-b-2 border-black pb-6">
+          <div className="flex items-center">
+            <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
+            <div className="text-left">
+              <h1 className="text-2xl font-bold uppercase tracking-widest text-black">HICOM Diecastings Sdn Bhd</h1>
+              <p className="text-sm text-gray-600 mt-1 uppercase tracking-wide">Official Gate Pass Document</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500">Printed On:</p>
+            <p className="text-sm font-semibold text-black">{new Date().toLocaleString('en-GB')}</p>
+          </div>
+        </div>
 
         {renderLeaveDetail(selectedSubmission)}
 
         {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks / Ulasan Pelulus</p>
+          <div className={`p-4 rounded-xl border mb-6 print:bg-transparent print:border-gray-300 print:rounded-none ${
+            selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'
+          }`}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Approver Remarks / Ulasan Pelulus</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
         )}
 
         {!(canApprove || isOnLeave) && (
-          <div className="p-4 bg-muted/30 rounded-xl text-center">
+          <div className="p-4 rounded-xl text-center print:hidden bg-muted/30">
             <p className="text-sm text-muted-foreground font-medium">
               {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
                selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
-               "No action required at this time."}
+               selectedSubmission.status === "approved" ? "This Gate Pass has been completed." :
+               selectedSubmission.status === "rejected" ? "This Gate Pass was rejected." :
+               "No further action is required at this time."}
             </p>
           </div>
         )}
@@ -239,7 +293,12 @@ const SecurityDashboard = () => {
               </div>
               <div className="flex gap-4 pt-4 border-t border-border">
                 <button onClick={() => handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors">REJECT</button>
-                <button onClick={() => handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: securityLog.actualTimeOut, vehicleNo: securityLog.vehicleNo })} className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"><LogOut className="h-4 w-4" /> CONFIRM EXIT</button>
+                <button onClick={() => {
+                  const timeOutWithDate = `${new Date().toLocaleDateString('en-GB')} ${securityLog.actualTimeOut}`;
+                  handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: timeOutWithDate, vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
+                }} className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                  <LogOut className="h-4 w-4" /> CONFIRM EXIT
+                </button>
               </div>
             </div>
           </div>
@@ -269,7 +328,10 @@ const SecurityDashboard = () => {
               </div>
               <div className="pt-4 border-t border-border">
                 <button 
-                  onClick={() => handleAction(selectedSubmission.id, "approved", { actualTimeIn: securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5) })} 
+                  onClick={() => {
+                    const timeInWithDate = `${new Date().toLocaleDateString('en-GB')} ${securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)}`;
+                    handleAction(selectedSubmission.id, "approved", { actualTimeIn: timeInWithDate });
+                  }} 
                   className="w-full px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
                 >
                   <LogIn className="h-4 w-4" /> CONFIRM ENTRY & COMPLETE
@@ -278,6 +340,11 @@ const SecurityDashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Print Footer */}
+        <div className="hidden print:block mt-12 text-center text-xs text-gray-400">
+          <p>This is computer generated and no signature is required.</p>
+        </div>
       </div>
     );
   }

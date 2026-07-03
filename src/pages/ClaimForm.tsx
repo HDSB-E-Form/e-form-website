@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { useUsers } from "@/contexts/UsersContext";
+import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,17 +16,66 @@ interface ClaimRow {
   amount: string;
 }
 
+const DEPARTMENT_CODES = [
+  { code: "COF001", name: "CEO OFFICE" },
+  { code: "MEN001", name: "MACHINING ENGINEERING" },
+  { code: "CEN001", name: "CASTING ENGINEERING" },
+  { code: "CTR001", name: "CASTING TROUBLESHOOTING" },
+  { code: "MAS001", name: "MANUFACTURING AUTOMATION SERVICE" },
+  { code: "IEN001", name: "INDUSTRIAL ENGINEERING" },
+  { code: "TCD001", name: "MOULD & DESIGN DEVELOPMENT" },
+  { code: "TCD002", name: "IN-HOUSE FABRICATION/TOOLROOM" },
+  { code: "EDV001", name: "CASTING AND QUALITY DEV & DESIGN SIM" },
+  { code: "EDV003", name: "TECHNICAL BIDDING/ INNOVATION" },
+  { code: "EDV002", name: "MACHINING DEVELOPMENT" },
+  { code: "MTC001", name: "CASTING MAINTENANCE" },
+  { code: "MTC002", name: "MACHINING MAINTENANCE" },
+  { code: "MTC003", name: "MOULD MAINTENANCE" },
+  { code: "PVD001", name: "DIRECT PROCUREMENT" },
+  { code: "PVD003", name: "NEW VENDOR DEVELOPMENT" },
+  { code: "PVD002", name: "INDIRECT PROCUREMENT" },
+  { code: "SHE001", name: "SAFETY, HEALTH & ENVIRONMENT" },
+  { code: "FMT001", name: "BUILDING MAINTENANCE" },
+  { code: "FMT002", name: "WATER TREATMENT PLANT" },
+  { code: "FMT003", name: "KAIZEN" },
+  { code: "EQT001", name: "CUSTOMER SERVICE OPERATION" },
+  { code: "EQT002", name: "SUPPLIER QUALITY ENGINEERING" },
+  { code: "IQT001", name: "QUALITY INSPECTION" },
+  { code: "IQT003", name: "QMS & DOCUMENT CONTROL" },
+  { code: "IQT002", name: "CMM & FA" },
+  { code: "FUR001", name: "FURNACE" },
+  { code: "CAS001", name: "CASTING" },
+  { code: "SEC001", name: "SECONDARY" },
+  { code: "DRM001", name: "DORMAN ROOM" },
+  { code: "MAC001", name: "MACHINING" },
+  { code: "DST001", name: "DIE SETTER" },
+  { code: "HMS001", name: "5S & HMS" },
+  { code: "SCM001", name: "PRODUCTION PLANNING & CONTROL" },
+  { code: "SCM003", name: "MATERIAL MANAGEMENT" },
+  { code: "SCM002", name: "WAREHOUSE & LOGISTIC" },
+  { code: "LOM001", name: "LOMA" },
+  { code: "FIN001", name: "MANAGEMENT ACCOUNTING" },
+  { code: "FIN002", name: "FINANCIAL ACCOUNTING" },
+  { code: "HCM001", name: "HUMAN RESOURCE & LEGAL" },
+  { code: "HCM002", name: "ADMINISTRATION & SECURITY" },
+  { code: "MKT001", name: "MARKETING" },
+  { code: "BDV001", name: "BUSINESS OPERATION" },
+  { code: "PMO001", name: "PROJECT MANAGEMENT OFFICE" },
+  { code: "ITC002", name: "IT INFRASTRUCTURE" },
+  { code: "ITC001", name: "IT APPLICATION" },
+].sort((a, b) => a.code.localeCompare(b.code));
+
 const ClaimForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
-  const { users, getUsersByRole } = useUsers();
-  const hosUsers = [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  const hodUsers = [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const { users, getUsersByRole, isLoading: areUsersLoading } = useUsers();
+  const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
+  const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
   // A HOP can have the primary role or a secondary role of 'head_of_purchasing'
-  const purchasingHeads = [...users.filter(u => u.role === 'head_of_purchasing' || u.secondary_roles?.includes('head_of_purchasing'))].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const purchasingHeads: AppUser[] = useMemo(() => [...users.filter(u => u.role === 'head_of_purchasing' || u.secondary_roles?.includes('head_of_purchasing'))].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [users]);
   // A HOF can have the primary role or a secondary role of 'head_of_finance'
-  const financeHeads = [...users.filter(u => u.role === 'head_of_finance' || u.secondary_roles?.includes('head_of_finance'))].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const financeHeads: AppUser[] = useMemo(() => [...users.filter(u => u.role === 'head_of_finance' || u.secondary_roles?.includes('head_of_finance'))].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [users]);
   const financeAdmins = getUsersByRole("finance_admin") || [];
 
   const [employeeInfo, setEmployeeInfo] = useState({
@@ -131,11 +180,7 @@ const ClaimForm = () => {
       return;
     }
 
-    const initialStatus: "pending" | "approved_hos" | "approved_hod" = 
-      (hodName === "N/A" && hosName === "N/A") ? "approved_hod" :
-      (hosName === "N/A") ? "approved_hos" :
-      "pending";
-
+    const initialStatus = "pending";
     setIsSubmitting(true);
 
     let attachmentUrls: string[] = [];
@@ -231,7 +276,7 @@ const ClaimForm = () => {
 
       <div className="mb-8">
         <h1 className="text-2xl lg:text-2xl font-bold text-foreground uppercase tracking-wide">
-          Petty Cash Claim Form / Borang Tuntutan Panjar Wang Runcit
+          Petty Cash Claim Form / Permohonan Wang Pendahuluan
         </h1>
         <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
       </div>
@@ -274,13 +319,20 @@ const ClaimForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Department Code / Kod Jabatan <span className="text-destructive">*</span></Label>
-              <Input
+              <Select
                 value={employeeInfo.departmentCode}
-                onChange={e => setEmployeeInfo(p => ({ ...p, departmentCode: e.target.value }))}
-                placeholder="e.g. 123"
-                className="h-11"
+                onValueChange={value => setEmployeeInfo(p => ({ ...p, departmentCode: value }))}
                 required
-              />
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select Department Code" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {DEPARTMENT_CODES.map(dept => (
+                    <SelectItem key={dept.code} value={dept.code}>{dept.code} | {dept.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Date / Tarikh <span className="text-destructive">*</span></Label>
@@ -389,9 +441,9 @@ const ClaimForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hosName} onValueChange={setHosName}>
+              <Select value={hosName || undefined} onValueChange={setHosName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Section" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Section"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -405,9 +457,9 @@ const ClaimForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hodName} onValueChange={setHodName}>
+              <Select value={hodName || undefined} onValueChange={setHodName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Department" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Department"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -421,9 +473,9 @@ const ClaimForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Purchasing / Ketua Pembelian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hopName} onValueChange={setHopName}>
+              <Select value={hopName || undefined} onValueChange={setHopName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Purchasing" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Purchasing"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {purchasingHeads.map(u => (
@@ -436,9 +488,9 @@ const ClaimForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Finance / Ketua Kewangan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hofName} onValueChange={setHofName}>
+              <Select value={hofName || undefined} onValueChange={setHofName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Finance" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Finance"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {financeHeads.map(u => (

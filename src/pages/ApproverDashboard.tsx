@@ -143,6 +143,37 @@ const ApproverDashboard = () => {
     return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
   };
 
+  const renderLeaveDetailsForApprover = (sub: Submission) => {
+    const passType = sub.data.purposeType === 'company' ? 'Company Business' : 'Personal Matter';
+    const location = sub.data.purposeType === 'company' ? sub.data.companyDetails?.location : sub.data.personalDetails?.location;
+    const purpose = sub.data.purposeType === 'company' ? sub.data.companyDetails?.purpose : sub.data.personalDetails?.purpose;
+
+    return (
+      <>
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{passType}</div>
+        </div>
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Location</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{location || "—"}</div>
+        </div>
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{purpose || "—"}</div>
+        </div>
+        {sub.data.estimatedTime && (
+          <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Estimated Time</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+              Out: {sub.data.estimatedTime.timeOut || "—"} &nbsp;|&nbsp; In: {sub.data.estimatedTime.timeIn || "—"}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   const handleAction = (id: string, status: SubmissionStatus) => {
     updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? (isHOS ? "hos" : isHOD ? "hod" : isHOP ? "hop" : "hof") : undefined });
     toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
@@ -183,28 +214,15 @@ const ApproverDashboard = () => {
               </Badge>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Date / Tarikh</p>
-              <p className="text-sm font-bold text-foreground">
-                {new Date(selectedSubmission.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-              </p>
+          <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Approvers</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+              HOS: {selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}<br/>
+              HOD: {selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}
             </div>
-            {selectedSubmission.data.amount && (
-              <div>
-                <p className="text-xs text-muted-foreground">Amount / Amaun</p>
-                <p className="text-sm font-bold text-primary">RM {selectedSubmission.data.amount}</p>
-              </div>
-            )}
           </div>
-      {selectedSubmission.formType === "car_rental" && (
-        <div className="mb-4">
-          <p className="text-xs text-muted-foreground">Journey Dates / Tarikh Perjalanan</p>
-          <p className="text-sm font-bold text-foreground mt-1">
-            {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-          </p>
-        </div>
-      )}
+
+          {renderLeaveDetailsForApprover(selectedSubmission)}
           {selectedSubmission.formType === 'claim' && (
             <>
               <div className="mt-4 pt-4 border-t border-border/50">
@@ -218,18 +236,6 @@ const ApproverDashboard = () => {
                 <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount || "0.00"}</p>
               </div>
             </>
-          )}
-          {selectedSubmission.formType === 'leave' && selectedSubmission.data.estimatedTime && (
-            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/50">
-              <div>
-                <p className="text-xs text-muted-foreground">Estimated Time Out</p>
-                <p className="text-sm font-bold text-foreground">{selectedSubmission.data.estimatedTime.timeOut || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Estimated Time In</p>
-                <p className="text-sm font-bold text-foreground">{selectedSubmission.data.estimatedTime.timeIn || 'N/A'}</p>
-              </div>
-            </div>
           )}
         </div>
 

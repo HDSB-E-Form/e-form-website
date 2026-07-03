@@ -40,7 +40,7 @@ const approverNav = [
 ];
 
 const securityNav = [
-  { title: "Dashboard", url: "/home", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/admin/security", icon: LayoutDashboard },
 ];
 
 const superAdminNav = [
@@ -87,7 +87,11 @@ export function AppSidebar() {
     // Hide personal "My Submissions" for standard admin/manager roles to keep their sidebars clean
     // Keep it visible for super admin to maintain previous design
     if (isSecurityGuard) {
-      return false; // Security guard should not see any employee nav items
+      // Security guard should only see the Home link from the main menu
+      if (item.title === "Home") {
+        return true;
+      }
+      return false;
     }
     return true;
   });

@@ -91,11 +91,6 @@ export const NotificationBell = () => {
           message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
           path = "/admin/hr";
         }
-        if (s.formType === 'ppe_purchase' && s.status === 'approved') {
-          isRelevant = true;
-          message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
-          path = "/admin/hr";
-        }
       }
       // 4. Finance Admin
       else if (user.role === 'finance_admin' && s.formType === 'claim' && s.status === 'approved_hod') {

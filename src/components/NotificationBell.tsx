@@ -60,18 +60,23 @@ export function NotificationBell() {
       let isRelevant = false;
       let path = "";
       
-      // Check if user is required to take Action
-      if (user.role === 'hos' && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name)) {
+      // --- Approver/Admin Notifications ---
+      // Using separate `if` statements allows users with multiple roles to see all relevant notifications.
+      if ((user.role === 'hos' || user.secondary_roles?.includes('hos')) && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name)) {
         isRelevant = true; path = "/admin/approvals";
-      } else if (user.role === 'hod' && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name)) {
+      }
+      if ((user.role === 'hod' || user.secondary_roles?.includes('hod')) && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name)) {
         isRelevant = true; path = "/admin/approvals";
-      } else if (user.role === 'hr_admin' && ['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
+      }
+      if ((user.role === 'hr_admin' || user.secondary_roles?.includes('hr_admin')) && ['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
         isRelevant = true; path = "/admin/hr";
-      } else if (user.role === 'finance_admin' && s.formType === 'claim' && s.status === 'approved_hod') {
+      }
+      if ((user.role === 'finance_admin' || user.secondary_roles?.includes('finance_admin')) && s.formType === 'claim' && s.status === 'approved_hof') {
         isRelevant = true; path = "/admin/finance";
-      } 
-      // Check if the user is the original submitter getting approved/rejected
-      else if (s.submittedBy === user.id) {
+      }
+
+      // --- Submitter Notifications ---
+      if (s.submittedBy === user.id) {
         if (s.status === 'approved' || s.status === 'rejected' || s.status === 'paid') {
           notifs.push({ 
             id: `${s.id}-${s.status}`, 

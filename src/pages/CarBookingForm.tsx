@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { useUsers } from "@/contexts/UsersContext";
+import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,9 +16,9 @@ const CarBookingForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission, submissions, cars } = useSubmissions();
-  const { getUsersByRole } = useUsers();
-  const hosUsers = [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  const hodUsers = [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const { getUsersByRole, isLoading: areUsersLoading } = useUsers();
+  const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
+  const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
   const hrAdmins = getUsersByRole("hr_admin") || [];
   const [policyAgreed, setPolicyAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,12 +157,11 @@ const CarBookingForm = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    let initialStatus: "pending" | "approved_hos" | "approved_hod" = "pending";
+    let initialStatus: "pending" | "approved_hos";
     if (form.hos === "N/A") {
       initialStatus = "approved_hos";
-      if (form.hod === "N/A") {
-        initialStatus = "approved_hod";
-      }
+    } else {
+      initialStatus = "pending";
     }
     let licenseAttachmentUrl = null;
     if (licenseFile) {
@@ -621,9 +620,9 @@ const CarBookingForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Head of Section / Ketua Bahagian <span className="text-destructive">*</span></Label>
-              <Select value={form.hos} onValueChange={val => handleChange("hos", val)}>
+              <Select value={form.hos} onValueChange={val => handleChange("hos", val)} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Section" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Section"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -633,12 +632,11 @@ const CarBookingForm = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Head of Department / Ketua Jabatan <span className="text-destructive">*</span></Label>
-              <Select value={form.hod} onValueChange={val => handleChange("hod", val)}>
+              <Select value={form.hod} onValueChange={val => handleChange("hod", val)} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Department" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Department"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">N/A</SelectItem>
                   {hodUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>

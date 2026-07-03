@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { useUsers } from "@/contexts/UsersContext";
+import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,10 +14,10 @@ const LeaveForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
-  const { getUsersByRole } = useUsers();
+  const { getUsersByRole, isLoading: areUsersLoading } = useUsers();
 
-  const hosUsers = [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  const hodUsers = [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
+  const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
   const securityGuards = getUsersByRole("security_guard") || [];
 
   const [employeeInfo, setEmployeeInfo] = useState({
@@ -67,12 +67,11 @@ const LeaveForm = () => {
       return;
     }
     
-    let initialStatus: "pending" | "approved_hos" | "approved_hod" = "pending";
+    let initialStatus: "pending" | "approved_hos";
     if (hosName === "N/A") {
       initialStatus = "approved_hos";
-      if (hodName === "N/A") {
-        initialStatus = "approved_hod";
-      }
+    } else {
+      initialStatus = "pending";
     }
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -305,9 +304,9 @@ const LeaveForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hosName} onValueChange={setHosName}>
+              <Select value={hosName} onValueChange={setHosName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Section" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Section"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -321,12 +320,11 @@ const LeaveForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hodName} onValueChange={setHodName}>
+              <Select value={hodName} onValueChange={setHodName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose Head of Department" />
+                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Department"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">N/A</SelectItem>
                   {hodUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
