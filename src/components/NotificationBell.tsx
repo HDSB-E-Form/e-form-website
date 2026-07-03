@@ -52,7 +52,12 @@ export function NotificationBell() {
     if (!user) return [];
     const notifs: AppNotification[] = [];
     
-    submissions.forEach(s => {
+    const recentSubmissions = submissions.filter(s => {
+      const daysOld = (new Date().getTime() - new Date(s.submittedAt).getTime()) / (1000 * 60 * 60 * 24);
+      return daysOld < 14; // Only process submissions from the last 14 days
+    });
+
+    recentSubmissions.forEach(s => {
       // Exclude inventory and safety log actions from notifications entirely
       const excludedForms = ['inventory_addition', 'ppe_request', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
       if (excludedForms.includes(s.formType)) return;
@@ -96,7 +101,7 @@ export function NotificationBell() {
     });
     
     return notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [submissions, user, readIds]);
+  }, [submissions, user, readIds, hiddenIds]);
 
   // Filter out the ones the user manually cleared
   const notifications = allNotifications.filter(n => !hiddenIds.includes(n.id));

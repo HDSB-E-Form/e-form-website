@@ -37,7 +37,7 @@ interface SubmissionsContextType {
   submissions: Submission[];
   cars: CarInfo[];
   addSubmission: (sub: Omit<Submission, "id" | "submittedAt">) => Promise<boolean>;
-  updateSubmissionStatus: (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => void;
+  updateSubmissionStatus: (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => Promise<void>;
   checkInCar: (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>) => Promise<boolean>;
   checkOutCar: (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>) => Promise<boolean>;
   addCar: (car: CarInfo) => Promise<boolean>;
@@ -114,7 +114,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     return false;
   }, []);
 
-  const updateSubmissionStatus = useCallback(async (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => {
+  const updateSubmissionStatus = useCallback(async (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>): Promise<void> => {
     const currentSub = submissions.find(s => s.id === id);
     const updatedData = dataToMerge ? { ...(currentSub?.data || {}), ...dataToMerge } : currentSub?.data;
     
@@ -132,17 +132,17 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     }
   }, [submissions]);
 
-const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>) => {
+const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => {
     const carToCheckIn = cars.find(c => c.id === carId);
     if (!carToCheckIn) {
       toast.error("Cannot check-in: Car not found.");
       return false;
     }
 
-    const newHistoryEntry = {
+    const newHistoryEntry: CarHistoryEntry = {
       employeeName: carToCheckIn.lastCheckedOutBy,
       checkedOutAt: carToCheckIn.lastCheckedOutAt,
-      checkedInAt: new Date().toISOString(),
+      checkedInAt: dateTimeIn,
       mileageOut: carToCheckIn.mileageOut,
       mileageIn: mileageIn,
       fuelLevelOut: carToCheckIn.fuelLevelOut,
@@ -151,7 +151,6 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
         remarksIn: remarks,
       photosOut: carToCheckIn.photosOut,
       photosIn: photosIn,
-      remarks: remarks,
     };
 
     const updatedHistory = [newHistoryEntry, ...(carToCheckIn.history || [])];
@@ -179,8 +178,8 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
     }
   }, [cars]); // Added `cars` here so the function always has the latest list!
 
-  const checkOutCar = useCallback(async (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>) => {
-    const updates = { status: "checked_out" as const, lastCheckedOutBy: employeeName, lastCheckedOutAt: new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut };
+  const checkOutCar = useCallback(async (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string) => {
+    const updates = { status: "checked_out" as const, lastCheckedOutBy: employeeName, lastCheckedOutAt: dateTimeOut || new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut };
     const { error } = await supabase.from('cars').update(updates).eq('id', carId);
     if (error) {
       console.error("Error checking out car:", error);

@@ -1,0 +1,539 @@
+import { useState, useMemo, useEffect } from "react";
+import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Droplet, Plus, Save, Settings, Download, MessageSquare, ImageIcon, Upload } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { toast } from "sonner";
+import { supabase } from "@/supabase";
+import { Badge } from "@/components/ui/badge";
+
+const parameterOptions = [
+    { id: "ph4", label: "pH Value", unit: "" },
+    { id: "cod", label: "Chemical Oxygen Demand (COD)", unit: "mg/L" },
+    { id: "flowrate", label: "Flowrate (ACF)", unit: "m³" },
+];
+
+const DischargeDashboard = () => {
+    const { submissions, addSubmission } = useSubmissions();
+    const [selectedParameter, setSelectedParameter] = useState("ph4");
+
+    const getToday = () => new Date().toISOString().split('T')[0];
+    const getOneMonthAgo = () => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - 1);
+        return date.toISOString().split('T')[0];
+    };
+
+    const [dischargeStartDate, setDischargeStartDate] = useState(getOneMonthAgo());
+    const [dischargeEndDate, setDischargeEndDate] = useState(getToday());
+    const [isAddRemarkOpen, setIsAddRemarkOpen] = useState(false);
+    const [newRemark, setNewRemark] = useState("");
+    const [isSavingRemark, setIsSavingRemark] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const [exportStartDate, setExportStartDate] = useState("");
+    const [exportEndDate, setExportEndDate] = useState("");
+    const [isUploading, setIsUploading] = useState(false);
+    const [posterConfig, setPosterConfig] = useState(() => {
+        try { return JSON.parse(localStorage.getItem("hdsb_safety_poster_config") || "null") || { enabled: true, url: null }; } 
+        catch { return { enabled: true, url: null }; }
+    });
+    useEffect(() => { localStorage.setItem("hdsb_safety_poster_config", JSON.stringify(posterConfig)); }, [posterConfig]);
+
+    const [isPosterSettingsOpen, setIsPosterSettingsOpen] = useState(false);
+    const [isRemarksOpen, setIsRemarksOpen] = useState(false);
+
+    const safetyRefNoMap = useMemo(() => {
+        const map = new Map<string, string>();
+        const safetyForms = submissions
+            .filter(s => ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(s.formType))
+            .sort((a, b) => {
+                const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+                return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
+            });
+            
+        safetyForms.forEach((s, idx) => {
+            map.set(s.id, `SFTY-${String(idx + 1).padStart(4, "0")}`);
+        });
+        return map;
+    }, [submissions]);
+
+    const generateRefNo = (subId: string) => {
+        return safetyRefNoMap.get(subId) || `SFTY-${subId.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    };
+
+    const monitoringSubmissions = useMemo(() => 
+        submissions.filter(s => ["final_discharge", "mixing_chemical_stages", "daily_operation_monitoring"].includes(s.formType)), 
+    [submissions]);
+
+    const remarksList = useMemo(() => {
+        return submissions
+            .filter(s => s.formType === "final_discharge")
+            .filter(s => s.data.remarks && s.data.remarks.trim() !== "")
+            .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+    }, [submissions]);
+
+    const chartData = useMemo(() => {
+        const start = dischargeStartDate || "0000-00-00";
+        const end = dischargeEndDate || "9999-12-31";
+
+        const data = monitoringSubmissions
+            .filter(s => s.formType === "final_discharge" && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
+            .map(s => ({
+                date: s.data.metaInfo.date,
+                value: parseFloat(s.data.finalDischarge?.[selectedParameter]) || 0,
+            }))
+            .filter(d => d.value > 0)
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        const groupedData = data.reduce((acc, curr) => {
+            if (!acc[curr.date]) {
+                acc[curr.date] = { date: curr.date, totalValue: 0, count: 0 };
+            }
+            acc[curr.date].totalValue += curr.value;
+            acc[curr.date].count++;
+            return acc;
+        }, {} as Record<string, { date: string, totalValue: number, count: number }>);
+
+        return Object.values(groupedData).map(d => ({
+            date: new Date(d.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+            value: parseFloat((d.totalValue / d.count).toFixed(2)),
+        }));
+    }, [monitoringSubmissions, selectedParameter, dischargeStartDate, dischargeEndDate]);
+
+    const selectedParamInfo = parameterOptions.find(p => p.id === selectedParameter);
+
+    const dischargeStats = useMemo(() => {
+        const start = dischargeStartDate || "0000-00-00";
+        const end = dischargeEndDate || "9999-12-31";
+
+        const filteredSubmissions = monitoringSubmissions.filter(s => {
+            return s.formType === "final_discharge" && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
+        });
+        
+        let phTotal = 0, phCount = 0;
+        let codTotal = 0, codCount = 0;
+        let flowTotal = 0, flowCount = 0;
+
+        filteredSubmissions.forEach(s => {
+            const ph = parseFloat(s.data.finalDischarge?.ph4);
+            const cod = parseFloat(s.data.finalDischarge?.cod);
+            const flow = parseFloat(s.data.finalDischarge?.flowrate);
+
+            if (!isNaN(ph) && ph > 0) { phTotal += ph; phCount++; }
+            if (!isNaN(cod) && cod >= 0) { codTotal += cod; codCount++; }
+            if (!isNaN(flow) && flow > 0) { flowTotal += flow; flowCount++; }
+        });
+
+        return {
+            totalReports: filteredSubmissions.length,
+            avgPh: phCount > 0 ? (phTotal / phCount).toFixed(2) : "0.00",
+            avgCod: codCount > 0 ? (codTotal / codCount).toFixed(2) : "0.00",
+            avgFlow: flowCount > 0 ? (flowTotal / flowCount).toFixed(2) : "0.00",
+        };
+    }, [monitoringSubmissions, dischargeStartDate, dischargeEndDate]);
+
+    const handleAddRemark = async () => {
+        if (!newRemark.trim()) {
+            toast.error("Remark cannot be empty.");
+            return;
+        }
+        setIsSavingRemark(true);
+        const success = await addSubmission({
+            formType: "final_discharge",
+            status: "approved",
+            submittedBy: user?.id || "",
+            employeeName: user?.name || "System",
+            department: user?.department || "Safety",
+            data: {
+                remarks: newRemark,
+                metaInfo: { date: new Date().toISOString().split('T')[0], time: new Date().toTimeString().slice(0, 5), shift: "N/A" }
+            }
+        });
+        if (success) {
+            toast.success("Remark added successfully.");
+            setIsAddRemarkOpen(false);
+            setNewRemark("");
+        }
+        setIsSavingRemark(false);
+    };
+
+    const handlePosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 12 * 1024 * 1024) {
+                toast.error("File size must be less than 12MB.");
+                return;
+            }
+            setIsUploading(true);
+            try {
+                const filePath = `public/poster_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+                const { data, error } = await supabase.storage.from('form-attachments').upload(filePath, file);
+                if (error) throw error;
+                
+                if (data) {
+                    const { data: urlData } = supabase.storage.from('form-attachments').getPublicUrl(data.path);
+                    setPosterConfig(prev => ({ ...prev, url: urlData.publicUrl }));
+                    toast.success("New poster uploaded successfully!");
+                }
+            } catch (error: any) {
+                toast.error(`Failed to upload poster: ${error.message}`);
+            } finally {
+                setIsUploading(false);
+            }
+        }
+    };
+
+    const handleExportCSV = () => {
+        let dataToExport = monitoringSubmissions.filter(s => s.formType === "final_discharge");
+
+        const start = exportStartDate || "0000-00-00";
+        const end = exportEndDate || "9999-12-31";
+        dataToExport = dataToExport.filter(s => {
+            const subDate = s.data.metaInfo?.date || new Date(s.submittedAt).toISOString().split('T')[0];
+            return subDate >= start && subDate <= end;
+        });
+
+        if (dataToExport.length === 0) {
+            toast.error(`No records found for Final Discharge in the selected date range.`);
+            return;
+        }
+
+        dataToExport.sort((a, b) => {
+            const dateA = a.data.metaInfo?.date || new Date(a.submittedAt).toISOString().split('T')[0];
+            const timeA = a.data.metaInfo?.time || "00:00";
+            const dateB = b.data.metaInfo?.date || new Date(b.submittedAt).toISOString().split('T')[0];
+            const timeB = b.data.metaInfo?.time || "00:00";
+            return `${dateA}T${timeA}`.localeCompare(`${dateB}T${timeB}`);
+        });
+
+        const formatDate = (d: string) => {
+            const parts = d.split('-');
+            return parts.length === 3 ? ` ${parts[2]}/${parts[1]}/${parts[0]}` : ` ${d}`;
+        };
+
+        let rows: string[][] = [
+            ["Ref No", "Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zink", "Iron", "Aluminum", "Fluoride", "Silver", "Sulphide", "Raw EQ", "Remarks"]
+        ];
+        
+        dataToExport.forEach(sub => {
+            const rawDate = sub.data.metaInfo?.date || new Date(sub.submittedAt).toISOString().split('T')[0];
+            const date = formatDate(rawDate);
+            const time = sub.data.metaInfo?.time || "";
+            const shift = sub.data.metaInfo?.shift || "";
+            const fd = sub.data.finalDischarge || {};
+            const rawRemarks = sub.data.remarks || "";
+            const remarks = `"${rawRemarks.replace(/"/g, '""')}"`;
+
+            rows.push([
+                generateRefNo(sub.id), date, time, sub.employeeName, shift,
+                fd.ph4 || "", fd.cod || "", fd.bod || "", fd.tss || fd.ss || "", fd.og || "", fd.flowrate || "",
+                fd.mg || "", fd.nickel || "", fd.zink || "", fd.iron || "", fd.aluminum || "",
+                fd.fluoride || "", fd.silver || "", fd.sulphide || "", fd.rawEq || fd.formaldehyde || "",
+                remarks
+            ]);
+        });
+
+        const csvContent = rows.map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Final_Discharge_Records_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success("Final Discharge spreadsheet exported successfully!");
+    };
+
+    return (
+        <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">Final Discharge</h1>
+                    <p className="text-muted-foreground text-sm mt-1">Visualize and track final discharge data.</p>
+                </div>
+                <div className="relative">
+                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="h-10 w-10 flex items-center justify-center bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold shadow-sm">
+                        <Settings className="h-5 w-5" />
+                    </button>
+                    {isMenuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
+                            <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 w-full sm:w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                                    <Download className="h-4 w-4 text-muted-foreground" /> Export to Spreadsheet
+                                </button>
+                                <button onClick={() => { setIsPosterSettingsOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                                    <ImageIcon className="h-4 w-4 text-muted-foreground" /> Manage Poster
+                                </button>
+                                <button onClick={() => { setIsRemarksOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                                    <MessageSquare className="h-4 w-4 text-muted-foreground" /> View Remarks
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="card-elevated p-5 border-l-4 border-l-primary/50">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Monitoring Reports</p>
+                    <p className="text-3xl font-bold text-foreground">{dischargeStats.totalReports}</p>
+                </div>
+                <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average pH</p>
+                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{dischargeStats.avgPh}</p>
+                </div>
+                <div className="card-elevated p-5 border-l-4 border-l-blue-500">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average COD</p>
+                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dischargeStats.avgCod} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
+                </div>
+                <div className="card-elevated p-5 border-l-4 border-l-amber-500">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average Flowrate</p>
+                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{dischargeStats.avgFlow} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
+                </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-4 mb-6">
+                <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground">From:</Label>
+                    <Input type="date" value={dischargeStartDate} onChange={e => setDischargeStartDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground">To:</Label>
+                    <Input type="date" value={dischargeEndDate} onChange={e => setDischargeEndDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+                </div>
+            </div>
+
+            <div className="card-elevated p-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 className="font-bold text-foreground text-lg flex items-center gap-2"><Droplet className="h-5 w-5 text-primary" /> Final Discharge Graph</h2>
+                        <p className="text-xs text-muted-foreground mt-1">Daily average values across the selected period.</p>
+                    </div>
+                    <div className="w-full sm:w-48">
+                        <button onClick={() => setIsAddRemarkOpen(true)} className="w-full h-10 mb-2 flex items-center justify-center gap-2 bg-primary/10 text-primary rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors">
+                            <Plus className="h-4 w-4" /> Add Remark
+                        </button>
+                        <Select value={selectedParameter} onValueChange={setSelectedParameter}>
+                            <SelectTrigger className="h-10 rounded-xl border border-border/50 bg-background/40 backdrop-blur-md hover:bg-background/60 transition-all shadow-sm text-sm font-medium">
+                                <SelectValue placeholder="Select Parameter" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {parameterOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                            <YAxis 
+                                tick={{ fontSize: 12 }} 
+                                tickLine={false} 
+                                axisLine={false} 
+                                domain={selectedParameter.toLowerCase().includes("ph") 
+                                    ? [(dataMin: number) => Math.min(dataMin - 0.5, 5.5), (dataMax: number) => Math.max(dataMax + 0.5, 9.5)]
+                                    : ['dataMin - 1', 'dataMax + 1']
+                                } 
+                            />
+                            <Tooltip
+                                contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
+                                labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }}
+                                itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }}
+                            />
+                            <Legend />
+                            {selectedParameter.toLowerCase().includes("ph") && (
+                                <>
+                                    <ReferenceLine y={9} stroke="#ef4444" strokeDasharray="3 3" />
+                                    <ReferenceLine y={5.5} stroke="#ef4444" strokeDasharray="3 3" />
+                                </>
+                            )}
+                            <Line type="monotone" dataKey="value" name={`${selectedParamInfo?.label} (${selectedParamInfo?.unit})`} stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Add Remark Sheet */}
+            <Sheet open={isAddRemarkOpen} onOpenChange={setIsAddRemarkOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Add New Remark</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Log a new observation for Final Discharge operations.</p>
+                    </SheetHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label className="text-xs font-bold text-primary uppercase tracking-wider">Remark / Ulasan</Label>
+                            <textarea
+                                value={newRemark}
+                                onChange={(e) => setNewRemark(e.target.value)}
+                                placeholder="Enter your observation or note here..."
+                                className="w-full mt-2 rounded-lg border border-border bg-background px-3 py-2 text-base sm:text-sm min-h-[120px] resize-y"
+                            />
+                        </div>
+                        <button onClick={handleAddRemark} disabled={isSavingRemark} className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-70">
+                            {isSavingRemark ? <><Save className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save Remark</>}
+                        </button>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Remarks Sheet */}
+            <Sheet open={isRemarksOpen} onOpenChange={setIsRemarksOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Log Remarks</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Notes and remarks from Final Discharge operations.</p>
+                    </SheetHeader>
+                    <div className="space-y-4">
+                        {remarksList.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">No remarks found.</p>
+                        ) : (
+                            remarksList.map(sub => (
+                                <div key={sub.id} className="p-4 rounded-xl border border-border bg-muted/10">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-sm text-foreground">{sub.employeeName || "System Log"}</p>
+                                                <Badge variant="outline" className="text-[9px] border-blue-500/50 text-blue-600">Final Discharge</Badge>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-primary mb-0.5">{generateRefNo(sub.id)}</p>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {sub.data.metaInfo?.date ? new Date(sub.data.metaInfo.date).toLocaleDateString('en-GB') : new Date(sub.submittedAt).toLocaleDateString('en-GB')}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm text-foreground">{sub.data.remarks}</p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Export Options Sheet */}
+            <Sheet open={isExportOpen} onOpenChange={setIsExportOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Export to Spreadsheet</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Download your records as a CSV file.</p>
+                    </SheetHeader>
+                    
+                    <div className="space-y-6">
+                        <div className="p-4 rounded-xl border border-border bg-background shadow-sm space-y-3">
+                            <Label className="text-xs font-bold text-foreground uppercase tracking-wider">Select Date Range</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
+                                    <Input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                                </div>
+                                <div>
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">To Date</Label>
+                                    <Input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                <button onClick={() => {
+                                    const today = new Date().toISOString().split('T')[0];
+                                    setExportStartDate(today);
+                                    setExportEndDate(today);
+                                }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Today</button>
+                                <button onClick={() => {
+                                    const today = new Date();
+                                    const lastWeek = new Date(today);
+                                    lastWeek.setDate(today.getDate() - 7);
+                                    setExportStartDate(lastWeek.toISOString().split('T')[0]);
+                                    setExportEndDate(today.toISOString().split('T')[0]);
+                                }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Last 7 Days</button>
+                                <button onClick={() => {
+                                    const today = new Date();
+                                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                                    setExportStartDate(firstDay.toISOString().split('T')[0]);
+                                    setExportEndDate(today.toISOString().split('T')[0]);
+                                }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">This Month</button>
+                                <button onClick={() => {
+                                    setExportStartDate("");
+                                    setExportEndDate("");
+                                }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Clear</button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-foreground">Final Discharge Records</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Export records containing COD, BOD, TSS, Metals, etc.</p>
+                                <div className="mt-3">
+                                    <button onClick={() => { handleExportCSV(); setIsExportOpen(false); }} className="w-full py-2.5 bg-emerald-500 text-white font-bold text-xs rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
+                                        <Download className="h-3.5 w-3.5" /> Download Spreadsheet
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Manage Poster Sheet */}
+            <Sheet open={isPosterSettingsOpen} onOpenChange={setIsPosterSettingsOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Safety Poster Settings</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Manage the awareness poster shown to users.</p>
+                    </SheetHeader>
+                    
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/10">
+                            <div>
+                                <p className="font-bold text-sm text-foreground">Enable Popup Poster</p>
+                                <p className="text-xs text-muted-foreground">Show poster when users open Safety Forms.</p>
+                            </div>
+                            <button 
+                                onClick={() => setPosterConfig(p => ({ ...p, enabled: !p.enabled }))}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${posterConfig.enabled ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${posterConfig.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Poster</Label>
+                            <div className="border border-border rounded-xl p-2 bg-muted/5 relative overflow-hidden flex flex-col items-center justify-center min-h-[200px]">
+                                {posterConfig.url ? (
+                                    <img src={posterConfig.url} alt="Safety Poster" className="max-h-64 object-contain rounded-lg" />
+                                ) : (
+                                    <div className="text-center p-6">
+                                        <ImageIcon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                                        <p className="text-sm font-medium text-muted-foreground">Default Poster Active</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Upload a custom image to replace it.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                                <label className={`flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground font-bold text-sm rounded-lg transition-colors cursor-pointer ${isUploading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-primary/90'}`}>
+                                    <Upload className="h-4 w-4" /> {isUploading ? "Uploading..." : "Upload New Poster"}
+                                    <input type="file" accept="image/*" className="hidden" onChange={handlePosterUpload} disabled={isUploading} />
+                                </label>
+                                {posterConfig.url && (
+                                    <button onClick={() => { if(window.confirm("Remove custom poster and use the default?")) { setPosterConfig(p => ({ ...p, url: null })); } }} className="px-4 py-2.5 bg-destructive/10 text-destructive hover:bg-destructive/20 font-bold text-sm rounded-lg transition-colors">
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+        </div>
+    );
+};
+
+export default DischargeDashboard;

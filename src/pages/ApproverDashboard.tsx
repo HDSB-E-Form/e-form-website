@@ -174,6 +174,35 @@ const ApproverDashboard = () => {
     );
   };
 
+  const renderCarRentalDetailsForApprover = (sub: Submission) => {
+    return (
+      <>
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Destination</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.destination || "—"}</div>
+        </div>
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Purpose</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.purpose || "—"}</div>
+        </div>
+        <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+            {sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+          </div>
+        </div>
+        {sub.data.licenseAttachment && (
+          <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">License</span>
+            <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2">
+              <FileText className="h-4 w-4" /> View Document
+            </a>
+          </div>
+        )}
+      </>
+    );
+  };
+
   const handleAction = (id: string, status: SubmissionStatus) => {
     updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? (isHOS ? "hos" : isHOD ? "hod" : isHOP ? "hop" : "hof") : undefined });
     toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
@@ -222,7 +251,11 @@ const ApproverDashboard = () => {
             </div>
           </div>
 
-          {renderLeaveDetailsForApprover(selectedSubmission)}
+          {selectedSubmission.formType === 'car_rental'
+            ? renderCarRentalDetailsForApprover(selectedSubmission)
+            : renderLeaveDetailsForApprover(selectedSubmission)
+          }
+
           {selectedSubmission.formType === 'claim' && (
             <>
               <div className="mt-4 pt-4 border-t border-border/50">

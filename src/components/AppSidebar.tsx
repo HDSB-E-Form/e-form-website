@@ -13,7 +13,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -23,8 +23,10 @@ const employeeNav = [
 ];
 
 const hrAdminNav = [
-  { title: "Dashboard", url: "/admin/hr", icon: LayoutDashboard },
+  { title: "Form Approvals", url: "/admin/hr", icon: LayoutDashboard },
+  { title: "Inventory Tracker", url: "/admin/hr/inventory", icon: Package },
   { title: "Car Management", url: "/admin/cars", icon: Car },
+  { title: "Purchases", url: "/admin/hr/purchases", icon: ShoppingCart },
 ];
 
 const financeAdminNav = [
@@ -32,7 +34,9 @@ const financeAdminNav = [
 ];
 
 const safetyAdminNav = [
-  { title: "Dashboard", url: "/admin/safety", icon: LayoutDashboard },
+  { title: "Final Discharge", url: "/admin/safety/discharge", icon: Droplet },
+  { title: "Mixing & Chemical", url: "/admin/safety/mixing", icon: Layers },
+  { title: "Scheduled Waste", url: "/admin/safety/waste", icon: Recycle },
 ];
 
 const approverNav = [
@@ -60,16 +64,24 @@ const roleLabels: Record<UserRole, string> = {
 };
 
 const getAdminNav = (role?: UserRole) => {
-  switch (role) {
-    case "hr_admin": return hrAdminNav;
-    case "finance_admin": return financeAdminNav;
-    case "safety_admin": return safetyAdminNav;
-    case "hod":
-    case "hos": return approverNav;
-    case "super_admin": return superAdminNav;
-    case "security_guard": return securityNav;
-    default: return [];
+  if (!role) return [];
+
+  // This handles users who might have multiple roles, ensuring all relevant dashboards are shown.
+  // For now, we just check the primary role.
+  if (role === "hr_admin") {
+    return hrAdminNav;
+  } else if (role === "finance_admin") {
+    return financeAdminNav;
+  } else if (role === "safety_admin") {
+    return safetyAdminNav;
+  } else if (role === "hod" || role === "hos") {
+    return approverNav;
+  } else if (role === "super_admin") {
+    return superAdminNav;
+  } else if (role === "security_guard") {
+    return securityNav;
   }
+  return [];
 };
 
 export function AppSidebar() {

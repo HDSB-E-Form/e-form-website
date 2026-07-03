@@ -47,8 +47,8 @@ const DailyOperationMonitoringForm = () => {
 
   // --- FORM STATE ---
   const [metaInfo, setMetaInfo] = useState({
-    date: new Date().toISOString().split("T")[0],
-    time: new Date().toTimeString().slice(0, 5),
+    date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+    time: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(11, 16),
     shift: "", // Dropdown (Day / Night)
   });
 

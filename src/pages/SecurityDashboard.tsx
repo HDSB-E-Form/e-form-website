@@ -296,7 +296,7 @@ const SecurityDashboard = () => {
                 <button onClick={() => {
                   const timeOutWithDate = `${new Date().toLocaleDateString('en-GB')} ${securityLog.actualTimeOut}`;
                   handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: timeOutWithDate, vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
-                }} className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                }} className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" disabled={!securityLog.actualTimeOut}>
                   <LogOut className="h-4 w-4" /> CONFIRM EXIT
                 </button>
               </div>
@@ -330,7 +330,7 @@ const SecurityDashboard = () => {
                 <button 
                   onClick={() => {
                     const timeInWithDate = `${new Date().toLocaleDateString('en-GB')} ${securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)}`;
-                    handleAction(selectedSubmission.id, "approved", { actualTimeIn: timeInWithDate });
+                    handleAction(selectedSubmission.id, "approved", { actualTimeIn: timeInWithDate, remarks: securityLog.remarks });
                   }} 
                   className="w-full px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
                 >

@@ -1,12 +1,41 @@
-import React from "react";
-import { Outlet } from "react-router-dom";
+import React, { useEffect, useState, useCallback } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
+import { toast } from "sonner";
 
 const AppLayout = () => {
-  // The `children` prop is no longer needed as child routes are rendered via <Outlet />
+  const { pathname } = useLocation();
+  const [backPressCount, setBackPressCount] = useState(0);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  const handleBackButton = useCallback((event: PopStateEvent) => {
+    // This logic is primarily for mobile PWA-like behavior.
+    // It prevents accidental closing of the app from the home screen.
+    if (pathname === "/home") {
+      if (backPressCount === 0) {
+        setBackPressCount(1);
+        toast.info("Press back again to exit.");
+        // Push a state to "catch" the next back press.
+        window.history.pushState(null, "", window.location.href);
+        setTimeout(() => setBackPressCount(0), 2000); // Reset after 2 seconds
+      } else {
+        // Allow the default behavior (which might be to close the app)
+        window.history.back();
+      }
+    }
+  }, [pathname, backPressCount]);
+
+  useEffect(() => {
+    window.addEventListener("popstate", handleBackButton);
+    return () => window.removeEventListener("popstate", handleBackButton);
+  }, [handleBackButton]);
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background text-foreground">
