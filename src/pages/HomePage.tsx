@@ -1,13 +1,19 @@
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase } from "lucide-react";
+import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X } from "lucide-react";
 
 const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { submissions } = useSubmissions();
+  const { submissions, announcements } = useSubmissions();
+  const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
 
+  const activeAnnouncement = useMemo(() => {
+    return (announcements || []).find(a => a.is_active);
+  }, [announcements]);
+  
   const getInitials = (name?: string) =>
     (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
 
@@ -59,6 +65,22 @@ const HomePage = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
+      {/* Global Announcement Banner */}
+      {activeAnnouncement && isAnnouncementVisible && (
+        <div className="relative bg-primary/10 border border-primary/20 text-primary rounded-xl p-4 pl-12 mb-6 shadow-sm">
+          <div className="absolute left-4 top-4">
+            <Megaphone className="h-5 w-5" />
+          </div>
+          <p className="text-sm font-medium pr-6">{activeAnnouncement.content}</p>
+          <button 
+            onClick={() => setIsAnnouncementVisible(false)}
+            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-primary/20 transition-colors"
+            title="Dismiss announcement"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* User Profile Card */}
       <div className="relative mb-8 overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-lg shadow-primary/5">
         {/* Decorative background elements */}

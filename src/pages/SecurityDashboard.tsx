@@ -126,16 +126,18 @@ const SecurityDashboard = () => {
     return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
   };
 
-  const handleAction = (id: string, newStatus: SubmissionStatus, logData: any) => {
+  const handleAction = async (id: string, newStatus: SubmissionStatus, logData: any) => {
     const currentData = selectedSubmission?.data || {};
     const updatedSecurityLog = { ...(currentData.securityLog || {}), ...logData };
     
-    updateSubmissionStatus(id, newStatus, { 
+    const success = await updateSubmissionStatus(id, newStatus, { 
       securityLog: updatedSecurityLog,
       remarks: logData?.remarks || securityLog.remarks,
       rejectedStage: newStatus === "rejected" ? "admin" : undefined
     });
-    toast.success(`Submission status updated to "${newStatus.replace('_', ' ')}".`);
+    if (success) {
+      toast.success(`Submission status updated to "${newStatus.replace('_', ' ')}".`);
+    }
     setSelectedSubmission(null);
   };
 

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
 import { supabase } from "@/supabase";
-import { useUsers } from "@/contexts/UsersContext";
+import { useUsers } from "@/contexts/UsersContext"; 
+import { useSubmissions, type Announcement } from "@/contexts/SubmissionsContext";
 
 interface FirestoreUser {
   id: string;
@@ -83,6 +84,7 @@ const getInitialColor = (name: string) => {
 const SuperAdminDashboard = () => {
   const { updateUserRole } = useAuth();
   const { updateUser } = useUsers();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -98,6 +100,10 @@ const SuperAdminDashboard = () => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
+  const [isAnnouncementsOpen, setIsAnnouncementsOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [announcementContent, setAnnouncementContent] = useState("");
+
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
 
@@ -302,6 +308,43 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const handleAnnouncementSubmit = async () => {
+    if (!announcementContent.trim()) {
+      toast.error("Announcement content cannot be empty.");
+      return;
+    }
+
+    if (editingAnnouncement) {
+      // Update existing announcement
+      const success = await updateAnnouncement(editingAnnouncement.id, { content: announcementContent, is_active: editingAnnouncement.is_active });
+      if (success) {
+        toast.success("Announcement updated successfully!");
+        setEditingAnnouncement(null);
+        setAnnouncementContent("");
+      }
+    } else {
+      // Add new announcement
+      const success = await addAnnouncement(announcementContent);
+      if (success) {
+        toast.success("Announcement published successfully!");
+        setAnnouncementContent("");
+      }
+    }
+  };
+
+  const handleToggleAnnouncementActive = async (announcement: Announcement) => {
+    // Deactivate all other announcements first to ensure only one is active
+    if (!announcement.is_active) {
+      for (const ann of announcements) {
+        if (ann.is_active) {
+          await updateAnnouncement(ann.id, { content: ann.content, is_active: false });
+        }
+      }
+    }
+    // Then toggle the selected one
+    await updateAnnouncement(announcement.id, { content: announcement.content, is_active: !announcement.is_active });
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
@@ -347,6 +390,9 @@ const SuperAdminDashboard = () => {
               <div className="absolute right-0 left-0 top-full mt-2 w-full bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
                 <button onClick={() => { setAddDeptOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
                   <FolderPlus className="h-4 w-4 text-muted-foreground" /> Edit Department
+                </button>
+                <button onClick={() => { setIsAnnouncementsOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
+                  <Megaphone className="h-4 w-4 text-muted-foreground" /> Manage Announcements
                 </button>
                 <div className="h-px bg-border/50 my-1 mx-2" />
                 <button onClick={() => { handleResetAllForms(); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-destructive/10 text-destructive rounded-lg text-sm font-medium transition-colors">
@@ -634,6 +680,65 @@ const SuperAdminDashboard = () => {
                     <button onClick={() => handleDeleteDepartment(dept)} className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors opacity-100 sm:opacity-0 group-hover:opacity-100" title="Delete Department">
                       <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                     </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Manage Announcements Sheet */}
+      <Sheet open={isAnnouncementsOpen} onOpenChange={setIsAnnouncementsOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="pb-4 border-b border-border">
+            <SheetTitle className="text-xl font-bold text-foreground">Manage Announcements</SheetTitle>
+            <p className="text-sm text-muted-foreground">Create and manage global site announcements.</p>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-6 px-1">
+            <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
+              <p className="text-xs font-bold text-primary tracking-wider uppercase">{editingAnnouncement ? "Edit Announcement" : "Add New Announcement"}</p>
+              <div className="flex flex-col gap-2">
+                <Input 
+                  placeholder="Enter announcement text..." 
+                  value={announcementContent} 
+                  onChange={e => setAnnouncementContent(e.target.value)} 
+                  className="bg-background flex-1" 
+                />
+              </div>
+              <div className="flex gap-2">
+                {editingAnnouncement && (
+                  <button onClick={() => { setEditingAnnouncement(null); setAnnouncementContent(""); }} className="w-1/3 py-2.5 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/70">
+                    Cancel Edit
+                  </button>
+                )}
+                <button onClick={handleAnnouncementSubmit} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                  {editingAnnouncement ? <Save className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />}
+                  {editingAnnouncement ? "Save Changes" : "Publish"}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Existing Announcements</p>
+              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                {!announcements || announcements.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground text-center bg-muted/5">No announcements found.</p>
+                ) : (announcements || []).map(ann => (
+                  <div key={ann.id} className={`p-3 flex items-center justify-between hover:bg-muted/10 transition-colors group ${ann.is_active ? 'bg-primary/5' : 'bg-background'}`}>
+                    <p className={`text-sm font-medium pr-4 ${ann.is_active ? 'text-foreground' : 'text-muted-foreground italic'}`}>{ann.content}</p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleToggleAnnouncementActive(ann)} className={`p-2 sm:p-1.5 rounded-md transition-colors ${ann.is_active ? 'text-emerald-500 hover:bg-emerald-500/10' : 'text-muted-foreground hover:bg-muted'}`} title={ann.is_active ? "Deactivate" : "Activate"}>
+                        <Megaphone className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      </button>
+                      <button onClick={() => { setEditingAnnouncement(ann); setAnnouncementContent(ann.content); }} className="p-2 sm:p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors" title="Edit">
+                        <Pencil className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteAnnouncement(ann.id)} className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors" title="Delete">
+                        <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
