@@ -70,7 +70,7 @@ const getAdminNav = (role?: UserRole) => {
   // For now, we just check the primary role.
   if (role === "hr_admin") {
     return hrAdminNav;
-  } else if (role === "finance_admin") {
+  } else if (role === "finance_admin" ) {
     return financeAdminNav;
   } else if (role === "safety_admin") {
     return safetyAdminNav;
@@ -88,7 +88,7 @@ export function AppSidebar() {
   const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); 
 
   const isAdmin = user?.role && ["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard", "safety_admin"].includes(user.role);
   const isSuperAdmin = user?.role === "super_admin";
@@ -114,7 +114,7 @@ export function AppSidebar() {
   const sidebarTitle = (() => {
     switch (user?.role) {
       case "hr_admin": return { main: "HR Admin", sub: "Dept. Dashboard" };
-      case "finance_admin": return { main: "Finance Admin", sub: "Dept. Dashboard" };
+      case "finance_admin": return { main: "Finance Admin", sub: "Dept. Dashboard" }; 
       case "safety_admin": return { main: "Safety Admin", sub: "Dept. Dashboard" };
       case "hod": return { main: "HOD Portal", sub: "Approvals" };
       case "hos": return { main: "HOS Portal", sub: "Approvals" };

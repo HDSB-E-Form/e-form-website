@@ -367,7 +367,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {canApprove && isApprovalForm && viewMode === 'approvals' && (
+        {canApprove && isApprovalForm && (
           <>
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
             <Input
@@ -519,9 +519,6 @@ const AdminDashboard = () => {
                             <TableCell>
                               <div className="flex flex-col items-start gap-1">
                                 <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
-                                {activeTab === "action_required" && isRecent(sub.submittedAt) && (
-                                  <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
-                                )}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -529,7 +526,7 @@ const AdminDashboard = () => {
                             </TableCell>
                             <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                             <TableCell className="text-center">
-                              <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
+                              <button onClick={() => setSelectedSubmission(sub)} className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors whitespace-nowrap">
                                 {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
                               </button>
                             </TableCell>

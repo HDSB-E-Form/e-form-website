@@ -20,7 +20,7 @@ const HomePage = () => {
     rejected: mySubmissions.filter(s => s.status === "rejected").length,
   };
 
-  const departments = [
+  const allDepartments = [
     {
       id: "hr",
       title: "Human Resource Department",
@@ -49,6 +49,13 @@ const HomePage = () => {
       path: "/safety",
     },
   ];
+
+  const departments = allDepartments.filter(dept => {
+    if (dept.id === 'safety') {
+      return user?.role === 'safety_admin' || user?.role === 'super_admin';
+    }
+    return true;
+  });
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">

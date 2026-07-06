@@ -19,8 +19,8 @@ import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import CarBookingForm from "@/pages/CarBookingForm";
 import LeaveForm from "@/pages/LeaveForm";
-import PpeRequestForm from "@/pages/PpeRequestForm";
-import ClaimForm from "@/pages/ClaimForm";
+import PpeRequestForm from "@/pages/PpeRequestForm"; 
+import PettyCashForm from "@/pages/PettyCashForm";
 import MySubmissions from "@/pages/MySubmissions";
 import AdminDashboard from "@/pages/AdminDashboard";
 import FinanceDashboard from "@/pages/FinanceDashboard"; 
@@ -67,15 +67,15 @@ const App = () => (
                 <Route path="/" element={<Root />}>
                   <Route path="home" element={<HomePage />} />
                   <Route path="hr" element={<HRFormsPage />} />
-                  <Route path="safety" element={<SafetyFormsPage />} />
-                  <Route path="safety/waste-inventory" element={<WasteInventoryForm />} />
-                  <Route path="safety/mixing" element={<DailyOperationMonitoringForm />} />
-                  <Route path="safety/discharge" element={<DailyOperationMonitoringForm />} />
+                  <Route path="safety" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><SafetyFormsPage /></ProtectedRoute>} />
+                  <Route path="safety/waste-inventory" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><WasteInventoryForm /></ProtectedRoute>} />
+                  <Route path="safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
+                  <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="finance" element={<FinanceFormsPage />} />
                   <Route path="hr/car-rental" element={<CarBookingForm />} />
                   <Route path="hr/leave" element={<LeaveForm />} />
                   <Route path="hr/ppe-request" element={<PpeRequestForm />} />
-                  <Route path="finance/claim" element={<ClaimForm />} />
+                  <Route path="finance/claim" element={<PettyCashForm />} />
                   <Route path="submissions" element={<MySubmissions />} />
                   <Route path="profile" element={<ProfilePage />} />
 

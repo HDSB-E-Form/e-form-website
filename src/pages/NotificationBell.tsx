@@ -72,19 +72,31 @@ export const NotificationBell = () => {
       let message = "";
       let path = "";
       
-      // 1. Approvers (HOS)
+      // 2. Approvers (HOS)
       if (user.role === 'hos' && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name)) {
         isRelevant = true;
         message = `${s.employeeName} submitted a new form for your review.`;
         path = "/admin/approvals";
       }
-      // 2. Approvers (HOD)
+      // 3. Approvers (HOD)
       else if (user.role === 'hod' && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name)) {
         isRelevant = true;
         message = `${s.employeeName}'s form requires your approval.`;
         path = "/admin/approvals";
       }
-      // 3. HR Admin
+      // Approvers (HOP)
+      else if ((user.role === 'head_of_purchasing' || user.secondary_roles?.includes('head_of_purchasing')) && s.formType === 'claim' && s.status === 'approved_hod' && (s.data.hopName === user.name)) {
+        isRelevant = true;
+        message = `A Petty Cash Claim from ${s.employeeName} requires your approval.`;
+        path = "/admin/approvals";
+      }
+      // Approvers (HOF)
+      else if ((user.role === 'head_of_finance' || user.secondary_roles?.includes('head_of_finance')) && s.formType === 'claim' && s.status === 'approved_hop' && (s.data.hofName === user.name)) {
+        isRelevant = true;
+        message = `A Petty Cash Claim from ${s.employeeName} requires your approval.`;
+        path = "/admin/approvals";
+      }
+      // 4. HR Admin
       else if (user.role === 'hr_admin') {
         if (['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
           isRelevant = true;
@@ -92,13 +104,19 @@ export const NotificationBell = () => {
           path = "/admin/hr";
         }
       }
-      // 4. Finance Admin
-      else if (user.role === 'finance_admin' && s.formType === 'claim' && s.status === 'approved_hod') {
+      // 5. Finance Admin (Review & Payment)
+      else if (user.role === 'finance_admin' && s.formType === 'claim') {
+        if (s.status === 'pending_finance_review') {
+          isRelevant = true;
+          message = `A Petty Cash Claim from ${s.employeeName} requires your review.`;
+          path = "/admin/finance";
+        } else if (s.status === 'approved_hof') {
         isRelevant = true;
         message = `New Petty Cash Claim requires Finance action.`;
         path = "/admin/finance";
+        }
       }
-      // 5. Security Guard
+      // 6. Security Guard
       else if (user.role === 'security_guard' && s.formType === 'leave' && s.status === 'approved_hod') {
         isRelevant = true;
         message = `Approved Gate Pass for ${s.employeeName} is ready.`;
@@ -119,7 +137,7 @@ export const NotificationBell = () => {
         });
       }
       
-      // 6. Submitter (Employee) - Notify if their OWN form status changed
+      // 7. Submitter (Employee) - Notify if their OWN form status changed
       if (s.submittedBy === user.id) {
         if (s.status === 'approved' || s.status === 'rejected' || s.status === 'paid') {
           let type: 'success' | 'error' | 'info' = 'info';

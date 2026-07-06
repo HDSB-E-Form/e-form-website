@@ -102,7 +102,7 @@ const CarManagement = () => {
     })
     .map((sub: Submission) => sub.employeeName);
   
-  const uniqueRequesters = [...new Set(approvedCarRequesters)];
+  const uniqueRequesters = [...new Set(approvedCarRequesters)].filter(name => name && name.trim() !== '');
 
   if (view === "checkout" && selectedCar) {
     return <CheckOutForm car={selectedCar} requesters={uniqueRequesters} onCancel={() => setView("overview")} onSubmit={async (car, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut) => {
@@ -380,7 +380,7 @@ const CarManagement = () => {
 /* ─── Check-Out Form ─── */
 function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; requesters: string[]; onCancel: () => void; onSubmit: (car: CarInfo, employee: string, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string) => void }) {
   const { user } = useAuth();
-  const [employee, setEmployee] = useState(requesters[0] || "");
+  const [employee, setEmployee] = useState<string | undefined>(requesters[0] || undefined);
   const [mileage, setMileage] = useState("");
   const [fuelLevel, setFuelLevel] = useState("Full");
   const [petrolCard, setPetrolCard] = useState(false);
@@ -474,7 +474,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
       <div className="card-elevated p-5 mt-4">
         <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">👤 Employee Selection</h3>
         <p className="text-xs text-muted-foreground mb-2">Who is taking the car?</p>
-        <Select value={employee} onValueChange={setEmployee}>
+        <Select value={employee} onValueChange={setEmployee} required>
           <SelectTrigger className="h-11 text-base sm:text-sm">
             <SelectValue placeholder="Select Employee" />
           </SelectTrigger>

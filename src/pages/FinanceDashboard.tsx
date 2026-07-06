@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Clock, Search, ArrowLeft, FileText, ExternalLink, Printer, Settings, Wallet, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ const formTypeLabels: Record<string, string> = {
 
 const statusBadge = (status: string) => {
   switch (status) {
+    case "pending_finance_review":
+      return <Badge className="bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400 border-0 text-xs font-medium px-3 py-1">Pending Review</Badge>;
     case "approved_hof":
       return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">Pending Admin</Badge>;
     case "paid":
@@ -55,7 +57,7 @@ const FinanceDashboard = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
+  const [activeTab, setActiveTab] = useState<"review_required" | "payment_required" | "in_progress" | "history">("review_required");
   const [isViewAll, setIsViewAll] = useState(false);
   const [financeCode, setFinanceCode] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
@@ -84,7 +86,8 @@ const FinanceDashboard = () => {
   };
 
   const tabFiltered = filtered.filter(s => {
-    if (activeTab === "action_required") return s.status === "approved_hof";
+    if (activeTab === "review_required") return s.status === "pending_finance_review"; // This remains the same, but the trigger is different
+    if (activeTab === "payment_required") return s.status === "approved_hof";
     if (activeTab === "in_progress") return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status);
     if (activeTab === "history") return ["approved", "rejected", "paid", "completed"].includes(s.status);
     return true;
@@ -92,7 +95,8 @@ const FinanceDashboard = () => {
 
   const stats = {
     total: filtered.length,
-    actionRequired: filtered.filter(s => s.status === "approved_hof").length,
+    reviewRequired: filtered.filter(s => s.status === "pending_finance_review").length,
+    paymentRequired: filtered.filter(s => s.status === "approved_hof").length,
     inProgress: filtered.filter(s => ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status)).length,
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => ["approved", "paid", "completed"].includes(s.status)).length / filtered.length) * 100) : 0,
   };
@@ -117,23 +121,25 @@ const FinanceDashboard = () => {
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
-    const updateData: any = { 
+    let nextStatus = status;
+    
+    const updateData: any = {
       // Save finance admin remarks in a separate field
       finance_admin_remarks: remarks, 
       // Keep original remarks if any, or set to current remarks if it's a rejection with new comments
-      remarks: status === "rejected" && remarks ? remarks : selectedSubmission?.data.remarks,
-      rejectedStage: status === "rejected" ? "admin" : undefined };
+      remarks: nextStatus === "rejected" && remarks ? remarks : selectedSubmission?.data.remarks,
+      rejectedStage: nextStatus === "rejected" ? 'finance_review' : undefined };
 
-    if (selectedSubmission?.formType === 'claim' && status === 'paid') {
+    if (selectedSubmission?.formType === 'claim' && nextStatus === 'paid') {
       updateData.financeCode = financeCode;
       updateData.amountPaid = amountPaid;
     }
 
-    updateSubmissionStatus(id, status, updateData);
-    if (status === 'paid') {
+    updateSubmissionStatus(id, nextStatus, updateData);
+    if (nextStatus === 'paid') {
       toast.success(`Payment processed for ${selectedSubmission?.employeeName}. Waiting for acknowledgement.`);
     } else {
-      toast.success(`Submission ${status === "approved" ? "accepted" : "rejected"} successfully`);
+      toast.success(`Submission action completed successfully.`);
     }
     setSelectedSubmission(null);
     setRemarks("");
@@ -179,7 +185,7 @@ const FinanceDashboard = () => {
           </div>
         </div>
 
-        <div className="card-elevated p-4 sm:p-6 print:bg-white print:border-none print:shadow-none print:p-0">
+        <div className="card-elevated p-4 sm:p-6 print:bg-white print:border-none print:shadow-none print:p-0 mb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
@@ -192,7 +198,7 @@ const FinanceDashboard = () => {
             </div>
           </div>
 
-          <div className="mb-8">
+          <div className="mb-0">
             <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
               <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Employee Name</span>
               <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">
@@ -231,11 +237,6 @@ const FinanceDashboard = () => {
                   <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">Amount Paid:</span>
                   <span className="font-bold text-foreground print:text-black">RM {selectedSubmission.data.amountPaid || "0.00"}</span>
                 </p>
-                <div className="h-4 w-px bg-border print:bg-gray-400 mx-2"></div>
-                <p className="text-sm font-medium print:text-xs">
-                  <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">Amount Received:</span>
-                  <span className="font-bold text-foreground print:text-black">{selectedSubmission.data.amountReceived || "—"}</span>
-                </p>
               </div>
             )}
             <div className="py-2 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
@@ -244,7 +245,7 @@ const FinanceDashboard = () => {
                 {renderValue(selectedSubmission.data.claimRows)}
               </div>
             </div>
-            <div className="py-2 border-b border-border print:border-gray-300 text-right">
+            <div className="py-2 text-right">
               <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold">Total Amount</span>
               <div className="text-2xl font-bold text-primary print:text-lg print:text-black">
                 <span className="text-lg print:text-sm">RM</span>
@@ -278,7 +279,7 @@ const FinanceDashboard = () => {
         )}
 
         {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-6 print:bg-white ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
+          <div className={`p-4 rounded-xl border mb-3 print:bg-white ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-background'}`}>
             <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks / Ulasan Pelulus</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
@@ -286,7 +287,7 @@ const FinanceDashboard = () => {
 
         {/* Display Finance Admin specific remarks */}
         {selectedSubmission.data.finance_admin_remarks && (
-          <div className="p-4 rounded-xl border mb-6 print:bg-white bg-teal-500/10 border-teal-500/20 text-teal-800 dark:text-teal-300">
+          <div className="p-4 rounded-xl border mb-3 print:bg-white bg-background">
             <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">
               Finance Admin Remarks / Ulasan Pentadbir Kewangan
             </p>
@@ -295,28 +296,30 @@ const FinanceDashboard = () => {
         )}
 
         {/* Remarks & Actions - only when HOD has approved */}
-        {selectedSubmission.status === "approved_hof" && (
+        {(selectedSubmission.status === "approved_hof" || selectedSubmission.status === "pending_finance_review") && (
           <div className="mt-6 pt-6 border-t border-border">
-            <div className="my-6">
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE USE / KEGUNAAN KEWANGAN</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">GL Code / GL Kod <span className="text-destructive">*</span></Label>
-                  <Input
-                    placeholder="Enter GL Code"
-                    value={financeCode}
-                    onChange={e => setFinanceCode(e.target.value)}
-                    className="h-11 bg-muted/20 text-base sm:text-sm"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Amount Paid / Jumlah Dibayar <span className="text-destructive">*</span></Label>
-                  <Input placeholder="Enter amount" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} className="h-11 bg-muted/20 text-base sm:text-sm" />
+            {selectedSubmission.status === "approved_hof" && (
+              <div className="my-6">
+                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE USE / KEGUNAAN KEWANGAN</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">GL Code / GL Kod <span className="text-destructive">*</span></Label>
+                    <Input
+                      placeholder="Enter GL Code"
+                      value={financeCode}
+                      onChange={e => setFinanceCode(e.target.value)}
+                      className="h-11 bg-muted/20 text-base sm:text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Amount Paid / Jumlah Dibayar <span className="text-destructive">*</span></Label>
+                    <Input placeholder="Enter amount" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} className="h-11 bg-muted/20 text-base sm:text-sm" />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <>
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE REMARKS / ULASAN KEWANGAN</p>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3 mt-6">FINANCE REMARKS / ULASAN KEWANGAN</p>
               <Input
                 placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
                 value={remarks}
@@ -324,21 +327,37 @@ const FinanceDashboard = () => {
                 className="mb-6 h-12 bg-muted/20"
               />
 
-              {/* Action Buttons */}
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                  className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
-                >
-                  REJECT / TOLAK
-                </button>
+              {selectedSubmission.status === "pending_finance_review" ? (
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleAction(selectedSubmission.id, "rejected")}
+                    className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base"
+                  >
+                    REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
+                  </button>
+                  <button
+                    onClick={() => handleAction(selectedSubmission.id, "approved_hop")}
+                    className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 text-xs sm:text-base"
+                  >
+                    APPROVE & PROCEED TO HOF
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleAction(selectedSubmission.id, "rejected")}
+                    className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base"
+                  >
+                    REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
+                  </button>
                 <button
                   onClick={() => handleAction(selectedSubmission.id, "paid")}
-                  className="w-2/3 px-6 py-4 rounded-xl bg-blue-500 text-white font-bold text-center hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                  className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-blue-500 text-white font-bold text-center hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 text-xs sm:text-base"
                 >
                   <Wallet className="h-4 w-4" /> PROCESS PAYMENT
                 </button>
               </div>
+              )}
             </>
           </div>
         )}
@@ -368,11 +387,11 @@ const FinanceDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card-elevated p-5">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Total Submissions</p>
-          <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
+          <p className="text-4xl font-bold text-foreground">{stats.total}</p>
         </div>
         <div className="card-elevated p-5">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Action Required</p>
-          <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
+          <p className="text-4xl font-bold text-foreground">{stats.reviewRequired + stats.paymentRequired}</p>
         </div>
         <div className="card-elevated p-5">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Approval Rate</p>
@@ -382,10 +401,16 @@ const FinanceDashboard = () => {
 
       {/* Action Tabs */}
       <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6">
-        <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "action_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          Action Required
-          {stats.actionRequired > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.actionRequired}</Badge>
+        <button onClick={() => { setActiveTab("review_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "review_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
+          Review Required
+          {stats.reviewRequired > 0 && (
+            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.reviewRequired}</Badge>
+          )}
+        </button>
+        <button onClick={() => { setActiveTab("payment_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "payment_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
+          Payment Required
+          {stats.paymentRequired > 0 && (
+            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.paymentRequired}</Badge>
           )}
         </button>
         <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "in_progress" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
@@ -437,7 +462,7 @@ const FinanceDashboard = () => {
                 {(isViewAll ? tabFiltered : tabFiltered.slice(0, 10)).map((sub) => {
               const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
                   return (
-                    <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"} print-hide-finance-claim-row`}>
+                    <TableRow key={sub.id} className={`${(activeTab === "review_required" || activeTab === "payment_required") && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"} print-hide-finance-claim-row`}>
                       <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -455,15 +480,12 @@ const FinanceDashboard = () => {
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
-                          {activeTab === "action_required" && isRecent(sub.submittedAt) && (
-                            <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
-                          )}
                         </div>
                       </TableCell>
                       <TableCell>{statusBadge(sub.status)}</TableCell>
                       <TableCell className="text-center">
-                        <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
-                          {sub.status === "approved_hof" ? "Review" : "Details"}
+                        <button onClick={() => setSelectedSubmission(sub)} className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors whitespace-nowrap">
+                          {sub.status === "approved_hof" || sub.status === "pending_finance_review" ? "Review" : "Details"}
                         </button>
                       </TableCell>
                     </TableRow>

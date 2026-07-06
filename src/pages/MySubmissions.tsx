@@ -43,9 +43,12 @@ const getOverallStatus = (sub: Submission) => {
   if (sub.status === "completed") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
   if (sub.status === "approved" || sub.status === "paid") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
   if (sub.formType === 'claim') {
-    if (sub.status === "approved_hof") return { label: "Pending Finance Admin", color: "bg-teal-500", progress: 95 };
+    if (sub.status === "approved_hof") return { label: "Pending Finance Payment", color: "bg-teal-500", progress: 95 };
     if (sub.status === "approved_hop") return { label: "Pending HOF", color: "bg-sky-500", progress: 85 };
-    if (sub.status === "approved_hod") return { label: "Pending HOP", color: "bg-blue-500", progress: 75 };
+    if (sub.status === "pending_finance_review") return { label: "Pending Finance Review", color: "bg-fuchsia-500", progress: 75 };
+    if (sub.status === "approved_hod") return { label: "Pending HOP", color: "bg-blue-500", progress: 60 };
+    if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 40 };
+    if (sub.status === "pending") return { label: "Pending HOS", color: "bg-amber-500", progress: 20 };
   } else if (sub.formType === 'leave') {
     if (sub.status === "approved") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
     if (sub.status === "on_leave") return { label: "On Leave", color: "bg-indigo-500", progress: 90 };
@@ -55,7 +58,7 @@ const getOverallStatus = (sub: Submission) => {
     if (sub.status === "approved_hod") return { label: "Pending Admin", color: "bg-blue-500", progress: 75 };
   }
   if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 50 };
-  return { label: "Pending HOS", color: "bg-muted-foreground/50", progress: 25 };
+  return { label: "Pending", color: "bg-muted-foreground/50", progress: 25 };
 };
 
 const MySubmissions = () => {
@@ -74,7 +77,7 @@ const MySubmissions = () => {
 
   const stats = {
     total: mySubmissions.length,
-    accepted: mySubmissions.filter(s => s.status === "approved").length,
+    accepted: mySubmissions.filter(s => ["approved", "completed", "paid"].includes(s.status)).length,
     rejected: mySubmissions.filter(s => s.status === "rejected").length,
     actionRequired: mySubmissions.filter(s => s.status === "paid").length,
   };
@@ -82,7 +85,7 @@ const MySubmissions = () => {
   const filtered = mySubmissions.filter(s => {
     if (filter === "all") return true;
     if (filter === "action_required") return s.status === "paid";
-    if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "approved_hop", "approved_hof"].includes(s.status);
+    if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"].includes(s.status);
     if (filter === "approved") return ["approved", "completed"].includes(s.status);
     if (filter === "rejected") return s.status === "rejected";
     return true;
@@ -118,13 +121,14 @@ const MySubmissions = () => {
     
     const rejectedStage = selectedSubmission.data.rejectedStage;
 
-    const isApprovedHOS = ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
-                          ["hod", "hop", "hof", "admin"].includes(rejectedStage);
-    const isApprovedHOD = ["approved_hod", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
-                          ["hop", "hof", "admin"].includes(rejectedStage);
-    const isApprovedHOP = ["approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || 
-                          ["hof", "admin"].includes(rejectedStage);
-    const isApprovedHOF = ["approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || 
+    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "finance_review", "hof", "admin"].includes(rejectedStage);
+    const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
+                          ["hop", "finance_review", "hof", "admin"].includes(rejectedStage);
+    const isApprovedHOP = selectedSubmission.data.hopName === 'N/A' || ["pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || 
+                          ["finance_review", "hof", "admin"].includes(rejectedStage);
+    const isApprovedFinanceReview = ["approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
+                                    ["hof", "admin"].includes(rejectedStage);
+    const isApprovedHOF = selectedSubmission.data.hofName === 'N/A' || ["approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) ||
                           ["admin"].includes(rejectedStage);
     const isRejected = selectedSubmission.status === "rejected";
 
@@ -319,22 +323,22 @@ const MySubmissions = () => {
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
                 </div>
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Amount</span>
-                  <div className="text-xs sm:text-sm font-bold text-primary print:text-black text-left break-words sm:col-span-2 print:col-span-2">RM {selectedSubmission.data.totalAmount || "0.00"}</div>
-                </div>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details</span>
-                  <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
-                    {renderValue(selectedSubmission.data.claimRows)}
-                  </div>
-                </div>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     HOS: {selectedSubmission.data.hosName || "—"}<br/>
                     HOD: {selectedSubmission.data.hodName || "—"}<br/>
                     HOP: {selectedSubmission.data.hopName || "—"}<br/>
                     HOF: {selectedSubmission.data.hofName || "—"}
+                  </div>
+                </div>
+                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details</span>
+                  <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
+                    {renderValue(selectedSubmission.data.claimRows)}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-border/50 w-full text-right">
+                    <p className="text-xs text-muted-foreground uppercase font-bold">Total Amount</p>
+                    <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount?.toFixed(2) || "0.00"}</p>
                   </div>
                 </div>
                 {selectedSubmission.data.acknowledgedAt && (
@@ -416,19 +420,18 @@ const MySubmissions = () => {
           )}
 
           {selectedSubmission.formType === 'claim' ? (
-            <div className="grid grid-cols-5 gap-1 sm:gap-2 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8 text-center">
+            <div className="grid grid-cols-6 gap-1 sm:gap-2 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8 text-center">
               {[
                 { name: "HOS", isApproved: isApprovedHOS, isRejected: isRejected && rejectedStage === "hos" },
                 { name: "HOD", isApproved: isApprovedHOD, isRejected: isRejected && rejectedStage === "hod" },
                 { name: "HOP", isApproved: isApprovedHOP, isRejected: isRejected && rejectedStage === "hop" },
-                { name: "HOF", isApproved: isApprovedHOF, isRejected: isRejected && rejectedStage === "hof" },
+                { name: "Finance Review", isApproved: isApprovedFinanceReview, isRejected: isRejected && rejectedStage === "finance_review" },
+                { name: "HOF", isApproved: isApprovedHOF, isRejected: isRejected && rejectedStage === "hof" }, // HOF is after finance review
                 { name: "Finance", isApproved: ["paid", "completed"].includes(selectedSubmission.status), isRejected: isRejected && rejectedStage === "admin" },
               ].map((stage, index) => (
                 <div key={index} className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
                   <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">{stage.name}</p>
-                  <div className="print:hidden w-full flex justify-center">
-                    {stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
-                  </div>
+                  <div className="print:hidden w-full flex justify-center">{stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}</div>
                   <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                     {stage.isApproved ? "APPROVED" : stage.isRejected ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
                   </div>
@@ -638,8 +641,8 @@ const MySubmissions = () => {
                 const isPaidClaim = sub.formType === 'claim' && sub.status === 'paid' && sub.submittedBy === user?.id;
                 const isPending = sub.status === 'pending';
                 const rejectedStage = sub.data.rejectedStage || (sub.status === "rejected" ? "hos" : null);
-                const isApprovedHOS = ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hod", "hop", "hof", "admin"].includes(rejectedStage);
-                const isApprovedHOD = ["approved_hod", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hop", "hof", "admin"].includes(rejectedStage);
+                const isApprovedHOS = sub.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hod", "hop", "finance_review", "hof", "admin"].includes(rejectedStage as string);
+                const isApprovedHOD = sub.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hop", "finance_review", "hof", "admin"].includes(rejectedStage);
                 const isRejected = sub.status === "rejected";
 
                 return (
@@ -651,10 +654,13 @@ const MySubmissions = () => {
                       {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
                     </TableCell>
                     <TableCell className="text-center hidden md:table-cell">
-                      {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
+                      {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && ["hos", "finance_review"].includes(rejectedStage as string)) ? naStatus() : statusBadge("pending")}
                     </TableCell>
                     <TableCell className="text-center hidden md:table-cell">
-                      {["approved", "paid", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
+                      {sub.formType === 'claim' ? 
+                        (["paid", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")) :
+                        (["approved", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending"))
+                      }
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -675,8 +681,12 @@ const MySubmissions = () => {
                           </button>
                         )}
                         {isPaidClaim && (
-                          <button onClick={() => handleAcknowledgeReceipt(sub)} className="text-emerald-600 hover:text-emerald-700 p-1.5 rounded-md hover:bg-emerald-50 transition-colors" title="Acknowledge Receipt">
-                            <HandCoins className="h-4 w-4" />
+                          <button
+                            onClick={() => handleAcknowledgeReceipt(sub)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors whitespace-nowrap"
+                            title="Acknowledge Receipt"
+                          >
+                            <HandCoins className="h-3.5 w-3.5" /> Acknowledge
                           </button>
                         )}
                       </div>

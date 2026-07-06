@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
+import { useSubmissions, type Submission, type SubmissionStatus, type AppUser } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle, XCircle, AlertCircle } from "lucide-react";
@@ -115,7 +115,7 @@ const ApproverDashboard = () => {
 
   const stats = {
     total: filtered.length,
-    actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos") || (isHOP && s.formType === 'claim' && s.status === "approved_hod") || (isHOF && s.status === "approved_hop")).length,
+    actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos") || (isHOP && s.formType === 'claim' && s.status === "approved_hod") || (isHOF && s.formType === 'claim' && s.status === "approved_hop")).length,
     inProgress: filtered.filter(s =>
       (isHOS && ["approved_hod", "approved_hop", "approved_hof"].includes(s.status)) ||
       (isHOD && s.status === "pending") ||
@@ -251,10 +251,11 @@ const ApproverDashboard = () => {
             </div>
           </div>
 
-          {selectedSubmission.formType === 'car_rental'
-            ? renderCarRentalDetailsForApprover(selectedSubmission)
-            : renderLeaveDetailsForApprover(selectedSubmission)
-          }
+          {selectedSubmission.formType === 'car_rental' ? (
+            renderCarRentalDetailsForApprover(selectedSubmission)
+          ) : selectedSubmission.formType === 'leave' ? (
+            renderLeaveDetailsForApprover(selectedSubmission)
+          ) : null}
 
           {selectedSubmission.formType === 'claim' && (
             <>
@@ -414,7 +415,7 @@ const ApproverDashboard = () => {
                     } else if (isHOD && selectedSubmission.status === "approved_hos") {
                       nextStatus = "approved_hod";
                     } else if (isHOP && selectedSubmission.status === "approved_hod") {
-                      nextStatus = "approved_hop";
+                      nextStatus = "pending_finance_review";
                     } else if (isHOF && selectedSubmission.status === "approved_hop") {
                       nextStatus = "approved_hof";
                     }
@@ -548,19 +549,16 @@ const ApproverDashboard = () => {
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
                         <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
-                        {activeTab === "action_required" && isRecent(sub.submittedAt) && (
-                          <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                         {formTypeLabels[sub.formType]?.en || sub.formType.toUpperCase()}
-                      </Badge>
+                      </p>
                     </TableCell>
                     <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
+                      <button onClick={() => setSelectedSubmission(sub)} className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors whitespace-nowrap">
                         View Details
                       </button>
                     </TableCell>

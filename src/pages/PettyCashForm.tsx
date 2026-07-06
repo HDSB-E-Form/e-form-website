@@ -65,7 +65,7 @@ const DEPARTMENT_CODES = [
   { code: "ITC001", name: "IT APPLICATION" },
 ].sort((a, b) => a.code.localeCompare(b.code));
 
-const ClaimForm = () => {
+const PettyCashForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
@@ -180,7 +180,14 @@ const ClaimForm = () => {
       return;
     }
 
-    const initialStatus = "pending_finance_review";
+    let initialStatus: "pending" | "approved_hos" | "approved_hod" = "pending";
+    if (hosName === "N/A") {
+      initialStatus = "approved_hos";
+      if (hodName === "N/A") {
+        initialStatus = "approved_hod";
+      }
+    }
+
     setIsSubmitting(true);
 
     let attachmentUrls: string[] = [];
@@ -584,4 +591,4 @@ const ClaimForm = () => {
   );
 };
 
-export default ClaimForm;
+export default PettyCashForm;

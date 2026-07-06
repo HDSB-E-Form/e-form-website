@@ -67,6 +67,11 @@ const LeaveForm = () => {
       return;
     }
     
+    if (!estimatedTime.timeOut || !estimatedTime.timeIn) {
+      toast.error("Please provide both estimated Time Out and Time In.");
+      return;
+    }
+
     let initialStatus: "pending" | "approved_hos";
     if (hosName === "N/A") {
       initialStatus = "approved_hos";
@@ -345,7 +350,8 @@ const LeaveForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Time Out / Masa Keluar</Label>
+              <Label className="text-xs font-semibold text-primary">Time Out / Masa Keluar <span className="text-destructive">*</span></Label>
+              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">Select your estimated time out.</p>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                   <LogOut className="h-4 w-4" />
@@ -356,11 +362,13 @@ const LeaveForm = () => {
                   onChange={e => setEstimatedTime(p => ({ ...p, timeOut: e.target.value }))}
                   className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]"
                   placeholder="--:--"
+                  required
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Time In / Masa Masuk</Label>
+              <Label className="text-xs font-semibold text-primary">Time In / Masa Masuk <span className="text-destructive">*</span></Label>
+              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">Select your estimated time in.</p>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                   <LogIn className="h-4 w-4" />
@@ -371,6 +379,7 @@ const LeaveForm = () => {
                   onChange={e => setEstimatedTime(p => ({ ...p, timeIn: e.target.value }))}
                   className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]"
                   placeholder="--:--"
+                  required
                 />
               </div>
             </div>
