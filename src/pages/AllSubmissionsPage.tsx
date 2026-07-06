@@ -1,16 +1,19 @@
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, ArrowLeft, Printer, FileText } from "lucide-react";
+import { Clock, ArrowLeft, Printer, FileText, Search, Calendar, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import logo from "@/assets/logo.png";
 import { renderValue } from "@/components/DataRenderer";
 
 const formTypeLabels: Record<string, string> = {
-  car_rental: "Vehicle Request / Permintaan Kenderaan",
+  car_rental: "Vehicle Request",
   leave: "Gate Pass",
-  claim: "Petty Cash Claim / Tuntutan Panjar Wang Runcit",
-  ppe_request: "PPE / Uniform / Office Supplies",
+  claim: "Petty Cash Claim",
+  ppe_request: "PPE | Uniform | Office Supplies",
 };
 
 const statusBadge = (status: string) => {
@@ -36,9 +39,33 @@ const statusBadge = (status: string) => {
 const AllSubmissionsPage = () => {
   const { submissions: allSubmissions } = useSubmissions();
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-  const submissions = allSubmissions.filter(s => !excludedForms.includes(s.formType));
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
+
+  const isFiltered = search !== "" || startDate !== "" || endDate !== "";
+
+  const submissions = allSubmissions
+    .filter(s => !excludedForms.includes(s.formType))
+    .filter(s => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      const dateStr = new Date(s.submittedAt).toLocaleDateString("en-CA");
+      const typeStr = (formTypeLabels[s.formType] || s.formType).toLowerCase();
+      return s.employeeName.toLowerCase().includes(q) ||
+             s.id.toLowerCase().includes(q) ||
+             typeStr.includes(q) ||
+             dateStr.includes(q);
+    })
+    .filter(s => {
+      if (!startDate && !endDate) return true;
+      const subDate = new Date(s.submittedAt).toISOString().split('T')[0];
+      const start = startDate || "0000-00-00";
+      const end = endDate || "9999-12-31";
+      return subDate >= start && subDate <= end;
+    });
 
   const refNoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -407,8 +434,51 @@ const AllSubmissionsPage = () => {
       </div>
 
       <div className="card-elevated overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <h2 className="font-bold text-foreground">All System Submissions</h2>
+        <div className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Calendar className="h-5 w-5 text-primary"/> All System Submissions</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search by name, date, or type..." 
+                value={search} 
+                onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
+                className="pl-9 w-full sm:w-60 h-9 text-sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-medium text-muted-foreground">From:</Label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-medium text-muted-foreground">To:</Label>
+              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
+                const today = new Date();
+                const last7 = new Date(today);
+                last7.setDate(today.getDate() - 7);
+                setStartDate(last7.toISOString().split('T')[0]);
+                setEndDate(today.toISOString().split('T')[0]);
+              }}>Last 7 Days</Button>
+              <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
+                const today = new Date();
+                const last30 = new Date(today);
+                last30.setDate(today.getDate() - 30);
+                setStartDate(last30.toISOString().split('T')[0]);
+                setEndDate(today.toISOString().split('T')[0]);
+              }}>Last 30 Days</Button>
+              {isFiltered && (
+                <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => {
+                  setSearch("");
+                  setStartDate("");
+                  setEndDate("");
+                }}>
+                  <XCircle className="h-4 w-4 mr-1.5" /> Clear
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
         <Table>

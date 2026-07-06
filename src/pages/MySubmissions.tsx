@@ -10,10 +10,10 @@ import { toast } from "sonner";
 import { renderValue } from "@/components/DataRenderer";
 
 const formTypeLabels: Record<string, string> = {
-  car_rental: "Vehicle Request / Permintaan Kenderaan",
+  car_rental: "Vehicle Request",
   leave: "Gate Pass",
-  claim: "Petty Cash Claim / Tuntutan Panjar Wang Runcit",
-  ppe_request: "PPE / Uniform / Office Supplies",
+  claim: "Petty Cash Claim",
+  ppe_request: "PPE | Uniform | Office Supplies",
 };
 
 type FilterType = "all" | "pending" | "approved" | "rejected" | "action_required";

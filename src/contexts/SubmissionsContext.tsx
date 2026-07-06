@@ -33,6 +33,13 @@ export interface CarInfo {
   imageUrl?: string;
 }
 
+export interface Announcement {
+  id: string;
+  content: string;
+  created_at: string;
+  is_active: boolean;
+}
+
 interface SubmissionsContextType {
   submissions: Submission[];
   cars: CarInfo[];
@@ -43,6 +50,10 @@ interface SubmissionsContextType {
   addCar: (car: CarInfo) => Promise<boolean>;
   deleteCar: (carId: string) => void;
   updateCar: (carId: string, updates: Partial<CarInfo>) => Promise<boolean>;
+  announcements: Announcement[];
+  addAnnouncement: (content: string, isActive: boolean) => Promise<boolean>;
+  updateAnnouncement: (id: string, updates: Partial<Omit<Announcement, 'id' | 'created_at'>>) => Promise<boolean>;
+  deleteAnnouncement: (id: string) => Promise<boolean>;
 }
 
 const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
@@ -50,12 +61,22 @@ const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
 export function SubmissionsProvider({ children }: { children: React.ReactNode }) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [cars, setCars] = useState<CarInfo[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
+    try {
+      const stored = localStorage.getItem("hdsb_announcements");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error("Failed to parse announcements from localStorage", e);
+      return [];
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
+        // Announcements are no longer fetched from Supabase
         const [submissionsRes, carsRes] = await Promise.all([
           supabase.from("submissions").select("*").order("submittedAt", { ascending: false }),
           supabase.from("cars").select("*").order("model"),
@@ -74,6 +95,15 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     };
     fetchData();
   }, []);
+
+  // Persist announcements to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("hdsb_announcements", JSON.stringify(announcements));
+    } catch (e) {
+      console.error("Failed to save announcements to localStorage", e);
+    }
+  }, [announcements]);
 
   const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
     let newId = "";
@@ -225,8 +255,41 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
     }
   }, []);
 
+  const addAnnouncement = useCallback(async (content: string, isActive: boolean) => {
+    const newAnnouncement: Announcement = {
+      id: `ann-${Date.now()}`,
+      content,
+      is_active: isActive,
+      created_at: new Date().toISOString(),
+    };
+    setAnnouncements(prev => [newAnnouncement, ...prev.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())]);
+    return true;
+  }, []);
+
+  const updateAnnouncement = useCallback(async (id: string, updates: Partial<Omit<Announcement, 'id' | 'created_at'>>) => {
+    setAnnouncements(prev =>
+      prev
+        .map(ann => (ann.id === id ? { ...ann, ...updates } : ann))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    );
+    return true;
+  }, []);
+
+  const deleteAnnouncement = useCallback(async (id: string) => {
+    setAnnouncements(prev =>
+      prev
+        .filter(ann => ann.id !== id)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    );
+    return true;
+  }, []);
+
   return (
-    <SubmissionsContext.Provider value={{ submissions, cars, addSubmission, updateSubmissionStatus, checkInCar, checkOutCar, addCar, deleteCar, updateCar }}>
+    <SubmissionsContext.Provider value={{ 
+      submissions, cars, addSubmission, updateSubmissionStatus, 
+      checkInCar, checkOutCar, addCar, deleteCar, updateCar,
+      announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement
+    }}>
       {children}
     </SubmissionsContext.Provider>
   );

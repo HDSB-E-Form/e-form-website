@@ -12,8 +12,8 @@ const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
   claim: "Petty Cash Claim",
   leave: "Gate Pass",
-  ppe_request: "PPE / Uniform / Office",
-  ppe_purchase: "PPE | Uniform Purchase",
+  ppe_request: "PPE | Uniform | Office Supplies",
+  ppe_purchase: "PPE | Uniform | Office Supplies",
 };
 
 const statusBadge = (status: string) => {

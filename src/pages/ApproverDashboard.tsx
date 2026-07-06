@@ -8,11 +8,11 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { renderValue } from "@/components/DataRenderer";
 
-const formTypeLabels: Record<string, { en: string; ms: string }> = {
-  car_rental: { en: "TRAVEL / PERJALANAN", ms: "Perjalanan" },
-  leave: { en: "GATE PASS", ms: "Gate Pass" },
-  claim: { en: "PETTY CASH CLAIM", ms: "Tuntutan Panjar Wang Runcit" },
-  ppe_request: { en: "PPE / UNIFORM", ms: "PPE" },
+const formTypeLabels: Record<string, string> = {
+  car_rental: "Vehicle Request",
+  leave: "Gate Pass",
+  claim: "Petty Cash Claim",
+  ppe_request: "PPE | Uniform | Office Supplies",
 };
 
 const statusBadge = (status: string) => {
@@ -79,7 +79,7 @@ const ApproverDashboard = () => {
       const q = search.toLowerCase();
       const dateStr1 = new Date(s.submittedAt).toLocaleDateString("en-CA");
       const dateStr2 = new Date(s.submittedAt).toLocaleDateString("en-GB");
-      const typeStr = (formTypeLabels[s.formType]?.en || s.formType).toLowerCase();
+      const typeStr = (formTypeLabels[s.formType] || s.formType).toLowerCase();
       return s.employeeName.toLowerCase().includes(q) || 
              s.id.toLowerCase().includes(q) ||
              s.department.toLowerCase().includes(q) ||
@@ -238,8 +238,8 @@ const ApproverDashboard = () => {
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Form Type / Jenis Borang</p>
-              <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1">
-                {formTypeLabels[selectedSubmission.formType]?.en || selectedSubmission.formType.toUpperCase()}
+              <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1 uppercase">
+                {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType.replace(/_/g, ' ')}
               </Badge>
             </div>
           </div>
@@ -553,7 +553,7 @@ const ApproverDashboard = () => {
                     </TableCell>
                     <TableCell>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        {formTypeLabels[sub.formType]?.en || sub.formType.toUpperCase()}
+                        {formTypeLabels[sub.formType] || sub.formType.toUpperCase().replace(/_/g, ' ')}
                       </p>
                     </TableCell>
                     <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>

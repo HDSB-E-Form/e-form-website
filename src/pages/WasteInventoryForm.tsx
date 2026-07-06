@@ -191,6 +191,13 @@ const WasteInventoryForm = () => {
           <h1 className="text-2xl font-bold uppercase tracking-widest text-black">HICOM Diecastings Sdn Bhd</h1>
           <p className="text-sm text-gray-600 mt-1 uppercase tracking-wide">Waste Inventory Record</p>
         </div>
+        {/* Top Right Box displays the SELECTED Operational Date */}
+        <div className="ml-auto text-right">
+          <p className="text-xs text-gray-500 uppercase font-semibold">Record Date:</p>
+          <p className="text-sm font-bold text-black mt-0.5">
+            {recordDate ? new Date(recordDate).toLocaleDateString('en-GB') : 'N/A'} at {recordTime || ''}
+          </p>
+        </div>
       </div>
 
       <div className="mb-8 print:hidden">
@@ -201,8 +208,10 @@ const WasteInventoryForm = () => {
       </div>
 
       <div className="space-y-6">
-        {/* Print Reference Date */}
-        <div className="hidden print:block text-sm font-bold text-black mb-4">Date & Time Printed: {currentTime.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+        {/* System Generation Metadata (Sub-Header metadata line for audit tracking) */}
+        <div className="hidden print:block text-xs font-medium text-gray-500 mb-4 border-b border-gray-200 pb-2">
+          Print date: {currentTime.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        </div>
 
         {/* Section 1: Waste Configuration */}
         <div className="card-elevated p-6 print:border-none print:shadow-none print:p-0">

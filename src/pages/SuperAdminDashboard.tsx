@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil } from "lucide-react";
+// ADDED: "Save" icon to the lucide-react imports
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,7 +40,6 @@ const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
   { value: "head_of_purchasing", label: "Head of Purchasing" },
   { value: "head_of_finance", label: "Head of Finance" },
 ];
-
 
 const roleBadge = (role: UserRole) => {
   switch (role) {
@@ -107,14 +107,12 @@ const SuperAdminDashboard = () => {
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
 
-
   // Fetch users from Firestore
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch departments from database
         const { data: deptData } = await supabase.from("departments").select("name").order("name");
         if (deptData) {
           setDepartmentsList(deptData.map((d: any) => d.name));
@@ -150,16 +148,13 @@ const SuperAdminDashboard = () => {
   }, []);
 
   const filtered = users.filter(u => {
-    // Role filter
     if (roleFilter === "employee" && u.role !== "employee") return false;
     if (roleFilter === "hos" && u.role !== "hos") return false;
     if (roleFilter === "hod" && u.role !== "hod") return false;
     if (roleFilter === "admin" && !["hr_admin", "finance_admin", "head_of_purchasing", "head_of_finance", "safety_admin", "super_admin"].includes(u.role as string)) return false;
 
-    // Department filter
     if (departmentFilter !== "all" && u.department !== departmentFilter) return false;
 
-    // Search filter
     if (search) {
       const q = search.toLowerCase();
       const nameMatch = (u.name || '').toLowerCase().includes(q);
@@ -198,18 +193,11 @@ const SuperAdminDashboard = () => {
         secondary_roles: editSecondaryRoles,
       };
       
-      // The updateUser function from the context handles both the DB update
-      // and the local state update, ensuring synchronization.
       const success = await updateUser(selectedUser.id, updates);
-
-      if (!success) {
-        // The context function will have already shown a toast error.
-        // We just need to prevent the sheet from closing.
-        return;
-      }
+      if (!success) return;
 
       setSheetOpen(false);
-      toast.success(`${selectedUser.name}'s role updated to ${ROLE_OPTIONS.find(r => r.value === editRole)?.label}`);
+      toast.success(`${selectedUser.name}'s role updated successfully`);
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(`Failed to update permissions: ${error.message || "Database rejected the role"}`);
@@ -218,10 +206,7 @@ const SuperAdminDashboard = () => {
 
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-    
-    if (!window.confirm(`Are you sure you want to completely remove ${selectedUser.name} from the system? This action cannot be undone.`)) {
-      return;
-    }
+    if (!window.confirm(`Are you sure you want to completely remove ${selectedUser.name} from the system?`)) return;
 
     try {
       const { error } = await supabase.from("users").delete().eq("id", selectedUser.id);
@@ -235,7 +220,6 @@ const SuperAdminDashboard = () => {
       toast.error("Failed to delete user");
     }
   };
-
 
   const handleAddDepartmentSubmit = async () => {
     if (!newDeptName.trim()) {
@@ -284,10 +268,10 @@ const SuperAdminDashboard = () => {
   };
 
   const handleResetAllForms = async () => {
-    const confirm1 = window.confirm("⚠️WARNING: This will permanently delete all form submissions across the entire system to prepare for launch. Are you absolutely sure?");
+    const confirm1 = window.confirm("⚠️WARNING: This will permanently delete all form submissions across the entire system. Are you absolutely sure?");
     if (!confirm1) return;
     
-    const confirm2 = window.prompt('To prevent accidental deletion, please type "RESET_SUBMISSIONS" in all caps to confirm:');
+    const confirm2 = window.prompt('Type "RESET_SUBMISSIONS" to confirm:');
     if (confirm2 !== "RESET_SUBMISSIONS") {
       toast.info("System reset cancelled.");
       return;
@@ -295,11 +279,10 @@ const SuperAdminDashboard = () => {
 
     setIsLoading(true);
     try {
-      // Delete all submissions safely by matching all records where id is not "0"
       const { error } = await supabase.from("submissions").delete().neq("id", "0");
       if (error) throw error;
 
-      toast.success("System Reset Completed! All old forms are wiped.");
+      toast.success("System Reset Completed!");
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       console.error("Error wiping forms:", err);
@@ -308,41 +291,72 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // ADDED / FIXED: Handlers for announcements
   const handleAnnouncementSubmit = async () => {
     if (!announcementContent.trim()) {
       toast.error("Announcement content cannot be empty.");
       return;
     }
 
-    if (editingAnnouncement) {
-      // Update existing announcement
-      const success = await updateAnnouncement(editingAnnouncement.id, { content: announcementContent, is_active: editingAnnouncement.is_active });
-      if (success) {
-        toast.success("Announcement updated successfully!");
-        setEditingAnnouncement(null);
-        setAnnouncementContent("");
+    try {
+      if (editingAnnouncement) {
+        const success = await updateAnnouncement(editingAnnouncement.id, { 
+          content: announcementContent, 
+          is_active: editingAnnouncement.is_active 
+        });
+        if (success) {
+          toast.success("Announcement updated successfully!");
+          setEditingAnnouncement(null);
+          setAnnouncementContent("");
+        }
+      } else {
+        // Add new announcement
+        // Deactivate all other announcements first
+        const activeAnnouncements = announcements.filter(ann => ann.is_active);
+        for (const ann of activeAnnouncements) {
+          await updateAnnouncement(ann.id, { ...ann, is_active: false });
+        }
+
+        // Add the new announcement and set it as active
+        const success = await addAnnouncement(announcementContent, true);
+        if (success) {
+          toast.success("Announcement published successfully!");
+          setAnnouncementContent("");
+        }
       }
-    } else {
-      // Add new announcement
-      const success = await addAnnouncement(announcementContent);
-      if (success) {
-        toast.success("Announcement published successfully!");
-        setAnnouncementContent("");
-      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong handling your request.");
     }
   };
 
   const handleToggleAnnouncementActive = async (announcement: Announcement) => {
-    // Deactivate all other announcements first to ensure only one is active
-    if (!announcement.is_active) {
-      for (const ann of announcements) {
-        if (ann.is_active) {
-          await updateAnnouncement(ann.id, { content: ann.content, is_active: false });
-        }
+    try {
+      if (!announcement.is_active && announcements) {
+        await Promise.all(
+          announcements
+            .filter(ann => ann.is_active)
+            .map(ann => updateAnnouncement(ann.id, { content: ann.content, is_active: false }))
+        );
       }
+      await updateAnnouncement(announcement.id, { content: announcement.content, is_active: !announcement.is_active });
+    } catch (err) {
+      console.error(err);
     }
-    // Then toggle the selected one
-    await updateAnnouncement(announcement.id, { content: announcement.content, is_active: !announcement.is_active });
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this notification?")) return;
+    try {
+      const success = await deleteAnnouncement(id);
+      if (success) {
+        toast.success("Announcement removed.");
+      } else {
+        toast.error("Could not remove announcement.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (isLoading) {
@@ -350,7 +364,7 @@ const SuperAdminDashboard = () => {
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading users...</p>
+          <p className="mt-4 text-muted-foreground">Loading dashboard layout...</p>
         </div>
       </div>
     );
@@ -367,7 +381,6 @@ const SuperAdminDashboard = () => {
           <img src={fullscreenImage} alt="User avatar fullscreen preview" className="max-w-full max-h-full object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
-
 
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -392,7 +405,7 @@ const SuperAdminDashboard = () => {
                   <FolderPlus className="h-4 w-4 text-muted-foreground" /> Edit Department
                 </button>
                 <button onClick={() => { setIsAnnouncementsOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
-                  <Megaphone className="h-4 w-4 text-muted-foreground" /> Manage Announcements
+                  <Megaphone className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Announcements
                 </button>
                 <div className="h-px bg-border/50 my-1 mx-2" />
                 <button onClick={() => { handleResetAllForms(); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-destructive/10 text-destructive rounded-lg text-sm font-medium transition-colors">
@@ -422,14 +435,23 @@ const SuperAdminDashboard = () => {
 
       {/* Users Table */}
       <div className="card-elevated overflow-hidden">
-        <div className="p-5 border-b border-border flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search users..." value={search} onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} className="pl-9 h-9 text-sm" />
+            <Input placeholder="Search users..." value={search} onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} className="pl-9 pr-9 h-9 text-sm" />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded-full transition-colors"
+                title="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <Select value={roleFilter} onValueChange={val => { setRoleFilter(val); setIsViewAll(false); }}>
-              <SelectTrigger className="h-9 w-full sm:w-[240px]">
+              <SelectTrigger className="h-9 w-full md:w-[240px]">
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
@@ -441,7 +463,7 @@ const SuperAdminDashboard = () => {
               </SelectContent>
             </Select>
             <Select value={departmentFilter} onValueChange={val => { setDepartmentFilter(val); setIsViewAll(false); }}>
-              <SelectTrigger className="h-9 w-full sm:w-[240px]">
+              <SelectTrigger className="h-9 w-full md:w-[240px]">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent className="max-h-64">
@@ -529,7 +551,6 @@ const SuperAdminDashboard = () => {
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">
-            {/* User Info */}
             <div>
               <p className="text-xs font-bold text-primary tracking-wider mb-3">USER INFORMATION</p>
               <div className="space-y-2 bg-muted/30 p-3 rounded-lg">
@@ -544,7 +565,6 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
 
-            {/* Security Role */}
             <div>
               <p className="text-xs font-bold text-primary tracking-wider mb-3">ASSIGN ROLE</p>
               <div className="space-y-2">
@@ -577,7 +597,6 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
 
-            {/* Department */}
             <div>
               <p className="text-xs font-bold text-primary tracking-wider mb-3">DEPARTMENT</p>
               <Select value={departmentsList.includes(editDepartment) ? editDepartment : undefined} onValueChange={setEditDepartment}>
@@ -592,7 +611,6 @@ const SuperAdminDashboard = () => {
               </Select>
             </div>
 
-            {/* Secondary Roles */}
             <div>
               <p className="text-xs font-bold text-primary tracking-wider mb-3">ADDITIONAL ROLES</p>
               <Select onValueChange={(val) => {
@@ -619,10 +637,9 @@ const SuperAdminDashboard = () => {
                   </Badge>
                 ))}
                 {editSecondaryRoles.length === 0 && <p className="text-xs text-muted-foreground p-2">No additional roles assigned.</p>}
-                </div>
               </div>
+            </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleDeleteUser}
@@ -657,7 +674,6 @@ const SuperAdminDashboard = () => {
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">
-            {/* Add New Section */}
             <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
               <p className="text-xs font-bold text-primary tracking-wider uppercase">Add New Department</p>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -668,7 +684,6 @@ const SuperAdminDashboard = () => {
               </button>
             </div>
 
-            {/* Existing List */}
             <div>
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Existing Departments</p>
               <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
@@ -710,7 +725,7 @@ const SuperAdminDashboard = () => {
               <div className="flex gap-2">
                 {editingAnnouncement && (
                   <button onClick={() => { setEditingAnnouncement(null); setAnnouncementContent(""); }} className="w-1/3 py-2.5 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/70">
-                    Cancel Edit
+                    Cancel
                   </button>
                 )}
                 <button onClick={handleAnnouncementSubmit} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">

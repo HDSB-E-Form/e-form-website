@@ -6,14 +6,14 @@ import { Bell, CheckCircle, XCircle, FileText, AlertCircle, HandCoins } from "lu
 import notificationSound from "@/assets/notification.mp3";
 
 const formTypeLabels: Record<string, string> = {
-  car_rental: "Company Car Request",
+  car_rental: "Vehicle Request",
   leave: "Gate Pass",
   claim: "Petty Cash Claim",
-  ppe_request: "PPE/Uniform Request",
+  ppe_request: "PPE | Uniform | Office Supplies",
   waste_inventory: "Waste Inventory",
   mixing_chemical_stages: "Mixing Log",
   final_discharge: "Discharge Log",
-  ppe_purchase: "PPE Purchase",
+  ppe_purchase: "PPE | Uniform | Office Supplies",
 };
 
 interface Notification {
@@ -61,7 +61,7 @@ export const NotificationBell = () => {
     const notifs: Notification[] = [];
     
     // Look at recent submissions (last 14 days) to avoid performance issues
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+    const excludedForms = ["inventory_addition", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
     const recentSubmissions = submissions.filter(s => !excludedForms.includes(s.formType)).filter(s => {
       const daysOld = (new Date().getTime() - new Date(s.submittedAt).getTime()) / (1000 * 60 * 60 * 24);
       return daysOld < 14;

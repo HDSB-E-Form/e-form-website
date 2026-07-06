@@ -120,6 +120,15 @@ const WasteDashboard = () => {
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            {/* Print Header */}
+            <div className="hidden print:block mb-4">
+                <h2 className="text-lg font-bold">Scheduled Waste Inventory Report</h2>
+                {(wasteStartDate || wasteEndDate) && (
+                    <p className="text-sm text-gray-600">
+                        Date Range: <strong>{wasteStartDate}</strong> to <strong>{wasteEndDate}</strong>
+                    </p>
+                )}
+            </div>
             <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Scheduled Waste Inventory</h1>
