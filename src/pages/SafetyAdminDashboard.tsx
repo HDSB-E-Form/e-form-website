@@ -268,7 +268,13 @@ const SafetyAdminDashboard = () => {
             const cat = s.data.category;
             const net = parseFloat(s.data.totals?.net) || 0;
             const wasteType = s.data.wasteType || "Unknown";
-            const code = wasteType.split(' ')[0].substring(0, 7);
+            let code = wasteType.split(' ')[0].substring(0, 7);
+
+            // Specific handling for SW104 Dross and Sludge
+            if (wasteType.toUpperCase().includes("SW104")) {
+                if (wasteType.toUpperCase().includes("DROSS")) code = "SW104_D";
+                else if (wasteType.toUpperCase().includes("SLUDGE")) code = "SW104_S";
+            }
 
             if (cat === "sell") {
                 totalSell += net;

@@ -195,21 +195,27 @@ const SuperAdminDashboard = () => {
       
       const success = await updateUser(selectedUser.id, updates);
 
-      // Also update the user's metadata in Supabase Auth to sync the role for RLS
-      const { error: adminError } = await supabase.auth.admin.updateUserById(
-        selectedUser.id,
-        { user_metadata: { role: editRole, secondary_roles: editSecondaryRoles } }
-      );
+      // Securely update the user's role via an Edge Function
+      const { error: functionError } = await supabase.functions.invoke('set-user-role', {
+        body: {
+          userId: selectedUser.id,
+          role: editRole,
+          secondary_roles: editSecondaryRoles,
+          department: editDepartment, // Pass department in case you add logic for it later
+        },
+      });
 
-      if (adminError) throw adminError;
+      if (functionError) {
+        throw new Error(functionError.message);
+      }
 
-      if (!success) return;
+      if (!success) return; // This handles the local update to the 'users' table
 
       setSheetOpen(false);
       toast.success(`${selectedUser.name}'s role updated successfully`);
     } catch (error: any) {
       console.error("Error updating user:", error);
-      toast.error(`Failed to update permissions: ${error.message || "Database rejected the role"}`);
+      toast.error(`Failed to update permissions: ${error.message || "An unknown error occurred."}`);
     }
   };
 
@@ -720,11 +726,12 @@ const SuperAdminDashboard = () => {
             <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
               <p className="text-xs font-bold text-primary tracking-wider uppercase">{editingAnnouncement ? "Edit Announcement" : "Add New Announcement"}</p>
               <div className="flex flex-col gap-2">
-                <Input 
-                  placeholder="Enter announcement text..." 
+                <textarea
+                  placeholder="Enter announcement text..."
                   value={announcementContent} 
                   onChange={e => setAnnouncementContent(e.target.value)} 
-                  className="bg-background flex-1" 
+                  className="w-full min-h-[80px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  rows={2}
                 />
               </div>
               <div className="flex gap-2">

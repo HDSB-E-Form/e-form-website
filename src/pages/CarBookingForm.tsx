@@ -140,6 +140,10 @@ const CarBookingForm = () => {
     setPassengers(prev => [...prev, { name: "", staffId: "", position: "", department: "" }]);
   };
 
+  const handleRemovePassenger = (index: number) => {
+    setPassengers(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!policyAgreed) {
@@ -273,14 +277,20 @@ const CarBookingForm = () => {
                     Vehicle / Status
                   </div>
                   <div className="flex-1 flex">
-                    {timelineDays.map((day, i) => (
-                       <div key={i} className={`flex-1 p-3 text-center border-r border-border last:border-r-0 ${day.toDateString() === new Date().toDateString() ? 'bg-primary/5' : ''}`}>
-                         <div className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">{day.toLocaleDateString("en-GB", { weekday: 'short' })}</div>
-                         <div className={`text-sm font-bold mt-0.5 ${day.toDateString() === new Date().toDateString() ? 'text-primary' : 'text-foreground'}`}>
-                           {day.getDate()} {day.toLocaleDateString("en-GB", { month: 'short' })}
-                         </div>
-                       </div>
-                    ))}
+                  {timelineDays.map((day, i) => (
+                    <div key={i} className={`flex-1 flex flex-col border-r border-border last:border-r-0 ${day.toDateString() === new Date().toDateString() ? 'bg-primary/5' : ''}`}>
+                      <div className="text-center p-2 border-b border-border">
+                        <div className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">{day.toLocaleDateString("en-GB", { weekday: 'short' })}</div>
+                        <div className={`text-sm font-bold mt-0.5 ${day.toDateString() === new Date().toDateString() ? 'text-primary' : 'text-foreground'}`}>
+                          {day.getDate()} {day.toLocaleDateString("en-GB", { month: 'short' })}
+                        </div>
+                      </div>
+                      <div className="flex text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                        <div className="flex-1 text-center py-1 border-r border-border/50">AM</div>
+                        <div className="flex-1 text-center py-1">PM</div>
+                      </div>
+                    </div>
+                  ))}
                   </div>
                 </div>
 
@@ -306,8 +316,8 @@ const CarBookingForm = () => {
                         <div className="flex-1 flex relative">
                           {timelineDays.map((day, i) => (
                              <div key={i} className="flex-1 border-r border-border last:border-r-0 py-1 min-h-[46px] relative pointer-events-none">
-                               {/* Subtle 12 PM (Noon) indicator line */}
-                               <div className="absolute top-0 bottom-0 left-1/2 border-l border-border/40 border-dashed"></div>
+                               {/* 12 PM (Noon) indicator line */}
+                               <div className="absolute top-0 bottom-0 left-1/2 border-l border-primary/20 border-dashed"></div>
                              </div>
                           ))}
                           
@@ -468,7 +478,7 @@ const CarBookingForm = () => {
             <button 
               type="button" 
               onClick={() => setIsAvailabilityModalOpen(true)} 
-              className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/80 transition-colors bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-md"
+              className="flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/90 transition-colors bg-primary/10 hover:bg-primary/20 px-4 py-2 rounded-lg shadow-sm border border-primary/20"
             >
               <CalendarDays className="h-4 w-4" /> View Availability
             </button>
@@ -575,6 +585,7 @@ const CarBookingForm = () => {
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Staff ID</th>
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Position / Jawatan</th>
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Department / Jabatan</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-center w-16">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -592,6 +603,13 @@ const CarBookingForm = () => {
                     </td>
                     <td className="px-2 py-2">
                       <Input value={p.department} onChange={e => handlePassengerChange(i, "department", e.target.value)} placeholder="Dept" className="h-10 border-0 bg-transparent shadow-none text-sm" />
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      {i > 0 && (
+                        <button type="button" onClick={() => handleRemovePassenger(i)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

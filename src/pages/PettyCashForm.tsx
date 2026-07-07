@@ -299,31 +299,27 @@ const PettyCashForm = () => {
           </div>
 
           {/* Pre-filled Details (Do not require filling) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-muted/10 p-4 rounded-xl border border-border/50">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name / Nama</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
+          <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No. Pekerja</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.employeeNumber || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.employeeNumber || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Department / Jabatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.department || "—"}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Mobile Number / No. Telefon</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.phone || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
 
           {/* Input Fields (Require filling) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Department Code / Kod Jabatan <span className="text-destructive">*</span></Label>
               <Select
@@ -367,6 +363,9 @@ const PettyCashForm = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-muted/50">
+                  <th className="text-center text-xs font-semibold text-primary p-3 border border-border w-12">
+                    No.
+                  </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
                     Claim Details
                   </th>
@@ -382,6 +381,9 @@ const PettyCashForm = () => {
               <tbody>
                 {claimRows.map((row, i) => (
                   <tr key={i}>
+                    <td className="p-1.5 border border-border text-center font-medium text-sm text-muted-foreground">
+                      {i + 1}.
+                    </td>
                     <td className="p-1.5 border border-border">
                       <Input
                         value={row.description}
@@ -419,7 +421,7 @@ const PettyCashForm = () => {
                   </tr>
                 ))}
                 <tr className="bg-muted/30">
-                  <td colSpan={2} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
+                  <td colSpan={3} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
                     Total (RM) <span className="text-[10px] text-destructive ml-2 font-bold">(Max RM 5000)</span>
                   </td>
                   <td className="p-3 border border-border text-right font-bold text-foreground text-lg">
