@@ -248,24 +248,24 @@ const PpeRequestForm = () => {
       toast.success("Collection record saved successfully!");
       navigate("/home");
 
-      // Send email notification as background best-effort action
-      try {
-        const recipientEmails = hrAdmins.map(admin => admin.email).filter(Boolean);
+      // // Send email notification as background best-effort action (DEACTIVATED)
+      // try {
+      //   const recipientEmails = hrAdmins.map(admin => admin.email).filter(Boolean);
 
-        if (recipientEmails.length > 0) {
-          await supabase.functions.invoke('send-notification', {
-            body: {
-              to: recipientEmails,
-              subject: `New ${requestType === "buy" ? "Purchase" : "Collection"} Record for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
-              employeeName: employeeInfo.name,
-              formType: requestType === "buy" ? "PPE | Uniform Purchase" : "PPE | Uniform | Office Supplies Request",
-              url: window.location.origin
-            }
-          });
-        }
-      } catch (err) {
-        console.error("Ignoring failed email notification:", err);
-      }
+      //   if (recipientEmails.length > 0) {
+      //     await supabase.functions.invoke('send-notification', {
+      //       body: {
+      //         to: recipientEmails,
+      //         subject: `New ${requestType === "buy" ? "Purchase" : "Collection"} Record for ${requestCategory.toUpperCase()} from ${employeeInfo.name}`,
+      //         employeeName: employeeInfo.name,
+      //         formType: requestType === "buy" ? "PPE | Uniform Purchase" : "PPE | Uniform | Office Supplies Request",
+      //         url: window.location.origin
+      //       }
+      //     });
+      //   }
+      // } catch (err) {
+      //   console.error("Ignoring failed email notification:", err);
+      // }
     } else {
       setIsSubmitting(false);
     }

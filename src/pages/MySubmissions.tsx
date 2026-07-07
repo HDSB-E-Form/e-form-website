@@ -42,14 +42,17 @@ const getOverallStatus = (sub: Submission) => {
   if (sub.status === "rejected") return { label: "Rejected", color: "bg-destructive", progress: 100 };
   if (sub.status === "completed") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
   if (sub.status === "approved" || sub.status === "paid") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
+  
   if (sub.formType === 'claim') {
     if (sub.status === "approved_hof") return { label: "Pending Finance Payment", color: "bg-teal-500", progress: 95 };
     if (sub.status === "approved_hop") return { label: "Pending HOF", color: "bg-sky-500", progress: 85 };
     if (sub.status === "pending_finance_review") return { label: "Pending Finance Review", color: "bg-fuchsia-500", progress: 75 };
     if (sub.status === "approved_hod") return { label: "Pending HOP", color: "bg-blue-500", progress: 60 };
     if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 40 };
-    if (sub.status === "pending") return { label: "Pending HOS", color: "bg-amber-500", progress: 20 };
-  } else if (sub.formType === 'leave') {
+    return { label: "Pending HOS", color: "bg-amber-500", progress: 20 }; // Default for claim
+  } 
+  
+  if (sub.formType === 'leave') {
     if (sub.status === "approved") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
     if (sub.status === "on_leave") return { label: "On Leave", color: "bg-indigo-500", progress: 90 };
     if (sub.status === "approved_hod") return { label: "Pending Security", color: "bg-blue-500", progress: 75 };
@@ -57,8 +60,9 @@ const getOverallStatus = (sub: Submission) => {
     // Standard HOD approval for other forms
     if (sub.status === "approved_hod") return { label: "Pending Admin", color: "bg-blue-500", progress: 75 };
   }
+
   if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 50 };
-  return { label: "Pending", color: "bg-muted-foreground/50", progress: 25 };
+  return { label: "Pending HOS", color: "bg-amber-500", progress: 25 };
 };
 
 const MySubmissions = () => {

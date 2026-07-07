@@ -193,36 +193,36 @@ const CarBookingForm = () => {
       data: { ...form, passengers, hosName: form.hos, hodName: form.hod, licenseAttachment: licenseAttachmentUrl },
     });
     if (success) {
-      // --- 🔔 SEND EMAIL NOTIFICATION ---
-      try {
-        const selectedHos = hosUsers.find(u => u.name === form.hos);
-        const selectedHod = hodUsers.find(u => u.name === form.hod);
-        
-        // Gather all recipient emails
-        const recipientEmails = [
-          selectedHos?.email,
-          selectedHod?.email,
-          ...hrAdmins.map(admin => admin.email)
-        ].filter(Boolean); // Filter out empty/undefined values
+      // // --- 🔔 SEND EMAIL NOTIFICATION (DEACTIVATED) ---
+      // try {
+      //   const selectedHos = hosUsers.find(u => u.name === form.hos);
+      //   const selectedHod = hodUsers.find(u => u.name === form.hod);
+      //   
+      //   // Gather all recipient emails
+      //   const recipientEmails = [
+      //     selectedHos?.email,
+      //     selectedHod?.email,
+      //     ...hrAdmins.map(admin => admin.email)
+      //   ].filter(Boolean); // Filter out empty/undefined values
 
-        if (recipientEmails.length > 0) {
-          const { error: invokeError } = await supabase.functions.invoke('send-notification', {
-            body: {
-              to: recipientEmails,
-              subject: `New Company Car Request from ${form.name}`,
-              employeeName: form.name,
-              formType: "Company Car Request / Permohonan Kereta Syarikat",
-              url: window.location.origin
-            }
-          });
+      //   if (recipientEmails.length > 0) {
+      //     const { error: invokeError } = await supabase.functions.invoke('send-notification', {
+      //       body: {
+      //         to: recipientEmails,
+      //         subject: `New Company Car Request from ${form.name}`,
+      //         employeeName: form.name,
+      //         formType: "Company Car Request / Permohonan Kereta Syarikat",
+      //         url: window.location.origin
+      //       }
+      //     });
 
-          if (invokeError) {
-            console.error("Edge Function Error:", invokeError);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to prepare email notification", err);
-      }
+      //     if (invokeError) {
+      //       console.error("Edge Function Error:", invokeError);
+      //     }
+      //   }
+      // } catch (err) {
+      //   console.error("Failed to prepare email notification", err);
+      // }
 
       toast.success("Company car request submitted successfully!");
       navigate("/home");

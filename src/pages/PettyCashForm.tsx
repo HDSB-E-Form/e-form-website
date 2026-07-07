@@ -232,41 +232,41 @@ const PettyCashForm = () => {
       },
     });
     if (success) {
-      // --- 🔔 SEND EMAIL NOTIFICATION ---
-      try {
-        const selectedHos = hosUsers.find(u => u.name === hosName);
-        const selectedHod = hodUsers.find(u => u.name === hodName);
-        const selectedHop = purchasingHeads.find(u => u.name === hopName);
-        const selectedHof = financeHeads.find(u => u.name === hofName);
-        
-        // Gather all recipient emails
-        const recipientEmails = [
-          selectedHos?.email,
-          selectedHod?.email,
-          selectedHop?.email,
-          selectedHof?.email,
-          ...financeAdmins.map(admin => admin.email)
-        ].filter(Boolean); // Filter out empty/undefined values
+      // // --- 🔔 SEND EMAIL NOTIFICATION (DEACTIVATED) ---
+      // try {
+      //   const selectedHos = hosUsers.find(u => u.name === hosName);
+      //   const selectedHod = hodUsers.find(u => u.name === hodName);
+      //   const selectedHop = purchasingHeads.find(u => u.name === hopName);
+      //   const selectedHof = financeHeads.find(u => u.name === hofName);
+      //   
+      //   // Gather all recipient emails
+      //   const recipientEmails = [
+      //     selectedHos?.email,
+      //     selectedHod?.email,
+      //     selectedHop?.email,
+      //     selectedHof?.email,
+      //     ...financeAdmins.map(admin => admin.email)
+      //   ].filter(Boolean); // Filter out empty/undefined values
 
-        if (recipientEmails.length > 0) {
-          const { error: invokeError } = await supabase.functions.invoke('send-notification', {
-            body: {
-              to: recipientEmails,
-              subject: `New Claim Submission from ${employeeInfo.name}`,
-              employeeName: employeeInfo.name,
-              formType: "Petty Cash Claim",
-              amount: totalAmount.toString(),
-              url: window.location.origin
-            }
-          });
+      //   if (recipientEmails.length > 0) {
+      //     const { error: invokeError } = await supabase.functions.invoke('send-notification', {
+      //       body: {
+      //         to: recipientEmails,
+      //         subject: `New Claim Submission from ${employeeInfo.name}`,
+      //         employeeName: employeeInfo.name,
+      //         formType: "Petty Cash Claim",
+      //         amount: totalAmount.toString(),
+      //         url: window.location.origin
+      //       }
+      //     });
 
-          if (invokeError) {
-            console.error("Edge Function Error:", invokeError);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to prepare email notification", err);
-      }
+      //     if (invokeError) {
+      //       console.error("Edge Function Error:", invokeError);
+      //     }
+      //   }
+      // } catch (err) {
+      //   console.error("Failed to prepare email notification", err);
+      // }
 
       toast.success("Petty cash claim submitted successfully!");
       navigate("/home");
