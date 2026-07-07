@@ -19,20 +19,26 @@ const formTypeLabels: Record<string, string> = {
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">APPROVED</Badge>;
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">REJECTED</Badge>;
+      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REJECTED</Badge>;
+    case "paid":
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PAID</Badge>;
+    case "completed":
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">COMPLETED</Badge>;
+    case "pending_finance_review":
+      return <Badge className="bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">FINANCE REVIEW</Badge>;
     case "approved_hof":
-      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOF APPROVED</Badge>;
     case "approved_hop":
-      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOP APPROVED</Badge>;
     case "approved_hod":
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOD APPROVED</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOS APPROVED</Badge>;
     case "pending":
     default:
-      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">PENDING</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING</Badge>;
   }
 };
 
@@ -435,7 +441,7 @@ const AllSubmissionsPage = () => {
 
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Calendar className="h-5 w-5 text-primary"/> All System Submissions</h2>
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2 shrink-0"><Calendar className="h-5 w-5 text-primary"/> All System Submissions</h2>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -455,28 +461,28 @@ const AllSubmissionsPage = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
-                const today = new Date();
-                const last7 = new Date(today);
-                last7.setDate(today.getDate() - 7);
-                setStartDate(last7.toISOString().split('T')[0]);
-                setEndDate(today.toISOString().split('T')[0]);
+                  const today = new Date();
+                  const last7 = new Date(today);
+                  last7.setDate(today.getDate() - 7);
+                  setStartDate(last7.toISOString().split('T')[0]);
+                  setEndDate(today.toISOString().split('T')[0]);
               }}>Last 7 Days</Button>
               <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
-                const today = new Date();
-                const last30 = new Date(today);
-                last30.setDate(today.getDate() - 30);
-                setStartDate(last30.toISOString().split('T')[0]);
-                setEndDate(today.toISOString().split('T')[0]);
+                  const today = new Date();
+                  const last30 = new Date(today);
+                  last30.setDate(today.getDate() - 30);
+                  setStartDate(last30.toISOString().split('T')[0]);
+                  setEndDate(today.toISOString().split('T')[0]);
               }}>Last 30 Days</Button>
               {isFiltered && (
                 <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => {
-                  setSearch("");
-                  setStartDate("");
-                  setEndDate("");
-                }}>
+                    setSearch("");
+                    setStartDate("");
+                    setEndDate("");
+                  }}>
                   <XCircle className="h-4 w-4 mr-1.5" /> Clear
-                </Button>
-              )}
+                  </Button>
+                )}
             </div>
           </div>
         </div>

@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 // ADDED: "Save" icon to the lucide-react imports
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil, Save } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil, Save, Upload, Image as ImageIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
@@ -194,6 +194,15 @@ const SuperAdminDashboard = () => {
       };
       
       const success = await updateUser(selectedUser.id, updates);
+
+      // Also update the user's metadata in Supabase Auth to sync the role for RLS
+      const { error: adminError } = await supabase.auth.admin.updateUserById(
+        selectedUser.id,
+        { user_metadata: { role: editRole, secondary_roles: editSecondaryRoles } }
+      );
+
+      if (adminError) throw adminError;
+
       if (!success) return;
 
       setSheetOpen(false);
@@ -291,18 +300,17 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  // ADDED / FIXED: Handlers for announcements
   const handleAnnouncementSubmit = async () => {
     if (!announcementContent.trim()) {
       toast.error("Announcement content cannot be empty.");
       return;
     }
-
+  
     try {
       if (editingAnnouncement) {
-        const success = await updateAnnouncement(editingAnnouncement.id, { 
-          content: announcementContent, 
-          is_active: editingAnnouncement.is_active 
+        const success = await updateAnnouncement(editingAnnouncement.id, {
+          content: announcementContent,
+          is_active: editingAnnouncement.is_active,
         });
         if (success) {
           toast.success("Announcement updated successfully!");
@@ -310,28 +318,21 @@ const SuperAdminDashboard = () => {
           setAnnouncementContent("");
         }
       } else {
-        // Add new announcement
-        // Deactivate all other announcements first
-        const activeAnnouncements = announcements.filter(ann => ann.is_active);
-        for (const ann of activeAnnouncements) {
-          await updateAnnouncement(ann.id, { ...ann, is_active: false });
-        }
-
-        // Add the new announcement and set it as active
         const success = await addAnnouncement(announcementContent, true);
         if (success) {
           toast.success("Announcement published successfully!");
           setAnnouncementContent("");
         }
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong handling your request.");
+    } catch (error) {
+      console.error("Error handling announcement:", error);
+      toast.error("Failed to save announcement.");
     }
   };
 
   const handleToggleAnnouncementActive = async (announcement: Announcement) => {
     try {
+      // If we are activating a new announcement, deactivate all others first.
       if (!announcement.is_active && announcements) {
         await Promise.all(
           announcements
@@ -339,9 +340,11 @@ const SuperAdminDashboard = () => {
             .map(ann => updateAnnouncement(ann.id, { content: ann.content, is_active: false }))
         );
       }
+      // Then, toggle the state of the selected announcement.
       await updateAnnouncement(announcement.id, { content: announcement.content, is_active: !announcement.is_active });
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error("Error toggling announcement:", error);
+      toast.error("Failed to update announcement status.");
     }
   };
 
@@ -349,13 +352,10 @@ const SuperAdminDashboard = () => {
     if (!window.confirm("Are you sure you want to delete this notification?")) return;
     try {
       const success = await deleteAnnouncement(id);
-      if (success) {
-        toast.success("Announcement removed.");
-      } else {
-        toast.error("Could not remove announcement.");
-      }
-    } catch (err) {
-      console.error(err);
+      if (success) toast.success("Announcement removed.");
+    } catch (error) {
+      console.error("Error deleting announcement:", error);
+      toast.error("Failed to delete announcement.");
     }
   };
 
@@ -546,8 +546,9 @@ const SuperAdminDashboard = () => {
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="pb-0">
             <SheetTitle className="text-xl font-bold text-foreground">Manage User</SheetTitle>
-            <p className="text-sm text-muted-foreground">Editing: {selectedUser?.name}</p>
-            <p className="text-xs text-muted-foreground">{selectedUser?.email}</p>
+            <SheetDescription className="text-sm text-muted-foreground pt-1">
+              Editing permissions for {selectedUser?.name} ({selectedUser?.email}).
+            </SheetDescription>
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">
@@ -670,7 +671,9 @@ const SuperAdminDashboard = () => {
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="pb-4 border-b border-border">
             <SheetTitle className="text-xl font-bold text-foreground">Manage Departments</SheetTitle>
-            <p className="text-sm text-muted-foreground">Add new departments or remove existing ones.</p>
+            <SheetDescription className="text-sm text-muted-foreground pt-1">
+              Add new departments or remove existing ones from the system.
+            </SheetDescription>
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">
@@ -708,7 +711,9 @@ const SuperAdminDashboard = () => {
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader className="pb-4 border-b border-border">
             <SheetTitle className="text-xl font-bold text-foreground">Manage Announcements</SheetTitle>
-            <p className="text-sm text-muted-foreground">Create and manage global site announcements.</p>
+            <SheetDescription className="text-sm text-muted-foreground pt-1">
+              Create and manage global site announcements for all users.
+            </SheetDescription>
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">

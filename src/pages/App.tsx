@@ -19,7 +19,6 @@ import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import CarBookingForm from "@/pages/CarBookingForm";
 import LeaveForm from "@/pages/LeaveForm";
-import PpeRequestForm from "@/pages/PpeRequestForm"; 
 import PettyCashForm from "@/pages/PettyCashForm";
 import MySubmissions from "@/pages/MySubmissions";
 import AdminDashboard from "@/pages/AdminDashboard";
@@ -37,6 +36,7 @@ import NotFound from "@/pages/NotFound";
 import AllSubmissionsPage from "@/pages/AllSubmissionsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import WasteInventoryForm from "@/pages/WasteInventoryForm"; 
+import PpeRequestForm from "@/pages/PpeRequestForm";
 import DailyOperationMonitoringForm from "@/pages/WaterTreatmentForm"; // Note: Renamed component
 
 import { useRealtimeNotifications } from "@/useRealtimeNotifications";
@@ -69,8 +69,7 @@ const App = () => (
                   <Route path="hr" element={<HRFormsPage />} />
                   <Route path="safety" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><SafetyFormsPage /></ProtectedRoute>} />
                   <Route path="safety/waste-inventory" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><WasteInventoryForm /></ProtectedRoute>} />
-                  <Route path="safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
-                  <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
+                  <Route path="safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />                  <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="finance" element={<FinanceFormsPage />} />
                   <Route path="hr/car-rental" element={<CarBookingForm />} />
                   <Route path="hr/leave" element={<LeaveForm />} />

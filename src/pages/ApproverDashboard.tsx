@@ -415,7 +415,7 @@ const ApproverDashboard = () => {
                     } else if (isHOD && selectedSubmission.status === "approved_hos") {
                       nextStatus = "approved_hod";
                     } else if (isHOP && selectedSubmission.status === "approved_hod") {
-                      nextStatus = "pending_finance_review";
+                      nextStatus = "approved_hop";
                     } else if (isHOF && selectedSubmission.status === "approved_hop") {
                       nextStatus = "approved_hof";
                     }

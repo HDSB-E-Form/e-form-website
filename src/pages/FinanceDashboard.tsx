@@ -336,7 +336,7 @@ const FinanceDashboard = () => {
                     REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
                   </button>
                   <button
-                    onClick={() => handleAction(selectedSubmission.id, "approved_hop")}
+                onClick={() => handleAction(selectedSubmission.id, "approved_hof")}
                     className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 text-xs sm:text-base"
                   >
                     APPROVE & PROCEED TO HOF

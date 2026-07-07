@@ -61,25 +61,17 @@ const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
 export function SubmissionsProvider({ children }: { children: React.ReactNode }) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [cars, setCars] = useState<CarInfo[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    try {
-      const stored = localStorage.getItem("hdsb_announcements");
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      console.error("Failed to parse announcements from localStorage", e);
-      return [];
-    }
-  });
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Announcements are no longer fetched from Supabase
-        const [submissionsRes, carsRes] = await Promise.all([
+        const [submissionsRes, carsRes, announcementsRes] = await Promise.all([
           supabase.from("submissions").select("*").order("submittedAt", { ascending: false }),
           supabase.from("cars").select("*").order("model"),
+          supabase.from("announcements").select("*").order("created_at", { ascending: false }),
         ]);
 
         if (submissionsRes.error) throw submissionsRes.error;
@@ -87,23 +79,20 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
 
         setSubmissions(submissionsRes.data as Submission[]);
         setCars(carsRes.data as CarInfo[]);
+        
+        if (announcementsRes.error) {
+          console.warn("Could not fetch announcements:", announcementsRes.error.message);
+        } else {
+          setAnnouncements(announcementsRes.data as Announcement[]);
+        }
       } catch (error) {
-        console.error("Error fetching submissions or cars:", error);
+        console.error("Error fetching initial data:", error);
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
   }, []);
-
-  // Persist announcements to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem("hdsb_announcements", JSON.stringify(announcements));
-    } catch (e) {
-      console.error("Failed to save announcements to localStorage", e);
-    }
-  }, [announcements]);
 
   const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
     let newId = "";
@@ -256,31 +245,38 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
   }, []);
 
   const addAnnouncement = useCallback(async (content: string, isActive: boolean) => {
-    const newAnnouncement: Announcement = {
-      id: `ann-${Date.now()}`,
-      content,
-      is_active: isActive,
-      created_at: new Date().toISOString(),
-    };
-    setAnnouncements(prev => [newAnnouncement, ...prev.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())]);
-    return true;
+    const { data, error } = await supabase.from('announcements').insert([{ content, is_active: isActive }]).select();
+    if (error) {
+      console.error("Error adding announcement:", error);
+      toast.error("Database error: " + error.message);
+      return false;
+    }
+    if (data) {
+      setAnnouncements(prev => [data[0] as Announcement, ...prev]);
+      return true;
+    }
+    return false;
   }, []);
 
   const updateAnnouncement = useCallback(async (id: string, updates: Partial<Omit<Announcement, 'id' | 'created_at'>>) => {
-    setAnnouncements(prev =>
-      prev
-        .map(ann => (ann.id === id ? { ...ann, ...updates } : ann))
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    );
+    const { error } = await supabase.from('announcements').update(updates).eq('id', id as any);
+    if (error) {
+      console.error("Error updating announcement:", error);
+      toast.error("Database error: " + error.message);
+      return false;
+    }
+    setAnnouncements(prev => prev.map(ann => (ann.id === id ? { ...ann, ...updates } : ann)));
     return true;
   }, []);
 
   const deleteAnnouncement = useCallback(async (id: string) => {
-    setAnnouncements(prev =>
-      prev
-        .filter(ann => ann.id !== id)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    );
+    const { error } = await supabase.from('announcements').delete().eq('id', id as any);
+    if (error) {
+      console.error("Error deleting announcement:", error);
+      toast.error("Database error: " + error.message);
+      return false;
+    }
+    setAnnouncements(prev => prev.filter(ann => ann.id !== id));
     return true;
   }, []);
 
