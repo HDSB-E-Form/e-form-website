@@ -2,7 +2,18 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { supabase } from "@/supabase";
 import { toast } from "sonner";
 
-export type SubmissionStatus = "pending" | "approved_hos" | "approved_hod" | "approved_hop" | "approved_hof" | "on_leave" | "approved" | "rejected";
+export type SubmissionStatus =
+  | "pending"
+  | "approved_hos"
+  | "approved_hod"
+  | "approved_hop"
+  | "approved_hof"
+  | "on_leave"
+  | "approved"
+  | "rejected"
+  | "paid"
+  | "completed"
+  | "pending_finance_review";
 export type FormType = "car_rental" | "leave" | "claim" | "ppe_request" | "inventory_addition" | "waste_inventory" | "mixing_chemical_stages" | "final_discharge" | string;
 
 export interface Submission {

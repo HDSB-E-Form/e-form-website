@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const MixingDashboard = () => {
+    const { user } = useAuth();
     const { submissions, addSubmission } = useSubmissions();
 
     const getToday = () => new Date().toISOString().split('T')[0];
@@ -190,6 +192,15 @@ const MixingDashboard = () => {
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            {/* Print Header */}
+            <div className="hidden print:block mb-4">
+                <h2 className="text-lg font-bold">Mixing & Chemical Stages Report</h2>
+                {(mixingStartDate || mixingEndDate) && (
+                    <p className="text-sm text-gray-600">
+                        Date Range: <strong>{mixingStartDate}</strong> to <strong>{mixingEndDate}</strong>
+                    </p>
+                )}
+            </div>
             <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Mixing & Chemical Stages</h1>

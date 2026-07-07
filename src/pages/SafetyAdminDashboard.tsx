@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +19,7 @@ const parameterOptions = [
 ];
 
 const SafetyAdminDashboard = () => {
+    const { user } = useAuth();
     const { submissions, addSubmission } = useSubmissions();
     const [selectedParameter, setSelectedParameter] = useState("ph4");
 
@@ -477,6 +479,18 @@ const SafetyAdminDashboard = () => {
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            {/* Print Header */}
+            <div className="hidden print:block mb-4">
+                <h2 className="text-lg font-bold">Safety Report</h2>
+                {(dashboardView === 'discharge' && (dischargeStartDate || dischargeEndDate)) || (dashboardView === 'mixing' && (mixingStartDate || mixingEndDate)) || (dashboardView === 'waste' && (wasteStartDate || wasteEndDate)) ? (
+                    <p className="text-sm text-gray-600">
+                        Date Range: 
+                        <strong>{dashboardView === 'discharge' ? dischargeStartDate : dashboardView === 'mixing' ? mixingStartDate : wasteStartDate}</strong> to 
+                        <strong>{dashboardView === 'discharge' ? dischargeEndDate : dashboardView === 'mixing' ? mixingEndDate : wasteEndDate}</strong>
+                    </p>
+                ) : null}
+            </div>
+
             <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Safety Department Dashboard</h1>
