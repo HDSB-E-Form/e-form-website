@@ -306,8 +306,8 @@ const CarManagement = () => {
                       <p className="text-xs text-muted-foreground">{car.plateNumber} • {car.type || "Sedan"}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between w-full sm:w-auto">
-                    <div className="text-left sm:text-right">
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-6">
+                    <div className="text-left">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Booked By</p>
                       <p className="text-sm font-bold text-foreground">{car.lastCheckedOutBy || "—"}</p>
                     </div>

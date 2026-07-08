@@ -10,7 +10,7 @@ import { ArrowLeft, UserCheck, Info, ShieldCheck, Shield, Send, Car, LogIn, LogO
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
-const LeaveForm = () => {
+const GatePassForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
@@ -177,26 +177,22 @@ const LeaveForm = () => {
           </div>
 
           {/* Pre-filled Details (Do not require filling) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2 bg-muted/10 p-4 rounded-xl border border-border/50">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name / Nama</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
+          <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No Pekerja</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.staffNo || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Department / Jabatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.department || "—"}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Mobile Number / No. HP</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.phone || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
         </div>
@@ -309,9 +305,9 @@ const LeaveForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hosName} onValueChange={setHosName} disabled={areUsersLoading}>
+              <Select value={hosName} onValueChange={setHosName} disabled={areUsersLoading || hosUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Section"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -325,9 +321,9 @@ const LeaveForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hodName} onValueChange={setHodName} disabled={areUsersLoading}>
+              <Select value={hodName} onValueChange={setHodName} disabled={areUsersLoading || hodUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Department"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {hodUsers.map(u => (
@@ -409,4 +405,4 @@ const LeaveForm = () => {
   );
 };
 
-export default LeaveForm;
+export default GatePassForm;

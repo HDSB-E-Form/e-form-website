@@ -102,7 +102,7 @@ const RegisterPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="employeeId">Staff ID <span className="text-destructive">*</span></Label>
-                    <Input id="employeeId" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="e.g. 100202" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <Input id="employeeId" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                   <div className="space-y-2">
                   <Label htmlFor="phone">Phone No. <span className="text-muted-foreground text-[10px] font-normal ml-1">(Optional)</span></Label>

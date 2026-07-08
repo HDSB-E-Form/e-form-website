@@ -278,6 +278,23 @@ const FinanceDashboard = () => {
           </a>
         )}
 
+        {/* Uploaded Receipts */}
+        {selectedSubmission.data.receiptAttachments && selectedSubmission.data.receiptAttachments.length > 0 && (
+          <div className="space-y-3 mb-6">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">Uploaded Receipts</p>
+            {selectedSubmission.data.receiptAttachments.map((url: string, idx: number) => (
+              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium text-primary">View Receipt {idx + 1}</span>
+                </div>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </a>
+            ))}
+          </div>
+        )}
+
+
         {selectedSubmission.data.remarks && (
           <div className={`p-4 rounded-xl border mb-3 print:bg-white ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-background'}`}>
             <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks / Ulasan Pelulus</p>

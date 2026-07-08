@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Toolti
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, PieChart as PieChartIcon, Settings, Trash2, Pencil, Plus, Recycle } from "lucide-react";
+import { BarChart3, PieChart as PieChartIcon, Settings, Trash2, Pencil, Plus, Recycle, Download } from "lucide-react";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -16,6 +16,9 @@ const WasteDashboard = () => {
     const [wastePlantFilter, setWastePlantFilter] = useState<"All" | "Plant 1" | "Plant 2">("All");
     const [wasteSwFilter, setWasteSwFilter] = useState<string>("All");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const [exportStartDate, setExportStartDate] = useState("");
+    const [exportEndDate, setExportEndDate] = useState("");
     const [isWasteTypesOpen, setIsWasteTypesOpen] = useState(false);
     const [newTypeCategory, setNewTypeCategory] = useState<"sell" | "pay">("sell");
     const [newTypeName, setNewTypeName] = useState("");
@@ -124,6 +127,58 @@ const WasteDashboard = () => {
         toast.info("This feature is in development. Please contact support to rename types permanently.");
     };
 
+    const handleExportCSV = () => {
+        const start = exportStartDate || "0000-00-00";
+        const end = exportEndDate || "9999-12-31";
+
+        let dataToExport = wasteSubmissions.filter(s => {
+            const subDate = s.data.recordDate || new Date(s.submittedAt).toISOString().split('T')[0];
+            return subDate >= start && subDate <= end;
+        });
+
+        if (dataToExport.length === 0) {
+            toast.error("No waste inventory records found in the selected date range.");
+            return;
+        }
+
+        dataToExport.sort((a, b) => {
+            const dateA = a.data.recordDate || new Date(a.submittedAt).toISOString().split('T')[0];
+            const timeA = a.data.recordTime || "00:00";
+            const dateB = b.data.recordDate || new Date(b.submittedAt).toISOString().split('T')[0];
+            const timeB = b.data.recordTime || "00:00";
+            return `${dateA}T${timeA}`.localeCompare(`${dateB}T${timeB}`);
+        });
+
+        const formatDate = (d: string) => {
+            const parts = d.split('-');
+            return parts.length === 3 ? ` ${parts[2]}/${parts[1]}/${parts[0]}` : ` ${d}`;
+        };
+
+        let rows: string[][] = [
+            ["Date", "Time", "Plant", "Category", "Waste Type", "Gross Weight (kg)", "Container Weight (kg)", "Net Weight (kg)"]
+        ];
+
+        dataToExport.forEach(sub => {
+            const date = formatDate(sub.data.recordDate || new Date(sub.submittedAt).toISOString().split('T')[0]);
+            const time = sub.data.recordTime || "";
+            (sub.data.rows || []).forEach((row: any) => {
+                rows.push([date, time, sub.data.plant, sub.data.category, sub.data.wasteType, row.gross || "0", row.container || "0", (parseFloat(row.gross || "0") - parseFloat(row.container || "0")).toFixed(2)]);
+            });
+        });
+
+        const csvContent = rows.map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Scheduled_Waste_Inventory_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success("Scheduled Waste Inventory spreadsheet exported successfully!");
+    };
+
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
             {/* Print Header */}
@@ -148,6 +203,9 @@ const WasteDashboard = () => {
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
                             <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 w-full sm:w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                                    <Download className="h-4 w-4 text-muted-foreground" /> Export to Spreadsheet
+                                </button>
                                 <button onClick={() => { setIsWasteTypesOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
                                     <Settings className="h-4 w-4 text-muted-foreground" /> Manage Waste Types
                                 </button>
@@ -278,6 +336,50 @@ const WasteDashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Export Options Sheet */}
+            <Sheet open={isExportOpen} onOpenChange={setIsExportOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Export to Spreadsheet</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Download your records as a CSV file.</p>
+                    </SheetHeader>
+                    
+                    <div className="space-y-6">
+                        <div className="p-4 rounded-xl border border-border bg-background shadow-sm space-y-3">
+                            <Label className="text-xs font-bold text-foreground uppercase tracking-wider">Select Date Range</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">From Date</Label>
+                                    <Input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                                </div>
+                                <div>
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">To Date</Label>
+                                    <Input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                <button onClick={() => { const today = new Date().toISOString().split('T')[0]; setExportStartDate(today); setExportEndDate(today); }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Today</button>
+                                <button onClick={() => { const today = new Date(); const lastWeek = new Date(today); lastWeek.setDate(today.getDate() - 7); setExportStartDate(lastWeek.toISOString().split('T')[0]); setExportEndDate(today.toISOString().split('T')[0]); }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Last 7 Days</button>
+                                <button onClick={() => { const today = new Date(); const firstDay = new Date(today.getFullYear(), today.getMonth(), 1); setExportStartDate(firstDay.toISOString().split('T')[0]); setExportEndDate(today.toISOString().split('T')[0]); }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">This Month</button>
+                                <button onClick={() => { setExportStartDate(""); setExportEndDate(""); }} className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors">Clear</button>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-foreground">Scheduled Waste Inventory</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Export all waste calculator records.</p>
+                                <div className="mt-3">
+                                    <button onClick={() => { handleExportCSV(); setIsExportOpen(false); }} className="w-full py-2.5 bg-emerald-500 text-white font-bold text-xs rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
+                                        <Download className="h-3.5 w-3.5" /> Download Spreadsheet
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             {/* Manage Waste Types Sheet */}
             <Sheet open={isWasteTypesOpen} onOpenChange={setIsWasteTypesOpen}>

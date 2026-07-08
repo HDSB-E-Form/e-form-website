@@ -56,13 +56,24 @@ const HomePage = () => {
     },
   ];
 
-  const departments = allDepartments.filter(dept => {
-    if (dept.id === 'safety') {
-      return user?.role === 'safety_admin' || user?.role === 'super_admin';
-    }
-    return true;
-  });
+  const departments = useMemo(() => {
+    let depts = [...allDepartments];
 
+    // If the user is a safety admin, move the safety department to the front.
+    if (user?.role === 'safety_admin') {
+      const safetyIndex = depts.findIndex(d => d.id === 'safety');
+      if (safetyIndex > 0) {
+        const [safetyDept] = depts.splice(safetyIndex, 1);
+        depts.unshift(safetyDept);
+      }
+    }
+
+    // Filter out departments the user shouldn't see.
+    return depts.filter(dept => {
+      if (dept.id === 'safety') return user?.role === 'safety_admin' || user?.role === 'super_admin';
+      return true;
+    });
+  }, [user?.role]);
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       {/* Global Announcement Banner */}

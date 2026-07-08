@@ -231,23 +231,19 @@ const AllSubmissionsPage = () => {
               </>
             ) : selectedSubmission.formType === 'leave' ? (
               <>
-                <div className="bg-muted/30 rounded-xl p-4 my-4 border border-border/50">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Staff ID</p>
-                      <p className="font-semibold text-sm text-foreground">{selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.submittedBy || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Department</p>
-                      <p className="font-semibold text-sm text-foreground">{selectedSubmission.department || "—"}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Position</p>
-                      <p className="font-semibold text-sm text-foreground">{selectedSubmission.data.employeeInfo?.position || selectedSubmission.data.position || "—"}</p>
-                    </div>
-                  </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
                 </div>
-                <div className="py-2 border-y border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.department || "—"}</div>
+                </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.position || "—"}</div>
+                </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.purposeType === 'company' ? 'Company Business' : selectedSubmission.data.purposeType === 'personal' ? 'Personal Matter' : '—'}
@@ -384,6 +380,20 @@ const AllSubmissionsPage = () => {
             </a>
           </div>
         )}
+
+        {selectedSubmission.data.receiptAttachments && selectedSubmission.data.receiptAttachments.length > 0 && (
+          <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start print:hidden">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Uploaded Receipts</span>
+            <div className="sm:col-span-2 print:col-span-2 flex flex-col gap-2">
+              {selectedSubmission.data.receiptAttachments.map((url: string, idx: number) => (
+                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left print:text-black">
+                  <FileText className="h-4 w-4" /> View Receipt {idx + 1}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
           </div>
 
           {selectedSubmission.data.remarks && (
@@ -508,7 +518,7 @@ const AllSubmissionsPage = () => {
               <TableRow key={sub.id} className="hover:bg-muted/20">
                 <TableCell className="font-medium text-foreground">{sub.employeeName}</TableCell>
                 <TableCell className="uppercase text-xs font-bold text-foreground">{formTypeLabels[sub.formType] || sub.formType.replace("_", " ")}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString()}</TableCell>
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
                 <TableCell>{statusBadge(sub.status)}</TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-3">

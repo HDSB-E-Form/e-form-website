@@ -314,22 +314,22 @@ const PpeRequestForm = () => {
             </h2>
           </div>
 
-          <div className="bg-muted/10 p-4 rounded-xl border border-border/50 print:bg-transparent print:p-0 print:border-none print:rounded-none">
-            <div className="py-2 sm:py-3 border-b border-border/50 print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Name / Nama</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.name || "—"}</div>
+          <div className="bg-muted/10 p-4 rounded-xl border border-border/50 print:bg-transparent print:p-0 print:border-none print:rounded-none print:mb-4">
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
-            <div className="py-2 sm:py-3 border-b border-border/50 print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position / Jawatan</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.position || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
-            <div className="py-2 sm:py-3 border-b border-border/50 print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID / No Pekerja</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
             </div>
-            <div className="py-2 sm:py-3 border-b-0 print:border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start print:py-1">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department / Jabatan</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black sm:col-span-2">{employeeInfo.department || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
         </div>

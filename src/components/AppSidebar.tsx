@@ -1,5 +1,7 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
+import { useSubmissions } from "@/contexts/SubmissionsContext";
 import {
   Sidebar,
   SidebarContent,
@@ -12,6 +14,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
 import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -30,7 +33,7 @@ const hrAdminNav = [
 ];
 
 const financeAdminNav = [
-  { title: "Dashboard / Papan Pemuka", url: "/admin/finance", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/admin/finance", icon: LayoutDashboard },
 ];
 
 const safetyAdminNav = [
@@ -40,7 +43,7 @@ const safetyAdminNav = [
 ];
 
 const approverNav = [
-  { title: "Dashboard / Papan Pemuka", url: "/admin/approvals", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/admin/approvals", icon: LayoutDashboard },
 ];
 
 const securityNav = [
@@ -88,22 +91,53 @@ export function AppSidebar() {
   const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, logout } = useAuth();
+  const { submissions } = useSubmissions();
   const navigate = useNavigate(); 
 
   const isAdmin = user?.role && ["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard", "safety_admin"].includes(user.role);
   const isSuperAdmin = user?.role === "super_admin";
   const isSecurityGuard = user?.role === "security_guard";
+
+  const pendingCounts = useMemo(() => {
+    if (!user) return { hr: 0, finance: 0, approver: 0, security: 0 };
+
+    const hrCount = submissions.filter(s => 
+      s.status === 'approved_hod' && ['car_rental', 'leave'].includes(s.formType)
+    ).length;
+
+    const financeCount = submissions.filter(s => 
+      s.formType === 'claim' && ['pending_finance_review', 'approved_hof'].includes(s.status)
+    ).length;
+
+    const securityCount = submissions.filter(s => 
+      s.formType === 'leave' && s.status === 'approved_hod'
+    ).length;
+
+    const approverCount = submissions.filter(s => {
+      const isHOS = user.role === 'hos' && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name);
+      const isHOD = user.role === 'hod' && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name);
+      const isHOP = (user.role === 'head_of_purchasing' || user.secondary_roles?.includes('head_of_purchasing')) && s.formType === 'claim' && s.status === 'approved_hod' && s.data.hopName === user.name;
+      const isHOF = (user.role === 'head_of_finance' || user.secondary_roles?.includes('head_of_finance')) && s.formType === 'claim' && s.status === 'approved_hop' && s.data.hofName === user.name;
+      return isHOS || isHOD || isHOP || isHOF;
+    }).length;
+
+    return {
+      hr: hrCount,
+      finance: financeCount,
+      approver: approverCount,
+      security: securityCount,
+    };
+
+  }, [submissions, user]);
+
   const adminNav = getAdminNav(user?.role);
 
   const visibleEmployeeNav = employeeNav.filter(item => {
     // Hide personal "My Submissions" for standard admin/manager roles to keep their sidebars clean
     // Keep it visible for super admin to maintain previous design
     if (isSecurityGuard) {
-      // Security guard should only see the Home link from the main menu
-      if (item.title === "Home") {
-        return true;
-      }
-      return false;
+      // Security guard should only see Home and My Profile from the main menu
+      return item.title === "Home" || item.title === "My Profile";
     }
     return true;
   });
@@ -151,9 +185,19 @@ export function AppSidebar() {
               {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="hover:bg-sidebar-accent/50 text-base py-2.5" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold">
+                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="hover:bg-sidebar-accent/50 text-base py-2.5 flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold">
                       <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
-                      {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && (
+                          <div className="flex items-center gap-2">
+                            <span className="flex-1">{item.title}</span>
+                            {user?.role === 'hr_admin' && item.title === 'Form Approvals' && pendingCounts.hr > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.hr}</Badge>}
+                            {user?.role === 'finance_admin' && item.title.includes('Dashboard') && pendingCounts.finance > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.finance}</Badge>}
+                            {user?.role === 'security_guard' && item.title.includes('Dashboard') && pendingCounts.security > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.security}</Badge>}
+                            {(user?.role === 'hod' || user?.role === 'hos' || user?.secondary_roles?.includes('head_of_purchasing') || user?.secondary_roles?.includes('head_of_finance')) && item.title.includes('Dashboard') && pendingCounts.approver > 0 && (
+                              <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.approver}</Badge>
+                            )}
+                          </div>
+                        )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -170,9 +214,19 @@ export function AppSidebar() {
                 {adminNav.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="hover:bg-sidebar-accent/50 text-base py-2.5" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold">
+                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="hover:bg-sidebar-accent/50 text-base py-2.5 flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold">
                         <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
-                        {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && (
+                          <div className="flex items-center gap-2">
+                            <span className="flex-1">{item.title}</span>
+                            {user?.role === 'hr_admin' && item.title === 'Form Approvals' && pendingCounts.hr > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.hr}</Badge>}
+                            {user?.role === 'finance_admin' && item.title.includes('Dashboard') && pendingCounts.finance > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.finance}</Badge>}
+                            {user?.role === 'security_guard' && item.title.includes('Dashboard') && pendingCounts.security > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.security}</Badge>}
+                            {(user?.role === 'hod' || user?.role === 'hos' || user?.secondary_roles?.includes('head_of_purchasing') || user?.secondary_roles?.includes('head_of_finance')) && item.title.includes('Dashboard') && pendingCounts.approver > 0 && (
+                              <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.approver}</Badge>
+                            )}
+                          </div>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -517,8 +517,8 @@ const AdminDashboard = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-col items-start gap-1">
-                                <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
+                              <div className="flex flex-col items-start gap-1 whitespace-nowrap">
+                                <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
                             </TableCell>
                             <TableCell>

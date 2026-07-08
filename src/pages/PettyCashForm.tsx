@@ -450,9 +450,9 @@ const PettyCashForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hosName || undefined} onValueChange={setHosName} disabled={areUsersLoading}>
+              <Select value={hosName || undefined} onValueChange={setHosName} disabled={areUsersLoading || hosUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Section"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -466,9 +466,9 @@ const PettyCashForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hodName || undefined} onValueChange={setHodName} disabled={areUsersLoading}>
+              <Select value={hodName || undefined} onValueChange={setHodName} disabled={areUsersLoading || hodUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Department"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -482,9 +482,9 @@ const PettyCashForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Purchasing / Ketua Pembelian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hopName || undefined} onValueChange={setHopName} disabled={areUsersLoading}>
+              <Select value={hopName || undefined} onValueChange={setHopName} disabled={areUsersLoading || purchasingHeads.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Purchasing"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Purchasing"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {purchasingHeads.map(u => (
@@ -497,9 +497,9 @@ const PettyCashForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Finance / Ketua Kewangan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hofName || undefined} onValueChange={setHofName} disabled={areUsersLoading}>
+              <Select value={hofName || undefined} onValueChange={setHofName} disabled={areUsersLoading || financeHeads.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Finance"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Finance"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {financeHeads.map(u => (

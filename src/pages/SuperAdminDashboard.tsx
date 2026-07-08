@@ -205,14 +205,10 @@ const SuperAdminDashboard = () => {
         },
       });
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
+    if (functionError) throw functionError;
 
-      if (!success) return; // This handles the local update to the 'users' table
-
-      setSheetOpen(false);
-      toast.success(`${selectedUser.name}'s role updated successfully`);
+    setSheetOpen(false);
+    toast.success(`${selectedUser.name}'s role updated successfully`);
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(`Failed to update permissions: ${error.message || "An unknown error occurred."}`);

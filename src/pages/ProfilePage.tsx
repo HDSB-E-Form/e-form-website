@@ -291,7 +291,7 @@ const ProfilePage = () => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Staff ID</p>
-                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><IdCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.employeeId}</p>
+                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><IdCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.employeeId || <span className="text-muted-foreground italic">Not set</span>}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Department</p>
@@ -347,7 +347,7 @@ const ProfilePage = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label>Staff ID</Label>
-                      <Input value={profile.employeeId} onChange={e => handleProfileChange("employeeId", e.target.value)} />
+                      <Input value={profile.employeeId} onChange={e => handleProfileChange("employeeId", e.target.value)} placeholder="Enter your Staff ID" />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

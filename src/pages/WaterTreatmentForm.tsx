@@ -160,42 +160,6 @@ const DailyOperationMonitoringForm = () => {
 
       <form onSubmit={handleOpenConfirm} className="space-y-6">
 
-        {/* SECTION 0: Employee Details */}
-        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 mb-5">
-            <UserCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
-              Employee Details / <span className="font-normal text-muted-foreground">Maklumat Pekerja</span>
-            </h2>
-          </div>
-
-          {activeFormType === "mixing" && processInfo.mixingTankBatchNo && (
-            <div className="mb-3 pl-1">
-              <span className="text-[10px] font-bold text-primary uppercase tracking-wider mr-2">Batch Number:</span>
-              <span className="text-sm font-bold text-foreground tracking-widest">{processInfo.mixingTankBatchNo}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-xl border border-border/50">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name / Nama</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.name || "—"}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.position || "—"}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / No Pekerja</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.staffNo || "—"}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Department / Jabatan</Label>
-              <div className="font-medium text-foreground text-sm">{employeeInfo.department || "—"}</div>
-            </div>
-          </div>
-        </div>
-
         {/* SECTION 1: Meta Information (Unified for both forms) */}
         <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
           <div className="flex items-center gap-2 mb-5">
@@ -238,12 +202,20 @@ const DailyOperationMonitoringForm = () => {
         <>
           {/* SECTION 2: Mixing & Treatment Stages */}
           <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 mb-5">
-            <Layers className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
-              Mixing & Chemical Stages / <span className="font-normal text-muted-foreground">Tahap Campuran Kimia</span>
-            </h2>
-          </div>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-primary" />
+                <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+                  Mixing & Chemical Stages / <span className="font-normal text-muted-foreground">Tahap Campuran Kimia</span>
+                </h2>
+              </div>
+              {processInfo.mixingTankBatchNo && (
+                <div className="text-right">
+                  <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Batch Number</div>
+                  <div className="text-sm font-bold text-foreground tracking-widest">{processInfo.mixingTankBatchNo}</div>
+                </div>
+              )}
+            </div>
 
           {/* Mixing Tank Unit */}
           <div className="mb-6 p-4 rounded-xl border border-border/60 bg-muted/5">
@@ -446,14 +418,21 @@ const DailyOperationMonitoringForm = () => {
         </div>
 
         {/* Submit Section */}
-        <div className="flex justify-center pt-4 pb-8">
+        <div className="flex flex-col-reverse sm:flex-row-reverse sm:justify-center gap-3 sm:gap-4 pt-4 pb-8">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
           {isSubmitting ? "Submitting Records..." : activeFormType === "mixing" ? "Submit Mixing Log" : "Submit Discharge Log"}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/safety")}
+            className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
+          >
+            Cancel
           </button>
         </div>
       </form>

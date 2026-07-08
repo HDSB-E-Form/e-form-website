@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { DollarSign, ArrowLeft } from "lucide-react";
+import { DollarSign, ArrowLeft, UploadCloud } from "lucide-react";
 
 const FinanceFormsPage = () => {
   const navigate = useNavigate();
@@ -30,6 +30,22 @@ const FinanceFormsPage = () => {
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">Petty Cash Claim</h2>
           <p className="text-muted-foreground text-sm">Submit petty cash claims for reimbursement</p>
+          <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
+            Open Form →
+          </div>
+        </div>
+        <div
+          onClick={() => navigate("/finance/receipt-upload")}
+          className="dept-card group"
+        >
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-5">
+            <UploadCloud 
+              className="h-7 w-7 text-white" 
+              strokeWidth={2} 
+            />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-2">Upload Receipt</h2>
+          <p className="text-muted-foreground text-sm">Attach a receipt to a previously submitted Petty Cash Claim.</p>
           <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
             Open Form →
           </div>

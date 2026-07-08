@@ -18,8 +18,9 @@ import HRFormsPage from "@/pages/HRFormsPage";
 import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import CarBookingForm from "@/pages/CarBookingForm";
-import LeaveForm from "@/pages/LeaveForm";
+import GatePassForm from "@/pages/GatePassForm";
 import PettyCashForm from "@/pages/PettyCashForm";
+import ReceiptUploadForm from "@/pages/ReceiptUploadForm"; // Import the new form
 import MySubmissions from "@/pages/MySubmissions";
 import AdminDashboard from "@/pages/AdminDashboard";
 import FinanceDashboard from "@/pages/FinanceDashboard"; 
@@ -72,8 +73,9 @@ const App = () => (
                   <Route path="safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />                  <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="finance" element={<FinanceFormsPage />} />
                   <Route path="hr/car-rental" element={<CarBookingForm />} />
-                  <Route path="hr/leave" element={<LeaveForm />} />
+                  <Route path="hr/leave" element={<GatePassForm />} />
                   <Route path="hr/ppe-request" element={<PpeRequestForm />} />
+                  <Route path="finance/receipt-upload" element={<ReceiptUploadForm />} />
                   <Route path="finance/claim" element={<PettyCashForm />} />
                   <Route path="submissions" element={<MySubmissions />} />
                   <Route path="profile" element={<ProfilePage />} />

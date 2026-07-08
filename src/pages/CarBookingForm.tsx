@@ -106,28 +106,20 @@ const CarBookingForm = () => {
     });
   };
 
-  const timelineDays = Array.from({ length: 7 }, (_, i) => {
+  const timelineDays = Array.from({ length: 4 }, (_, i) => {
     const d = new Date(timelineStart);
     d.setDate(d.getDate() + i);
     return d;
   });
 
   // Combine physical cars into rows for the calendar
-  const unassignedBookings = activeBookings.filter(b => !b.car);
+  // const unassignedBookings = activeBookings.filter(b => !b.car);
 
   const timelineRows = [
     ...cars.map(car => {
       const currentBooking = activeBookings.find(b => b.car === `${car.model} (${car.plateNumber})`);
       return { type: 'car', id: car.id, title: car.model, subtitle: car.plateNumber, isAvailable: car.status === 'available', booking: currentBooking || null };
     }),
-    ...unassignedBookings.map(b => ({
-      type: 'unassigned',
-      id: b.id,
-      title: 'Upcoming Booking',
-      subtitle: `Req: ${b.name.split(' ')[0]}`,
-      isAvailable: false,
-      booking: b
-    }))
   ];
 
   const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
@@ -239,8 +231,8 @@ const CarBookingForm = () => {
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Availability Modal - Calendar Timeline */}
       {isAvailabilityModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsAvailabilityModalOpen(false)}>
-          <div className="card-elevated p-0 w-full max-w-6xl relative animate-in fade-in-90 slide-in-from-bottom-10 max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsAvailabilityModalOpen(false)}>
+          <div className="card-elevated p-0 w-full max-w-screen-xl relative animate-in fade-in-90 slide-in-from-bottom-10 max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 md:p-6 border-b border-border shrink-0 bg-muted/10">
               <div className="flex items-center gap-4">
@@ -253,13 +245,13 @@ const CarBookingForm = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => shiftTimeline(-7)} className="p-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors text-foreground">
+                <button onClick={() => shiftTimeline(-4)} className="p-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors text-foreground">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span className="text-sm font-bold w-32 text-center text-foreground">
-                  {timelineDays[0].toLocaleDateString("en-GB", {day:'numeric', month:'short'})} - {timelineDays[6].toLocaleDateString("en-GB", {day:'numeric', month:'short'})}
+                  {timelineDays[0].toLocaleDateString("en-GB", {day:'numeric', month:'short'})} - {timelineDays[3].toLocaleDateString("en-GB", {day:'numeric', month:'short'})}
                 </span>
-                <button onClick={() => shiftTimeline(7)} className="p-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors text-foreground">
+                <button onClick={() => shiftTimeline(4)} className="p-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors text-foreground">
                   <ChevronRight className="h-4 w-4" />
                 </button>
                 <button onClick={() => setIsAvailabilityModalOpen(false)} className="ml-2 sm:ml-4 text-muted-foreground hover:text-destructive p-2 border border-transparent hover:border-destructive/30 hover:bg-destructive/10 rounded-xl transition-colors">
@@ -288,6 +280,24 @@ const CarBookingForm = () => {
                       <div className="flex text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                         <div className="flex-1 text-center py-1 border-r border-border/50">AM</div>
                         <div className="flex-1 text-center py-1">PM</div>
+                      </div>
+                      <div className="flex text-[9px] text-muted-foreground/90 -mt-0.5">
+                        <div className="flex-1 grid grid-cols-6 text-center border-r border-border/50">
+                          <span>12A</span>
+                          <span>2A</span>
+                          <span>4A</span>
+                          <span>6A</span>
+                          <span>8A</span>
+                          <span>10A</span>
+                        </div>
+                        <div className="flex-1 grid grid-cols-6 text-center">
+                          <span>12P</span>
+                          <span>2P</span>
+                          <span>4P</span>
+                          <span>6P</span>
+                          <span>8P</span>
+                          <span>10P</span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -323,7 +333,7 @@ const CarBookingForm = () => {
                           
                           {row.booking && (() => {
                              const timelineStartMs = timelineDays[0].getTime();
-                             const totalMs = 7 * 24 * 60 * 60 * 1000;
+                             const totalMs = 4 * 24 * 60 * 60 * 1000;
                              const timelineEndMs = timelineStartMs + totalMs;
                              const bStart = row.booking.fromDate.getTime();
                              const bEnd = row.booking.toDate.getTime();
@@ -348,16 +358,13 @@ const CarBookingForm = () => {
                                    ${isEndVisible ? 'rounded-r-lg border-r-2' : 'border-r-0'}
                                  `}
                                  style={{ left: `${startPercent}%`, width: `${widthPercent}%` }}
+                                 title={`${row.booking.name} | ${row.booking.fromDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})} - ${row.booking.toDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}`}
                                >
-                                 <div className="text-[10px] font-bold truncate flex items-center gap-1.5">
-                                   {!isStartVisible && <ChevronLeft className="h-3 w-3 shrink-0" />}
-                                   {row.booking.fromDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} {row.booking.fromDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}
-                                   {' - '}
-                                   {row.booking.toDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} {row.booking.toDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}
-                                   {!isEndVisible && <ChevronRight className="h-3 w-3 shrink-0" />}
+                                 <div className="text-[11px] font-bold truncate">
+                                   {row.booking.fromDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})} - {row.booking.toDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}
                                  </div>
-                                 <div className="text-[11px] font-medium truncate opacity-90 mt-0.5" title={`${row.booking.name} • ${row.booking.destination}`}>
-                                   <span className="font-bold">{row.booking.name}</span> • {row.booking.destination}
+                                 <div className="text-[10px] font-medium truncate opacity-90 mt-0.5">
+                                   {row.booking.name}
                                  </div>
                                </div>
                              );
@@ -395,75 +402,25 @@ const CarBookingForm = () => {
           </div>
 
           {/* Pre-filled Details (Do not require filling) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-muted/10 p-4 rounded-xl border border-border/50">
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Name / Nama</Label>
-              <div className="font-medium text-foreground text-sm">{form.name}</div>
+          <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.name || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Position / Jawatan</Label>
-              <div className="font-medium text-foreground text-sm">{form.position || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.position || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Staff ID / ID Kakitangan</Label>
-              <div className="font-medium text-foreground text-sm">{form.staffId}</div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.staffId || "—"}</div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Department / Jabatan</Label>
-              <div className="font-medium text-foreground text-sm">{form.department}</div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Mobile Number / No. HP</Label>
-              <div className="font-medium text-foreground text-sm">{form.mobileNumber || "—"}</div>
+            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.department || "—"}</div>
             </div>
           </div>
 
-          {/* Input Fields (Require filling) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">IC Number / No. K/P <span className="text-destructive">*</span></Label>
-              <Input value={form.icNo} onChange={e => handleChange("icNo", e.target.value)} placeholder="e.g. 900101-01-1111" className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Driving License No. / Lesen <span className="text-destructive">*</span></Label>
-              <Input value={form.drivingLicenseNo} onChange={e => handleChange("drivingLicenseNo", e.target.value)} placeholder="License No." className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">License Expiry / Tamat Lesen <span className="text-destructive">*</span></Label>
-              <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Upload Driving Licence <span className="text-destructive">*</span></Label>
-              {licenseFile ? (
-                <div className="flex items-center justify-between h-11 px-3 border border-border rounded-lg bg-muted/10">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <FileText className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-sm font-medium text-foreground truncate">{licenseFile.name}</span>
-                  </div>
-                  <button type="button" onClick={() => setLicenseFile(null)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <label 
-                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                  onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragging(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      setLicenseFile(e.dataTransfer.files[0]);
-                    }
-                  }}
-                  className={`flex items-center justify-center gap-2 h-11 border-2 border-dashed rounded-lg cursor-pointer transition-colors text-sm font-medium ${isDragging ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/20 hover:bg-muted/50 text-muted-foreground'}`}
-                >
-                  <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { if (e.target.files && e.target.files.length > 0) { setLicenseFile(e.target.files[0]); } }} />
-                  <Upload className="h-4 w-4" />
-                  <span>Upload License</span>
-                </label>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Section 2: Journey Details */}
@@ -538,6 +495,52 @@ const CarBookingForm = () => {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">IC Number / No. K/P <span className="text-destructive">*</span></Label>
+                <Input value={form.icNo} onChange={e => handleChange("icNo", e.target.value)} placeholder="e.g. 900101-01-1111" className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">Driving License No. / Lesen <span className="text-destructive">*</span></Label>
+                <Input value={form.drivingLicenseNo} onChange={e => handleChange("drivingLicenseNo", e.target.value)} placeholder="License No." className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">License Expiry / Tamat Lesen <span className="text-destructive">*</span></Label>
+                <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">Upload Driving Licence <span className="text-destructive">*</span></Label>
+                {licenseFile ? (
+                  <div className="flex items-center justify-between h-11 px-3 border border-border rounded-lg bg-muted/10">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <FileText className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-sm font-medium text-foreground truncate">{licenseFile.name}</span>
+                    </div>
+                    <button type="button" onClick={() => setLicenseFile(null)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label 
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        setLicenseFile(e.dataTransfer.files[0]);
+                      }
+                    }}
+                    className={`flex items-center justify-center gap-2 h-11 border-2 border-dashed rounded-lg cursor-pointer transition-colors text-sm font-medium ${isDragging ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/20 hover:bg-muted/50 text-muted-foreground'}`}
+                  >
+                    <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { if (e.target.files && e.target.files.length > 0) { setLicenseFile(e.target.files[0]); } }} />
+                    <Upload className="h-4 w-4" />
+                    <span>Upload License</span>
+                  </label>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Purpose of Journey / Tujuan perjalanan <span className="text-destructive">*</span></Label>
               <Input
@@ -553,17 +556,6 @@ const CarBookingForm = () => {
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Destination / Destinasi <span className="text-destructive">*</span></Label>
               <Input value={form.destination} onChange={e => handleChange("destination", e.target.value)} placeholder="e.g., Kuala Lumpur, Selangor" className="h-11" required />
-              <div className="h-72 bg-muted rounded-lg overflow-hidden border border-border relative shadow-inner mt-2">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(form.destination || "Kuala Lumpur, Selangor, Malaysia")}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -638,9 +630,9 @@ const CarBookingForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Head of Section / Ketua Bahagian <span className="text-destructive">*</span></Label>
-              <Select value={form.hos} onValueChange={val => handleChange("hos", val)} disabled={areUsersLoading}>
+              <Select value={form.hos} onValueChange={val => handleChange("hos", val)} disabled={areUsersLoading || hosUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Section"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -650,9 +642,9 @@ const CarBookingForm = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Head of Department / Ketua Jabatan <span className="text-destructive">*</span></Label>
-              <Select value={form.hod} onValueChange={val => handleChange("hod", val)} disabled={areUsersLoading}>
+              <Select value={form.hod} onValueChange={val => handleChange("hod", val)} disabled={areUsersLoading || hodUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading..." : "Choose Head of Department"} />
+                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {hodUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
