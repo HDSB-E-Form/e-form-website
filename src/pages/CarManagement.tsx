@@ -389,7 +389,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   const [photos, setPhotos] = useState<{ [key: string]: { file: File | null; url: string | null } }>({
     front: { file: null, url: null }, back: { file: null, url: null }, left: { file: null, url: null }, right: { file: null, url: null }
   });
-  const [dateTimeOut, setDateTimeOut] = useState(new Date().toISOString());
+  const [dateTimeOut] = useState(new Date().toISOString());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -490,14 +490,14 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
       <div className="card-elevated p-5 mt-4">
         <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Rent Details</h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4" hidden>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">Current Mileage (km)</label>
             <input type="text" placeholder="Enter current mileage" value={mileage} onChange={e => setMileage(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">Date & Time Out</label>
-            <Input type="datetime-local" value={dateTimeOut} onChange={e => setDateTimeOut(e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
+            <Input type="datetime-local" value={dateTimeOut.slice(0, 16)} className="h-11 w-full bg-muted/20 text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" readOnly />
           </div> 
         </div>
 
@@ -634,7 +634,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   const [mileageIn, setMileageIn] = useState("");
   const [fuelLevel, setFuelLevel] = useState("4/7");
   const [remarks, setRemarks] = useState("");
-  const [dateTimeIn, setDateTimeIn] = useState(new Date().toISOString());
+  const [dateTimeIn] = useState(new Date().toISOString());
   const [photos, setPhotos] = useState<{ [key: string]: { file: File | null; url: string | null } }>({
     front: { file: null, url: null }, back: { file: null, url: null }, left: { file: null, url: null }, right: { file: null, url: null }
   });
@@ -735,7 +735,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <h3 className="font-bold text-primary">Section 2: Check-In Details</h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4" hidden>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Current Mileage (Return)</label>
             <div className="relative group mt-1.5">
@@ -745,7 +745,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Date & Time In</label>
-            <Input type="datetime-local" value={dateTimeIn} onChange={e => setDateTimeIn(e.target.value)} className="h-11 mt-1.5 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" />
+            <Input type="datetime-local" value={dateTimeIn.slice(0, 16)} className="h-11 mt-1.5 w-full bg-muted/20 text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" readOnly />
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText } from "lucide-react";
+import { FileText, Image as ImageIcon } from "lucide-react";
 
 /**
  * A smart data renderer that displays values based on their type.

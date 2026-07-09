@@ -15,8 +15,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle } from "lucide-react";
+import { NavLink } from "@/components/NavLink"; 
+import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle, Database } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -40,6 +40,7 @@ const safetyAdminNav = [
   { title: "Final Discharge", url: "/admin/safety/discharge", icon: Droplet },
   { title: "Mixing & Chemical", url: "/admin/safety/mixing", icon: Layers },
   { title: "Scheduled Waste", url: "/admin/safety/waste", icon: Recycle },
+  { title: "Records", url: "/admin/safety/waste-records", icon: Database },
 ];
 
 const approverNav = [

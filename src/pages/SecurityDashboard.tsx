@@ -176,13 +176,14 @@ const SecurityDashboard = () => {
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
-            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-              HOS: {sub.data.hosName || sub.data.hos || "—"}<br/>
-              HOD: {sub.data.hodName || sub.data.hod || "—"}
-            </div>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.hosName || sub.data.hos || "—"}</div>
           </div>
-          {sub.data.securityLog && (sub.data.securityLog.actualTimeOut || sub.data.securityLog.actualTimeIn) && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.hodName || sub.data.hod || "—"}</div>
+          </div>
+          {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>

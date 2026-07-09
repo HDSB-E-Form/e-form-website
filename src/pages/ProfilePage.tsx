@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera } from "lucide-react";
+import { toast } from "sonner"; 
+import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera, CreditCard } from "lucide-react";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -42,6 +42,8 @@ const ProfilePage = () => {
     department: user?.department || "",
     phone: user?.phone || "",
     position: (user as any)?.position || "",
+    icNo: user?.icNo || "",
+    drivingLicenseNo: user?.drivingLicenseNo || "",
   });
 
   // Keep profile form in sync if background fetch updates user
@@ -53,6 +55,8 @@ const ProfilePage = () => {
         department: user.department || "",
         phone: user.phone || "",
         position: (user as any)?.position || "",
+        icNo: user.icNo || "",
+        drivingLicenseNo: user.drivingLicenseNo || "",
       });
       setPreviewUrl(user.avatar || "");
       setAvatarFile(null);
@@ -163,6 +167,8 @@ const ProfilePage = () => {
         department: user.department || "",
         phone: user.phone || "",
         position: (user as any)?.position || "",
+          icNo: user.icNo || "",
+          drivingLicenseNo: user.drivingLicenseNo || "",
       });
       setPreviewUrl(user.avatar || "");
     }
@@ -192,7 +198,16 @@ const ProfilePage = () => {
         }
       }
 
-      const success = await updateUserProfile(user.id, { ...profile, avatar: finalAvatarUrl });
+      // Map frontend state to database column names
+      const { employeeId, drivingLicenseNo, icNo, ...restOfProfile } = profile;
+      const updateData = {
+        ...restOfProfile,
+        employeeId: employeeId, // ensure employeeId is passed if it's a db column
+        driving_license_no: drivingLicenseNo,
+        ic_no: icNo,
+        avatar: finalAvatarUrl,
+      };
+      const success = await updateUserProfile(user.id, updateData);
       if (success) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
@@ -301,6 +316,14 @@ const ProfilePage = () => {
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Position</p>
                   <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{(user as any)?.position || <span className="text-muted-foreground italic">Not set</span>}</span></p>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">IC Number</p>
+                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.icNo || <span className="text-muted-foreground italic">Not set</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">License Number</p>
+                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.drivingLicenseNo || <span className="text-muted-foreground italic">Not set</span>}</p>
+                </div>
               </div>
             </div>
           ) : (
@@ -372,6 +395,16 @@ const ProfilePage = () => {
                   <div className="space-y-1.5">
                     <Label>Phone Number</Label>
                     <Input value={profile.phone} onChange={e => handleProfileChange("phone", e.target.value)} placeholder="e.g. +60123456789" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>IC Number</Label>
+                      <Input value={profile.icNo} onChange={e => handleProfileChange("icNo", e.target.value)} placeholder="e.g. 900101-01-1111" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Driving License No.</Label>
+                      <Input value={profile.drivingLicenseNo} onChange={e => handleProfileChange("drivingLicenseNo", e.target.value)} placeholder="Enter License No." />
+                    </div>
                   </div>
                 </div>
                 <div className="mt-6 border-t border-border pt-5 flex flex-col-reverse sm:flex-row justify-end gap-3">

@@ -16,6 +16,8 @@ export interface User {
   is_head_of_finance?: boolean;
   is_head_of_purchasing?: boolean;
   secondary_roles?: UserRole[];
+  icNo?: string;
+  drivingLicenseNo?: string;
 }
 
 interface AuthContextType {
@@ -79,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   is_head_of_finance: data.is_head_of_finance || false,
                   is_head_of_purchasing: data.is_head_of_purchasing || false,
                   secondary_roles: data.secondary_roles || [],
+                  icNo: data.ic_no || "",
+                  drivingLicenseNo: data.driving_license_no || "",
                 };
                 setUser(updatedUser);
                 const storage = localStorage.getItem("hr_user") ? localStorage : sessionStorage;
@@ -151,6 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           is_head_of_finance: userProfile.is_head_of_finance || false,
           is_head_of_purchasing: userProfile.is_head_of_purchasing || false,
           secondary_roles: userProfile.secondary_roles || [],
+          icNo: userProfile.ic_no || "",
+          drivingLicenseNo: userProfile.driving_license_no || "",
         };
       }
 
@@ -239,7 +245,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if ('role' in updates) {
       delete (updates as Partial<User>).role;
     }
-
     const dbUpdates = { ...updates };
 
     try {
@@ -264,7 +269,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Update user in context and storage if it's the current user
       if (user?.id === userId) {
-        const updatedUser = { ...user, ...updates };
+        const updatedUser = { 
+          ...user, 
+          ...updates,
+          icNo: (updates as any).ic_no ?? user.icNo,
+          drivingLicenseNo: (updates as any).driving_license_no ?? user.drivingLicenseNo,
+        };
         setUser(updatedUser);
         const storage = localStorage.getItem("hr_user") ? localStorage : sessionStorage;
         storage.setItem("hr_user", JSON.stringify(updatedUser));

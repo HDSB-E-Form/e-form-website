@@ -170,6 +170,18 @@ const ApproverDashboard = () => {
             </div>
           </div>
         )}
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+            {sub.data.hosName || sub.data.hos || "—"}
+          </div>
+        </div>
+        <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+            {sub.data.hodName || sub.data.hod || "—"}
+          </div>
+        </div>
       </>
     );
   };
@@ -241,13 +253,6 @@ const ApproverDashboard = () => {
               <Badge className="bg-amber-100 text-amber-800 border-0 text-xs font-bold mt-1 uppercase">
                 {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType.replace(/_/g, ' ')}
               </Badge>
-            </div>
-          </div>
-          <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Approvers</span>
-            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-              HOS: {selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}<br/>
-              HOD: {selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}
             </div>
           </div>
 

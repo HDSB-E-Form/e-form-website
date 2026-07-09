@@ -38,13 +38,13 @@ const CarBookingForm = () => {
     destination: "",
     purpose: "",
     name: user?.name || "",
-    staffId: user?.employeeId || "",
-    icNo: "",
+    staffId: user?.employeeId || "", 
+    icNo: (user as any)?.icNo || "",
     avatar: user?.avatar || "",
     department: user?.department || "",
     position: (user as any)?.position || "",
-    mobileNumber: user?.phone || "",
-    drivingLicenseNo: "",
+    mobileNumber: user?.phone || "", 
+    drivingLicenseNo: (user as any)?.drivingLicenseNo || "",
     drivingLicenseExpiry: "",
     hos: "",
     hod: "",
@@ -64,6 +64,8 @@ const CarBookingForm = () => {
         mobileNumber: user.phone || "",
         position: (user as any).position || "",
         avatar: user.avatar || "",
+        icNo: (user as any)?.ic_no || (user as any)?.icNo || "",
+        drivingLicenseNo: (user as any)?.driving_license_no || (user as any)?.drivingLicenseNo || "",
       }));
     }
   }, [user]);
@@ -419,6 +421,14 @@ const CarBookingForm = () => {
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
               <div className="text-xs font-bold text-foreground sm:col-span-2">{form.department || "—"}</div>
             </div>
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">IC Number / No. K/P</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.icNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
+            </div>
+            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Driving License No. / Lesen</span>
+              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.drivingLicenseNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
+            </div>
           </div>
 
         </div>
@@ -495,19 +505,13 @@ const CarBookingForm = () => {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-primary">Purpose of Journey / Tujuan perjalanan <span className="text-destructive">*</span></Label>
+              <Input value={form.purpose} onChange={e => handleChange("purpose", e.target.value)} placeholder="State the reason for your request..." className="h-11" required />
+              <p className="text-xs text-muted-foreground">Be as detailed as possible, include meeting details, client names etc.</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">IC Number / No. K/P <span className="text-destructive">*</span></Label>
-                <Input value={form.icNo} onChange={e => handleChange("icNo", e.target.value)} placeholder="e.g. 900101-01-1111" className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">Driving License No. / Lesen <span className="text-destructive">*</span></Label>
-                <Input value={form.drivingLicenseNo} onChange={e => handleChange("drivingLicenseNo", e.target.value)} placeholder="License No." className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">License Expiry / Tamat Lesen <span className="text-destructive">*</span></Label>
-                <Input type="date" value={form.drivingLicenseExpiry} onChange={e => handleChange("drivingLicenseExpiry", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
-              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-primary">Upload Driving Licence <span className="text-destructive">*</span></Label>
                 {licenseFile ? (
@@ -537,25 +541,12 @@ const CarBookingForm = () => {
                     <Upload className="h-4 w-4" />
                     <span>Upload License</span>
                   </label>
-                )}
+                )} 
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Purpose of Journey / Tujuan perjalanan <span className="text-destructive">*</span></Label>
-              <Input
-                value={form.purpose}
-                onChange={e => handleChange("purpose", e.target.value)}
-                placeholder="State the reason for your request..."
-                className="h-11"
-                required
-              />
-              <p className="text-xs text-muted-foreground">Be as detailed as possible, include meeting details, client names etc.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Destination / Destinasi <span className="text-destructive">*</span></Label>
-              <Input value={form.destination} onChange={e => handleChange("destination", e.target.value)} placeholder="e.g., Kuala Lumpur, Selangor" className="h-11" required />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-primary">Destination / Destinasi <span className="text-destructive">*</span></Label>
+                <Input value={form.destination} onChange={e => handleChange("destination", e.target.value)} placeholder="e.g., Kuala Lumpur, Selangor" className="h-11" required />
+              </div>
             </div>
           </div>
         </div>
@@ -639,6 +630,9 @@ const CarBookingForm = () => {
                   {hosUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {!areUsersLoading && hosUsers.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOS list not available.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Head of Department / Ketua Jabatan <span className="text-destructive">*</span></Label>
@@ -650,6 +644,9 @@ const CarBookingForm = () => {
                   {hodUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {!areUsersLoading && hodUsers.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOD list not available.</p>
+              )}
             </div>
           </div>
         </div>
@@ -703,14 +700,12 @@ const CarBookingForm = () => {
               onCheckedChange={(checked) => setPolicyAgreed(checked === true)}
               className="mt-1 rounded-none"
             />
-            <div>
-              <label htmlFor="policy-agree" className="text-sm font-semibold text-foreground cursor-pointer">
-                I have read and agree to the above / Saya telah membaca dan bersetuju <span className="text-destructive">*</span>
-              </label>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Compliance with these terms is mandatory for all employees requesting vehicle use.
+            <label htmlFor="policy-agree" className="cursor-pointer">
+              <p className="font-semibold text-foreground text-sm">
+                I hereby acknowledge that: <span className="text-destructive">*</span>
               </p>
-            </div>
+              <p className="text-xs text-muted-foreground mt-2">I have read & understand the use of company vehicles & the service & repair policies and agree to be bound by the rules & procedures therein. I will be responsible for all fines, penalties and costs imposed for parking or traffic violations with respect to the Company vehicle assigned to me for the period stated herein, and I will indemnify and hold the Company harmless from all claims and costs arising out of such violations, including expenses in connection with handling of such matters. In the case of HICOM Diecastings Sdn. Bhd. Employees, I agree that all fines, penalties, and costs arising from parking or traffic violations will be deducted from my salary for the month where payment is made for settlement of the associated fines.</p>
+            </label>
           </div>
         </div>
 

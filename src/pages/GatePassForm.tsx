@@ -316,6 +316,9 @@ const GatePassForm = () => {
                   ))}
                 </SelectContent>
               </Select>
+            {!areUsersLoading && hosUsers.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOS list not available.</p>
+            )}
             </div>
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
@@ -331,6 +334,9 @@ const GatePassForm = () => {
                   ))}
                 </SelectContent>
               </Select>
+            {!areUsersLoading && hodUsers.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOD list not available.</p>
+            )}
             </div>
           </div>
         </div>

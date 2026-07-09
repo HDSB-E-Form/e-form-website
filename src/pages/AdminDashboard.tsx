@@ -145,7 +145,7 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
 
-  const approvalSubmissions = submissions.filter(s => s.formType === "car_rental" || s.formType === "leave");
+  const approvalSubmissions = submissions.filter(s => s.formType === "car_rental");
 
   const filtered = approvalSubmissions
     .filter(s => {
