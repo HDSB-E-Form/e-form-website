@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/supabase";
 import { toast } from "sonner";
+import { formatSubmissionRefNo, getNextSequenceNumber } from "@/lib/refNo";
 
 export type SubmissionStatus =
   | "pending"
@@ -145,15 +146,16 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       if (error) { console.error("Could not count safety forms for ref no:", error); }
       refNo = `SFTY-${String((count || 0) + 1).padStart(5, '0')}`;
     } else if (isGatePass) {
-      const { count, error } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('formType', 'leave');
-      if (error) { console.error("Could not count gate pass forms for ref no:", error); }
-      refNo = `GP-${String((count || 0) + 1).padStart(4, '0')}`;
+      const { data: existingSubmissions, error } = await supabase.from('submissions').select('data').eq('formType', 'leave');
+      if (error) { console.error("Could not fetch gate pass submissions for ref no:", error); }
+      const nextSequence = getNextSequenceNumber((existingSubmissions || []) as Array<{ data?: { refNo?: string } }>, 'leave');
+      refNo = formatSubmissionRefNo('leave', nextSequence);
     } else if (isStandardForm) {
       const excludedForms = '("inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring")';
-      const { count, error } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).not('formType', 'in', excludedForms);
-      if (error) { console.error("Could not count standard forms for ref no:", error); }
-      // Start from 260000 + current count
-      refNo = `HDSB-${260000 + (count || 0)}`;
+      const { data: existingSubmissions, error } = await supabase.from('submissions').select('data').not('formType', 'in', excludedForms);
+      if (error) { console.error("Could not fetch standard submissions for ref no:", error); }
+      const nextSequence = getNextSequenceNumber((existingSubmissions || []) as Array<{ data?: { refNo?: string } }>, sub.formType);
+      refNo = formatSubmissionRefNo(sub.formType, nextSequence);
     }
 
     const submissionToInsert = {

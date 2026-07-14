@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 // ADDED: "Save" icon to the lucide-react imports
@@ -82,10 +82,53 @@ const getInitialColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+const AnimatedCount = ({ value, duration = 800 }: { value: number; duration?: number }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+  const raf = useRef<number | null>(null);
+  const startTime = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (raf.current) {
+      cancelAnimationFrame(raf.current);
+    }
+
+    if (value <= 0) {
+      setDisplayValue(value);
+      return;
+    }
+
+    startTime.current = null;
+
+    const animate = (timestamp: number) => {
+      if (startTime.current === null) {
+        startTime.current = timestamp;
+      }
+
+      const progress = Math.min((timestamp - startTime.current) / duration, 1);
+      const current = Math.round(progress * value);
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        raf.current = requestAnimationFrame(animate);
+      }
+    };
+
+    raf.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (raf.current) {
+        cancelAnimationFrame(raf.current);
+      }
+    };
+  }, [value, duration]);
+
+  return <span>{displayValue.toLocaleString()}</span>;
+};
+
 const SuperAdminDashboard = () => {
   const { updateUserRole } = useAuth();
   const { updateUser } = useUsers();
-  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
+  const { submissions, announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -172,8 +215,12 @@ const SuperAdminDashboard = () => {
 
   const stats = {
     totalPersonnel: users.length,
-    activeAdmins: users.filter(u => ["hr_admin", "finance_admin", "super_admin"].includes(u.role)).length,
-    departments: [...new Set(users.map(u => u.department))].length,
+    activeHOS: users.filter(u => u.role === 'hos').length,
+    activeHOD: users.filter(u => u.role === 'hod').length,
+    otherAdmins: users.filter(u => ["super_admin", "safety_admin", "finance_admin", "hr_admin", "security_guard"].includes(u.role)).length,
+    totalCarBookings: submissions.filter(s => s.formType === 'car_rental').length,
+    totalGatePass: submissions.filter(s => s.formType === 'leave').length,
+    totalClaims: submissions.filter(s => s.formType === 'claim').length,
   };
 
   const openManage = (user: FirestoreUser) => {
@@ -417,18 +464,30 @@ const SuperAdminDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        <div className="card-elevated p-5">
-          <p className="text-xs text-muted-foreground font-medium">Total Personnel</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{stats.totalPersonnel.toLocaleString()}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
+        <div className="card-elevated p-4 border-l-4 border-l-primary/50">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Staff</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalPersonnel} /></p>
         </div>
-        <div className="card-elevated p-5">
-          <p className="text-xs text-muted-foreground font-medium">Active Admins</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{stats.activeAdmins}</p>
+        <div className="card-elevated p-4 border-l-4 border-l-violet-500">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Active HOS</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeHOS} /></p>
         </div>
-        <div className="card-elevated p-5">
-          <p className="text-xs text-muted-foreground font-medium">Departments</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{stats.departments}</p>
+        <div className="card-elevated p-4 border-l-4 border-l-sky-500">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Active HOD</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeHOD} /></p>
+        </div>
+        <div className="card-elevated p-4 border-l-4 border-l-blue-500">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Vehicle Forms</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalCarBookings} /></p>
+        </div>
+        <div className="card-elevated p-4 border-l-4 border-l-blue-500">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Gate Pass Forms</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalGatePass} /></p>
+        </div>
+        <div className="card-elevated p-4 border-l-4 border-l-blue-500">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Petty Cash Claims</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalClaims} /></p>
         </div>
       </div>
 

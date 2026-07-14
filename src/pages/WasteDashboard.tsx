@@ -10,12 +10,14 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useNavigate } from "react-router-dom";
 
-const yAxisTicks = [0, 1000, 3000, 6000, 10000, 15000, 20000, 30000, 40000, 50000];
+const disposeYAxisTicks = [0, 1000, 5000, 10000, 20000, 30000, 40000, 50000];
 const formatYAxis = (tick: number) => {
     if (tick === 0) return '0';
     if (tick >= 1000) return `${tick / 1000}k`;
     return tick.toString();
 };
+
+const recycleYAxisTicks = [0, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000];
 
 const WasteDashboard = () => {
     const navigate = useNavigate();
@@ -125,8 +127,8 @@ const WasteDashboard = () => {
         const payData = Object.values(payStats).sort(customSort).map(d => ({ ...d, value: parseFloat(d.value.toFixed(2)) }));
 
         const pieData = [
-            { name: "Recycle (Sell)", value: parseFloat(totalSell.toFixed(2)), color: "#10b981" }, 
-            { name: "Dispose (Pay)", value: parseFloat(totalPay.toFixed(2)), color: "#3b82f6" } 
+            { name: "Recycle (Sell)", value: parseFloat(totalSell.toFixed(2)), color: "#10b981" }, // Cool Green
+            { name: "Dispose (Pay)", value: parseFloat(totalPay.toFixed(2)), color: "#f59e0b" }  // Warm Orange
         ].filter(d => d.value > 0);
 
         return { 
@@ -251,19 +253,19 @@ const WasteDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className="card-elevated p-5 border-l-4 border-l-violet-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Records</p>
-                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.recordCount}</p>
+                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.recordCount.toLocaleString('en-US')}</p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-primary/50">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Waste Generated</p>
-                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.total.toFixed(2)} <span className="text-sm font-medium text-muted-foreground">kg</span></p>
+                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-muted-foreground">kg</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Recycle (Sell)</p>
-                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{wasteChartData.stats.sell.toFixed(2)} <span className="text-sm font-medium text-emerald-600/50">kg</span></p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{wasteChartData.stats.sell.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-emerald-600/50">kg</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-blue-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Dispose (Pay)</p>
-                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{wasteChartData.stats.pay.toFixed(2)} <span className="text-sm font-medium text-blue-600/50">kg</span></p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{wasteChartData.stats.pay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-blue-600/50">kg</span></p>
                     </div>
                 </div>
 
@@ -310,20 +312,40 @@ const WasteDashboard = () => {
                     </div>
                 </div>
 
+                <div className="grid grid-cols-1 gap-6 mb-6">
+                    <div className="card-elevated p-6">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-1"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
+                        <div className="h-72">
+                            {wasteChartData.pieData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`} stroke="hsl(var(--border))" strokeWidth={1}>
+                                            {wasteChartData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                        </Pie>
+                                        <Tooltip formatter={(value: number) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
+                                        <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="card-elevated p-6 md:col-span-1">
                         <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-emerald-500" /> Recycle (Sell) by SW Code</h3>
-                        <div className="h-64">
+                        <div className="h-[500px]">
                             {wasteChartData.sellData.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={wasteChartData.sellData} margin={{ top: 10, right: 20, left: -25, bottom: 30 }} barCategoryGap="20%">
+                                    <BarChart data={wasteChartData.sellData} margin={{ top: 10, right: 20, left: -25, bottom: 0 }} barCategoryGap="20%">
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} tickLine={false} axisLine={false} interval={0} />
-                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 45000]} ticks={yAxisTicks} tickFormatter={formatYAxis} />
-                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]} />
-                                        <Bar dataKey="value" fill="#10b981" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} tickLine={false} axisLine={false} interval={0} height={50} />
+                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 60000]} ticks={recycleYAxisTicks} tickFormatter={formatYAxis} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, props.payload?.fullName || "Net Weight"]} />
+                                        <Bar dataKey="value" fill="#10b981" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold', formatter: (value: number) => value > 0 ? value.toLocaleString('en-US') : '' }} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             )}
@@ -332,37 +354,18 @@ const WasteDashboard = () => {
 
                     <div className="card-elevated p-6 md:col-span-1">
                         <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-blue-500" /> Dispose (Pay) by SW Code</h3>
-                        <div className="h-64">
+                        <div className="h-[500px]">
                             {wasteChartData.payData.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={wasteChartData.payData} margin={{ top: 10, right: 20, left: -25, bottom: 30 }} barCategoryGap="20%">
+                                    <BarChart data={wasteChartData.payData} margin={{ top: 10, right: 20, left: -25, bottom: 0 }} barCategoryGap="20%">
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} tickLine={false} axisLine={false} interval={0} />
-                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 45000]} ticks={yAxisTicks} tickFormatter={formatYAxis} />
-                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]} />
-                                        <Bar dataKey="value" fill="#3b82f6" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} tickLine={false} axisLine={false} interval={0} height={50} />
+                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 50000]} ticks={disposeYAxisTicks} tickFormatter={formatYAxis} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, props.payload?.fullName || "Net Weight"]} />
+                                        <Bar dataKey="value" fill="#3b82f6" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold', formatter: (value: number) => value > 0 ? value.toLocaleString('en-US') : '' }} />
                                     </BarChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="card-elevated p-6 md:col-span-2">
-                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
-                        <div className="h-64">
-                            {wasteChartData.pieData.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
-                                            {wasteChartData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(value: number) => [`${value} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
-                                        <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                    </PieChart>
                                 </ResponsiveContainer>
                             )}
                         </div>

@@ -4,6 +4,7 @@ import { Bell, Check, Trash2, HandCoins, CheckCircle, XCircle } from "lucide-rea
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import notificationSound from "@/assets/notification.mp3";
+import { getNotificationTarget } from "@/lib/notifications";
 
 interface AppNotification {
   id: string;
@@ -64,20 +65,15 @@ export function NotificationBell() {
 
       let isRelevant = false;
       let path = "";
-      
-      // --- Approver/Admin Notifications ---
-      // Using separate `if` statements allows users with multiple roles to see all relevant notifications.
-      if ((user.role === 'hos' || user.secondary_roles?.includes('hos')) && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name)) {
-        isRelevant = true; path = "/admin/approvals";
-      }
-      if ((user.role === 'hod' || user.secondary_roles?.includes('hod')) && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name)) {
-        isRelevant = true; path = "/admin/approvals";
-      }
-      if ((user.role === 'hr_admin' || user.secondary_roles?.includes('hr_admin')) && ['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
-        isRelevant = true; path = "/admin/hr";
-      }
-      if ((user.role === 'finance_admin' || user.secondary_roles?.includes('finance_admin')) && s.formType === 'claim' && s.status === 'approved_hof') {
-        isRelevant = true; path = "/admin/finance";
+
+      const targetedRoute = getNotificationTarget(
+        { role: user.role, secondary_roles: user.secondary_roles || [], name: user.name },
+        { formType: s.formType, status: s.status, data: s.data }
+      );
+
+      if (targetedRoute) {
+        isRelevant = true;
+        path = targetedRoute.path;
       }
 
       // --- Submitter Notifications ---

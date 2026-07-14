@@ -296,7 +296,7 @@ const SecurityDashboard = () => {
             <div className="flex flex-col items-center justify-center gap-4">
               <p className="text-sm text-muted-foreground font-medium">
                 {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
-                 "Waiting for Head of Department (HOD) approval."}
+                 "Pending HOD approval."}
               </p>
               <div className="w-full max-w-md">
                 <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Security Admin Action</p>

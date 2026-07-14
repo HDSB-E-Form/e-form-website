@@ -422,15 +422,15 @@ const WasteInventoryForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-primary font-bold print:text-gray-600">Total Gross Weight</Label>
-              <div className="text-2xl font-bold text-foreground print:text-black">{totals.gross.toFixed(2)} <span className="text-sm font-medium text-muted-foreground print:text-gray-600">kg</span></div>
+              <div className="text-2xl font-bold text-foreground print:text-black">{totals.gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-muted-foreground print:text-gray-600">kg</span></div>
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-primary font-bold print:text-gray-600">Total Container Weight</Label>
-              <div className="text-2xl font-bold text-foreground print:text-black">{totals.container.toFixed(2)} <span className="text-sm font-medium text-muted-foreground print:text-gray-600">kg</span></div>
+              <div className="text-2xl font-bold text-foreground print:text-black">{totals.container.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-muted-foreground print:text-gray-600">kg</span></div>
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-primary font-bold print:text-gray-600">Total Net Weight</Label>
-              <div className="text-2xl font-bold text-primary print:text-black">{totals.net.toFixed(2)} <span className="text-sm font-medium text-muted-foreground print:text-gray-600">kg</span></div>
+              <div className="text-2xl font-bold text-primary print:text-black">{totals.net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-muted-foreground print:text-gray-600">kg</span></div>
             </div>
           </div>
         </div>
@@ -482,9 +482,9 @@ const WasteInventoryForm = () => {
                   <div>Category: <span className="font-medium">{category === 'sell' ? 'Recycle (Sell)' : 'Dispose (Pay)'}</span></div>
                   <div>Waste Type: <span className="font-medium">{wasteType}</span></div>
                   <div className="mt-2">Rows: <span className="font-medium">{rows.length}</span></div>
-                  <div>Total Gross: <span className="font-medium">{totals.gross.toFixed(2)} kg</span></div>
-                  <div>Total Container: <span className="font-medium">{totals.container.toFixed(2)} kg</span></div>
-                  <div>Total Net: <span className="font-medium">{totals.net.toFixed(2)} kg</span></div>
+                  <div>Total Gross: <span className="font-medium">{totals.gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
+                  <div>Total Container: <span className="font-medium">{totals.container.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
+                  <div>Total Net: <span className="font-medium">{totals.net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</span></div>
                 </div>
               </div>
 

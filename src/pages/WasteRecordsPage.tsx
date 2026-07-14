@@ -145,15 +145,15 @@ const WasteRecordsPage = () => {
                             </div>
                             <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Gross Weight</span>
-                                <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.totals?.gross.toFixed(2) || '0.00'} kg</div>
+                                <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.totals?.gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} kg</div>
                             </div>
                             <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Container Weight</span>
-                                <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.totals?.container.toFixed(2) || '0.00'} kg</div>
+                                <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.totals?.container.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} kg</div>
                             </div>
                             <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Total Net Weight</span>
-                                <div className="text-lg font-bold text-primary print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.totals?.net.toFixed(2) || '0.00'} kg</div>
+                                <div className="text-lg font-bold text-primary print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.totals?.net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} kg</div>
                             </div>
                         </div>
 

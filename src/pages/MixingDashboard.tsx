@@ -226,19 +226,19 @@ const MixingDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="card-elevated p-5 border-l-4 border-l-primary/50">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Mixing Reports</p>
-                    <p className="text-3xl font-bold text-foreground">{mixingStats.totalReports}</p>
+                    <p className="text-3xl font-bold text-foreground">{mixingStats.totalReports.toLocaleString('en-US')}</p>
                 </div>
                 <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Neutralization</p>
-                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{mixingStats.totalCaustic} <span className="text-sm font-medium text-emerald-600/50">L</span></p>
+                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{parseFloat(mixingStats.totalCaustic).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-emerald-600/50">L</span></p>
                 </div>
                 <div className="card-elevated p-5 border-l-4 border-l-blue-500">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Coagulation</p>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{mixingStats.totalCoagulation} <span className="text-sm font-medium text-blue-600/50">L</span></p>
+                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{parseFloat(mixingStats.totalCoagulation).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-blue-600/50">L</span></p>
                 </div>
                 <div className="card-elevated p-5 border-l-4 border-l-amber-500">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Flocculation</p>
-                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{mixingStats.totalFlocculation} <span className="text-sm font-medium text-amber-600/50">L</span></p>
+                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{parseFloat(mixingStats.totalFlocculation).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-amber-600/50">L</span></p>
                 </div>
             </div>
 

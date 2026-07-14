@@ -240,12 +240,6 @@ const AdminDashboard = () => {
             <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Ref No</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{refNo}</div>
           </div>
-          <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Form Type</span>
-            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-              <Badge className="bg-sky-100 text-sky-800 border-0 text-xs font-bold">{formTypeLabels[sub.formType] || sub.formType}</Badge>
-            </div>
-          </div>
 
           {sub.formType === 'car_rental' ? (
             <>
@@ -260,12 +254,6 @@ const AdminDashboard = () => {
               <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.drivingLicenseNo || "—"}</div>
-              </div>
-              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
-                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">
-                  {sub.data.drivingLicenseExpiry ? new Date(sub.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
-                </div>
               </div>
               <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Destination</span>
@@ -360,11 +348,23 @@ const AdminDashboard = () => {
 
         {isPending && !canApprove && isApprovalForm && (
           <div className="p-4 bg-muted/30 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground font-medium">
-              {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
-               selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
-               "No action required at this time."}
-            </p>
+            <div className="flex flex-col items-center justify-center gap-4">
+              <p className="text-sm text-muted-foreground font-medium">
+                {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
+                 selectedSubmission.status === "approved_hos" ? "Pending HOD approval." :
+                 "No action required at this time."}
+              </p>
+              <div className="w-full max-w-md">
+                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">HR Admin Action</p>
+                <Input
+                  placeholder="Enter remarks if rejecting..."
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  className="mb-3 h-11 bg-background"
+                />
+                <button onClick={() => handleAction(selectedSubmission.id, "rejected")} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">REJECT SUBMISSION</button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -417,32 +417,16 @@ const AdminDashboard = () => {
       <div className="animate-in slide-in-from-bottom-2 duration-700">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="card-elevated p-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Submissions</p>
-                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+12%</Badge>
-              </div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Total Submissions</p>
               <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
-              <p className="text-xs text-muted-foreground mt-1">Current fiscal year / Tahun kewangan semasa</p>
             </div>
             <div className="card-elevated p-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Action Required</p>
-                {stats.actionRequired > 0 ? (
-                  <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[10px] font-semibold px-2 animate-pulse">Needs Review</Badge>
-                ) : (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">All Cleared</Badge>
-                )}
-              </div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Action Required</p>
               <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
-              <p className="text-xs text-muted-foreground mt-1">Forms waiting for your final approval</p>
             </div>
             <div className="card-elevated p-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Approval Rate</p>
-                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-semibold px-2">+2%</Badge>
-              </div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Approval Rate</p>
               <p className="text-4xl font-bold text-foreground">{stats.approvalRate}%</p>
-              <p className="text-xs text-muted-foreground mt-1">Compliance target: 90% / Sasaran pematuhan: 90%</p>
             </div>
           </div>
 

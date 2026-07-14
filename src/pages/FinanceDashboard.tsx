@@ -352,7 +352,7 @@ const FinanceDashboard = () => {
             <div className="flex flex-col items-center justify-center gap-4">
               <p className="text-sm text-muted-foreground font-medium">
                 {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
-                 selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
+                 selectedSubmission.status === "approved_hos" ? "Pending HOD approval." :
                  selectedSubmission.status === "approved_hod" ? "Waiting for Head of Purchasing (HOP) approval." :
                  "Waiting for Head of Finance (HOF) approval."}
               </p>

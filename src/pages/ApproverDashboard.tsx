@@ -439,7 +439,6 @@ const ApproverDashboard = () => {
             <p className="text-xs font-bold text-primary uppercase tracking-wider">Total Assigned</p>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats.total}</p>
-          <p className="text-xs text-muted-foreground mt-1">All Forms</p>
         </div>
         <div className="card-elevated p-5 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
@@ -447,7 +446,6 @@ const ApproverDashboard = () => {
             <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Action Required</p>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
-          <p className="text-xs text-muted-foreground mt-1">Needs Your Review</p>
         </div>
         <div className="card-elevated p-5 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
@@ -455,7 +453,6 @@ const ApproverDashboard = () => {
             <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">In Progress</p>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats.inProgress}</p>
-          <p className="text-xs text-muted-foreground mt-1">Waiting on Others</p>
         </div>
         <div className="card-elevated p-5 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
@@ -463,7 +460,6 @@ const ApproverDashboard = () => {
             <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Resolved</p>
           </div>
           <p className="text-4xl font-bold text-foreground">{stats.resolved}</p>
-          <p className="text-xs text-muted-foreground mt-1">Completed History</p>
         </div>
       </div>
 

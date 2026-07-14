@@ -291,8 +291,8 @@ const SafetyAdminDashboard = () => {
         const payData = Object.values(payStats).sort((a,b) => b.value - a.value).map(d => ({ ...d, value: parseFloat(d.value.toFixed(2)) }));
 
         const pieData = [
-            { name: "Recycle (Sell)", value: parseFloat(totalSell.toFixed(2)), color: "#10b981" }, 
-            { name: "Dispose (Pay)", value: parseFloat(totalPay.toFixed(2)), color: "#3b82f6" } 
+            { name: "Recycle (Sell)", value: parseFloat(totalSell.toFixed(2)), color: "#10b981" }, // Cool Green
+            { name: "Dispose (Pay)", value: parseFloat(totalPay.toFixed(2)), color: "#f59e0b" }  // Warm Orange
         ].filter(d => d.value > 0);
 
         return { 
@@ -567,19 +567,19 @@ const SafetyAdminDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div className="card-elevated p-5 border-l-4 border-l-primary/50">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Monitoring Reports</p>
-                        <p className="text-3xl font-bold text-foreground">{dischargeStats.totalReports}</p>
+                        <p className="text-3xl font-bold text-foreground">{dischargeStats.totalReports.toLocaleString('en-US')}</p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average pH</p>
-                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{dischargeStats.avgPh}</p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{parseFloat(dischargeStats.avgPh).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-blue-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average COD</p>
-                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dischargeStats.avgCod} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{parseFloat(dischargeStats.avgCod).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-amber-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average Flowrate</p>
-                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{dischargeStats.avgFlow} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
+                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{parseFloat(dischargeStats.avgFlow).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
                     </div>
                 </div>
             )}
@@ -589,19 +589,19 @@ const SafetyAdminDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div className="card-elevated p-5 border-l-4 border-l-primary/50">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Mixing Reports</p>
-                        <p className="text-3xl font-bold text-foreground">{mixingStats.totalReports}</p>
+                        <p className="text-3xl font-bold text-foreground">{mixingStats.totalReports.toLocaleString('en-US')}</p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Neutralization</p>
-                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{mixingStats.totalCaustic} <span className="text-sm font-medium text-emerald-600/50">L</span></p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{parseFloat(mixingStats.totalCaustic).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-emerald-600/50">L</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-blue-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Coagulation</p>
-                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{mixingStats.totalCoagulation} <span className="text-sm font-medium text-blue-600/50">L</span></p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{parseFloat(mixingStats.totalCoagulation).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-blue-600/50">L</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-amber-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Flocculation</p>
-                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{mixingStats.totalFlocculation} <span className="text-sm font-medium text-amber-600/50">L</span></p>
+                        <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{parseFloat(mixingStats.totalFlocculation).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-amber-600/50">L</span></p>
                     </div>
                 </div>
             )}
@@ -799,74 +799,74 @@ const SafetyAdminDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="card-elevated p-5 border-l-4 border-l-primary/50">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Waste Generated</p>
-                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.total.toFixed(2)} <span className="text-sm font-medium text-muted-foreground">kg</span></p>
+                        <p className="text-3xl font-bold text-foreground">{wasteChartData.stats.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-muted-foreground">kg</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Recycle (Sell)</p>
-                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{wasteChartData.stats.sell.toFixed(2)} <span className="text-sm font-medium text-emerald-600/50">kg</span></p>
+                        <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{wasteChartData.stats.sell.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-emerald-600/50">kg</span></p>
                     </div>
                     <div className="card-elevated p-5 border-l-4 border-l-blue-500">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Dispose (Pay)</p>
-                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{wasteChartData.stats.pay.toFixed(2)} <span className="text-sm font-medium text-blue-600/50">kg</span></p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{wasteChartData.stats.pay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-blue-600/50">kg</span></p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Sell Chart */}
-                    <div className="card-elevated p-6">
-                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-emerald-500" /> Recycle (Sell) by SW Code</h3>
-                        <div className="h-56">
-                            {wasteChartData.sellData.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={wasteChartData.sellData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barCategoryGap="15%">
-                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]} />
-                                        <Bar dataKey="value" fill="#10b981" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Pay Chart */}
-                    <div className="card-elevated p-6">
-                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-blue-500" /> Dispose (Pay) by SW Code</h3>
-                        <div className="h-56">
-                            {wasteChartData.payData.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={wasteChartData.payData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barCategoryGap="15%">
-                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value} kg`, props.payload?.fullName || "Net Weight"]} />
-                                        <Bar dataKey="value" fill="#3b82f6" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-                    </div>
-
+                <div className="grid grid-cols-1 gap-6">
                     {/* Pie Chart */}
                     <div className="card-elevated p-6">
-                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
-                        <div className="h-56">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-1"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
+                        <div className="h-72">
                             {wasteChartData.pieData.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
+                                        <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`} stroke="hsl(var(--border))" strokeWidth={1}>
                                             {wasteChartData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                                         </Pie>
-                                        <Tooltip formatter={(value: number) => [`${value} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
+                                        <Tooltip formatter={(value: number) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
                                         <Legend wrapperStyle={{ fontSize: '11px' }} />
                                     </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    {/* Sell Chart */}
+                    <div className="card-elevated p-6">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-emerald-500" /> Recycle (Sell) by SW Code</h3>
+                        <div className="h-[500px]">
+                            {wasteChartData.sellData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={wasteChartData.sellData} margin={{ top: 10, right: 20, left: -25, bottom: 0 }} barCategoryGap="15%">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} height={40} />
+                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 60000]} ticks={[0, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]} tickFormatter={(tick) => tick >= 1000 ? `${tick/1000}k` : tick.toString()} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, props.payload?.fullName || "Net Weight"]} />
+                                        <Bar dataKey="value" fill="#10b981" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold', formatter: (value: number) => value > 0 ? value.toLocaleString('en-US') : '' }} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+                    </div>
+                    {/* Pay Chart */}
+                    <div className="card-elevated p-6">
+                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-blue-500" /> Dispose (Pay) by SW Code</h3>
+                        <div className="h-[500px]">
+                            {wasteChartData.payData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={wasteChartData.payData} margin={{ top: 10, right: 20, left: -25, bottom: 0 }} barCategoryGap="15%">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} height={40} />
+                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 50000]} ticks={[0, 1000, 5000, 10000, 20000, 30000, 40000, 50000]} tickFormatter={(tick) => tick >= 1000 ? `${tick/1000}k` : tick.toString()} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, props.payload?.fullName || "Net Weight"]} />
+                                        <Bar dataKey="value" fill="#3b82f6" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold', formatter: (value: number) => value > 0 ? value.toLocaleString('en-US') : '' }} />
+                                    </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </div>

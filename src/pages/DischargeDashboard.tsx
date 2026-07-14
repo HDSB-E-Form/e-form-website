@@ -294,19 +294,19 @@ const DischargeDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="card-elevated p-5 border-l-4 border-l-primary/50">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Monitoring Reports</p>
-                    <p className="text-3xl font-bold text-foreground">{dischargeStats.totalReports}</p>
+                    <p className="text-3xl font-bold text-foreground">{dischargeStats.totalReports.toLocaleString('en-US')}</p>
                 </div>
                 <div className="card-elevated p-5 border-l-4 border-l-emerald-500">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average pH</p>
-                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{dischargeStats.avgPh}</p>
+                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{parseFloat(dischargeStats.avgPh).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div className="card-elevated p-5 border-l-4 border-l-blue-500">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average COD</p>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dischargeStats.avgCod} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
+                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{parseFloat(dischargeStats.avgCod).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-blue-600/50">mg/L</span></p>
                 </div>
                 <div className="card-elevated p-5 border-l-4 border-l-amber-500">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Average Flowrate</p>
-                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{dischargeStats.avgFlow} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
+                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{parseFloat(dischargeStats.avgFlow).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-medium text-amber-600/50">m³</span></p>
                 </div>
             </div>
 

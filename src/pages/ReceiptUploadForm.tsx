@@ -9,6 +9,24 @@ import { ArrowLeft, Upload, FileText, Trash2, Send, Loader2 } from "lucide-react
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
+export function buildReceiptRefNoMap(submissions: Array<{ id: string; formType: string; submittedAt: string; data?: { refNo?: string } }>) {
+  const map = new Map<string, string>();
+  const claimSubmissions = submissions
+    .filter(s => s.formType === 'claim')
+    .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+
+  claimSubmissions.forEach((s, idx) => {
+    const storedRefNo = s.data?.refNo?.toString().trim().toUpperCase();
+    if (storedRefNo) {
+      map.set(storedRefNo, s.id);
+    } else {
+      map.set(`HDSB-${String(idx + 1).padStart(4, "0")}`, s.id);
+    }
+  });
+
+  return map;
+}
+
 const ReceiptUploadForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -18,17 +36,7 @@ const ReceiptUploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-    const standardForms = submissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
-    standardForms.forEach((s, idx) => {
-      map.set(`HDSB-${String(idx + 1).padStart(4, "0")}`, s.id);
-    });
-    return map;
-  }, [submissions]);
+  const refNoMap = useMemo(() => buildReceiptRefNoMap(submissions), [submissions]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -122,7 +130,7 @@ const ReceiptUploadForm = () => {
               id="refNo"
               value={refNo}
               onChange={e => setRefNo(e.target.value)}
-              placeholder="e.g. HDSB-0012"
+              placeholder="e.g. HDSB-260000"
               className="h-11 text-base"
               required
             />
