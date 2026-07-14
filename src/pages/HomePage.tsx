@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useHiddenSubmissions } from "./useHiddenSubmissions";
 import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X } from "lucide-react";
 
 const HomePage = () => {
@@ -9,6 +10,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { submissions, announcements } = useSubmissions();
   const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
+  const { hiddenIds } = useHiddenSubmissions();
 
   const activeAnnouncement = useMemo(() => {
     return (announcements || []).find(a => a.is_active);
@@ -19,10 +21,10 @@ const HomePage = () => {
 
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
 
-  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType));
+  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType) && !hiddenIds.has(s.id));
   const stats = {
     total: mySubmissions.length,
-    accepted: mySubmissions.filter(s => s.status === "approved").length,
+    accepted: mySubmissions.filter(s => ["approved", "completed", "paid"].includes(s.status)).length,
     rejected: mySubmissions.filter(s => s.status === "rejected").length,
   };
 

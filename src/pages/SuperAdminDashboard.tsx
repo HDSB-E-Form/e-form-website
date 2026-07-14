@@ -39,6 +39,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
 const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
   { value: "head_of_purchasing", label: "Head of Purchasing" },
   { value: "head_of_finance", label: "Head of Finance" },
+  { value: "safety_admin", label: "Safety Admin" },
 ];
 
 const roleBadge = (role: UserRole) => {
@@ -195,17 +196,13 @@ const SuperAdminDashboard = () => {
       
       const success = await updateUser(selectedUser.id, updates);
 
-      // Securely update the user's role via an Edge Function
-      const { error: functionError } = await supabase.functions.invoke('set-user-role', {
-        body: {
-          userId: selectedUser.id,
-          role: editRole,
-          secondary_roles: editSecondaryRoles,
-          department: editDepartment, // Pass department in case you add logic for it later
-        },
+      // Securely update the user's role via the new database function
+      const { error: rpcError } = await supabase.rpc('set_user_role', {
+        target_role: editRole,
+        target_user_id: selectedUser.id
       });
-
-    if (functionError) throw functionError;
+      
+      if (rpcError) throw rpcError;
 
     setSheetOpen(false);
     toast.success(`${selectedUser.name}'s role updated successfully`);

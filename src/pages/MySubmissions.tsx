@@ -1,13 +1,15 @@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type CarInfo, type SubmissionStatus } from "@/contexts/SubmissionsContext";
+import { useHiddenSubmissions } from "./useHiddenSubmissions";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, ArrowLeft, Printer, Car, Wallet, HandCoins } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, ArrowLeft, Printer, Car, Wallet, HandCoins, Trash2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
 import { renderValue } from "@/components/DataRenderer";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -67,17 +69,21 @@ const getOverallStatus = (sub: Submission) => {
 
 const MySubmissions = () => {
   const { user } = useAuth();
-  const { submissions, cars, updateSubmissionStatus } = useSubmissions();
+  const { submissions, cars, updateSubmissionStatus, refNoMap } = useSubmissions();
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [assignedCarDetails, setAssignedCarDetails] = useState<CarInfo | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { hiddenIds, hideSubmissions } = useHiddenSubmissions();
 
   const assignedCar = cars.find(c => c.status === 'checked_out' && c.lastCheckedOutBy === user?.name);
 
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-  const mySubmissions = submissions.filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType));
+  const mySubmissions = submissions
+    .filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType) && !hiddenIds.has(s.id));
 
   const stats = {
     total: mySubmissions.length,
@@ -95,22 +101,9 @@ const MySubmissions = () => {
     return true;
   });
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const standardForms = submissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => {
-        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-      });
-    standardForms.forEach((s, idx) => {
-      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
-    });
-    return map;
-  }, [submissions]);
-
   const generateRefNo = (sub: Submission) => {
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    if (sub.data?.refNo) return sub.data.refNo;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
   const handleAcknowledgeReceipt = (sub: Submission) => {
@@ -118,6 +111,23 @@ const MySubmissions = () => {
       updateSubmissionStatus(sub.id, "completed", { acknowledgedAt: new Date().toISOString() });
       toast.success("Receipt acknowledged. Thank you!");
     }
+  };
+
+  const handleToggleSelection = (id: string) => {
+    const newSelectedIds = new Set(selectedIds);
+    if (newSelectedIds.has(id)) {
+      newSelectedIds.delete(id);
+    } else {
+      newSelectedIds.add(id);
+    }
+    setSelectedIds(newSelectedIds);
+  };
+
+  const handleDeleteSelected = () => {
+    hideSubmissions(selectedIds);
+    toast.success(`${selectedIds.size} submission(s) have been deleted from your view.`);
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
   };
 
   if (selectedSubmission) {
@@ -220,12 +230,6 @@ const MySubmissions = () => {
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.drivingLicenseNo || "—"}</div>
-                </div>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                    {selectedSubmission.data.drivingLicenseExpiry ? new Date(selectedSubmission.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
-                  </div>
                 </div>
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Destination</span>
@@ -414,6 +418,24 @@ const MySubmissions = () => {
             </a>
           </div>
         )}
+
+        {/* Attachments Section */}
+        {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 && (
+          <div className="mb-6 print:hidden">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">Attachments</p>
+            <div className="flex flex-wrap gap-3">
+            {selectedSubmission.data.attachments.map((url: string, idx: number) => (
+                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 border border-border rounded-full text-xs font-bold text-primary bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <FileText className="h-3.5 w-3.5" /> Attachment {idx + 1}
+                </a>
+            ))}
+            </div>
+          </div>
+        )}
+
+
+
+
           </div>
 
           {selectedSubmission.data.remarks && (
@@ -449,7 +471,7 @@ const MySubmissions = () => {
                 <div className="print:hidden w-full flex justify-center">
                   {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
                 </div>
-                <div className="hidden print:block font-bold text-[10px] sm:text-sm">
+                <div className="hidden print:block font-bold text-[10px] sm:text-sm text-center">
                   {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : "PENDING"}
                 </div>
               </div>
@@ -458,15 +480,15 @@ const MySubmissions = () => {
                 <div className="print:hidden w-full flex justify-center">                  {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
                 </div>
                 <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                  {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && rejectedStage === "hos") ? "N/A" : "PENDING"}
+                  {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && ["hos", "finance_review"].includes(rejectedStage as string)) ? "N/A" : "PENDING"}
                 </div>
               </div>
               <div className="text-center flex flex-col items-center justify-between">
                 <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Admin</p>
                 <div className="print:hidden w-full flex justify-center">                  {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
                 </div>
-                <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                  {["approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
+                <div className="hidden print:block font-bold text-[10px] sm:text-sm text-center">
+                  {["approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
                 </div>
               </div>
             </div>
@@ -551,11 +573,12 @@ const MySubmissions = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
-      {/* Breadcrumb */}
       <div className="mb-6">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">My Submissions</span> / <span className="font-semibold text-foreground">Permohonan Saya</span>
-        </p>
+        <div>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">My Submissions</span> / <span className="font-semibold text-foreground">Permohonan Saya</span>
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -624,10 +647,43 @@ const MySubmissions = () => {
         </div>
       ) : (
         <div className="card-elevated overflow-hidden">
+          <div className="p-5 flex items-center justify-between border-b border-border">
+            <h2 className="text-lg font-bold text-foreground">Your Submissions</h2>
+            {isSelectionMode ? (
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setIsSelectionMode(false); setSelectedIds(new Set()); }} className="px-4 py-2 text-sm font-bold text-foreground bg-muted rounded-lg hover:bg-muted/80">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={selectedIds.size === 0}
+                  className="px-4 py-2 text-sm font-bold text-white bg-destructive rounded-lg hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Trash2 className="h-4 w-4" /> Delete ({selectedIds.size})
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsSelectionMode(true)}
+                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors"
+                title="Select submissions to delete"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+
+
+
+
+
           <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
+                {isSelectionMode && (
+                  <TableHead className="w-12 px-4"></TableHead>
+                )}
                 <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Ref No.</TableHead>
                 <TableHead className="text-xs font-bold uppercase tracking-wider hidden sm:table-cell">Department</TableHead>
                 <TableHead className="text-xs font-bold uppercase tracking-wider">Form Type</TableHead>
@@ -651,6 +707,14 @@ const MySubmissions = () => {
 
                 return (
                   <TableRow key={sub.id} className="hover:bg-muted/20">
+                    {isSelectionMode && (
+                      <TableCell className="px-4">
+                        <Checkbox
+                          checked={selectedIds.has(sub.id)}
+                          onCheckedChange={() => handleToggleSelection(sub.id)}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium text-primary text-sm whitespace-nowrap">{generateRefNo(sub)}</TableCell>
                     <TableCell className="text-sm text-foreground hidden sm:table-cell">{sub.department}</TableCell>
                     <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>

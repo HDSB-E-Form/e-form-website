@@ -29,13 +29,13 @@ const WasteRecordsPage = () => {
             .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
             
         safetyForms.forEach((s, idx) => {
-            map.set(s.id, `SFTY-${String(idx + 1).padStart(4, "0")}`);
+            map.set(s.id, `SFTY-${String(idx + 1).padStart(5, "0")}`);
         });
         return map;
     }, [submissions]);
 
     const generateRefNo = (subId: string) => {
-        return refNoMap.get(subId) || `SFTY-${subId.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+        return refNoMap.get(subId) || `SFTY-${subId.replace(/\D/g, "").slice(0, 5).padStart(5, "0")}`;
     };
 
     const filteredWasteSubmissions = useMemo(() => {

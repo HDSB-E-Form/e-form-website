@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/supabase";
 import { toast } from "sonner";
 
@@ -51,13 +51,28 @@ export interface Announcement {
   is_active: boolean;
 }
 
+type CarHistoryEntry = {
+  employeeName?: string | null;
+  checkedOutAt?: string | null;
+  checkedInAt: string;
+  mileageOut?: string | null;
+  mileageIn: string;
+  fuelLevelOut?: string | null;
+  fuelLevelIn: string;
+  remarksOut?: string | null;
+  remarksIn: string;
+  photosOut?: Record<string, string | null>;
+  photosIn: Record<string, string | null>;
+};
+
 interface SubmissionsContextType {
   submissions: Submission[];
+  refNoMap: Map<string, string>;
   cars: CarInfo[];
   addSubmission: (sub: Omit<Submission, "id" | "submittedAt">) => Promise<boolean>;
   updateSubmissionStatus: (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => Promise<void>;
-  checkInCar: (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>) => Promise<boolean>;
-  checkOutCar: (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>) => Promise<boolean>;
+  checkInCar: (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => Promise<boolean>;
+  checkOutCar: (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string) => Promise<boolean>;
   addCar: (car: CarInfo) => Promise<boolean>;
   deleteCar: (carId: string) => void;
   updateCar: (carId: string, updates: Partial<CarInfo>) => Promise<boolean>;
@@ -105,36 +120,63 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     fetchData();
   }, []);
 
-  const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
-    let newId = "";
-    
-    // Inventory actions bypass the standard HDSB- sequence
-    if (sub.formType === "inventory_addition" || sub.formType === "ppe_request") {
-      newId = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    } else {
-      // Get the most recent sequential ID from the database
-      const { data: latestSub } = await supabase
-        .from('submissions')
-        .select('id')
-        .filter('id', 'like', 'HDSB-%')
-        .order('submittedAt', { ascending: false })
-        .limit(1);
-  
-      let nextNum = 1;
-      if (latestSub && latestSub.length > 0) {
-        nextNum = (parseInt(latestSub[0].id.replace('HDSB-', '')) || 0) + 1;
+  const refNoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    submissions.forEach(s => {
+      if (s.data?.refNo) {
+        map.set(s.id, s.data.refNo);
       }
-      newId = `HDSB-${String(nextNum).padStart(4, '0')}`;
+    });
+    return map;
+  }, [submissions]);
+
+  const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
+    const isSafetyForm = ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(sub.formType);
+    const isGatePass = sub.formType === 'leave';
+    const isStandardForm = !["inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(sub.formType);
+
+    const submissionId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    let refNo = null;
+    if (isSafetyForm) {
+      const { count, error } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).in('formType', ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"]);
+      if (error) { console.error("Could not count safety forms for ref no:", error); }
+      refNo = `SFTY-${String((count || 0) + 1).padStart(5, '0')}`;
+    } else if (isGatePass) {
+      const { count, error } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('formType', 'leave');
+      if (error) { console.error("Could not count gate pass forms for ref no:", error); }
+      refNo = `GP-${String((count || 0) + 1).padStart(4, '0')}`;
+    } else if (isStandardForm) {
+      const excludedForms = '("inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring")';
+      const { count, error } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).not('formType', 'in', excludedForms);
+      if (error) { console.error("Could not count standard forms for ref no:", error); }
+      // Start from 260000 + current count
+      refNo = `HDSB-${260000 + (count || 0)}`;
     }
 
-    const newSub = {
-      ...sub,
-      id: newId,
-      submittedAt: new Date().toISOString()
-    }
-    const { data, error } = await supabase.from('submissions').insert([newSub]).select();
+    const submissionToInsert = {
+      id: submissionId,
+      formType: sub.formType,
+      status: sub.status ?? "pending",
+      submittedBy: sub.submittedBy,
+      employeeName: sub.employeeName,
+      department: sub.department,
+      data: { ...sub.data, refNo }, // Correctly merge refNo into the existing data object
+      submittedAt: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase.from('submissions').insert([submissionToInsert]).select();
     if (error) {
       console.error("Error adding submission:", error);
+      console.error("Submission insert payload:", submissionToInsert);
+      console.error("Supabase error details:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
       toast.error("Database error: " + error.message);
       return false;
     } else if (data) {
@@ -142,11 +184,20 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       return true;
     }
     return false;
-  }, []);
+  }, [submissions]);
 
   const updateSubmissionStatus = useCallback(async (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>): Promise<void> => {
     const currentSub = submissions.find(s => s.id === id);
-    const updatedData = dataToMerge ? { ...(currentSub?.data || {}), ...dataToMerge } : currentSub?.data;
+    let updatedData = currentSub?.data;
+
+    if (dataToMerge) {
+      updatedData = {
+        ...(currentSub?.data || {}),
+        ...dataToMerge,
+      };
+      // If merging attachments, ensure we don't duplicate them.
+      if (dataToMerge.attachments) updatedData.attachments = dataToMerge.attachments;
+    }
     
     const updatePayload: any = { status };
     if (updatedData) {
@@ -293,7 +344,7 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
 
   return (
     <SubmissionsContext.Provider value={{ 
-      submissions, cars, addSubmission, updateSubmissionStatus, 
+      submissions, refNoMap, cars, addSubmission, updateSubmissionStatus, 
       checkInCar, checkOutCar, addCar, deleteCar, updateCar,
       announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement
     }}>

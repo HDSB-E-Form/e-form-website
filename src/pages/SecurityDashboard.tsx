@@ -19,9 +19,9 @@ const statusBadge = (status: string) => {
     case "on_leave":
       return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">On Leave</Badge>;
     case "approved_hod":
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Pending Admin</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "pending":
@@ -48,8 +48,10 @@ const SecurityDashboard = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "on_leave" | "in_progress" | "history">("action_required");
+  const [historyFilter, setHistoryFilter] = useState<'approved' | 'rejected'>('approved');
   const [isViewAll, setIsViewAll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [remarks, setRemarks] = useState("");
   const [securityLog, setSecurityLog] = useState({
     actualTimeOut: "",
     actualTimeIn: "",
@@ -59,6 +61,7 @@ const SecurityDashboard = () => {
 
   useEffect(() => {
     if (selectedSubmission) {
+      setRemarks(""); // Reset remarks when a new submission is selected
       setSecurityLog({
         actualTimeOut: selectedSubmission.data.securityLog?.actualTimeOut || new Date().toTimeString().slice(0, 5),
         actualTimeIn: selectedSubmission.data.securityLog?.actualTimeIn || '',
@@ -95,7 +98,11 @@ const SecurityDashboard = () => {
     if (activeTab === "action_required") return s.status === "approved_hod";
     if (activeTab === "on_leave") return s.status === "on_leave";
     if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
-    if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
+    if (activeTab === "history") {
+      if (historyFilter === 'approved') return s.status === "approved";
+      if (historyFilter === 'rejected') return s.status === "rejected";
+      return false; // Should not happen
+    }
     return true;
   });
 
@@ -123,7 +130,8 @@ const SecurityDashboard = () => {
   }, [submissions]);
 
   const generateRefNo = (sub: Submission) => {
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    if (sub.data?.refNo) return sub.data.refNo;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
   const handleAction = async (id: string, newStatus: SubmissionStatus, logData: any) => {
@@ -141,6 +149,18 @@ const SecurityDashboard = () => {
     setSelectedSubmission(null);
   };
 
+  const handleReject = async (sub: Submission) => {
+    if (!remarks.trim()) {
+      toast.error("Please provide a reason for rejection in the remarks field.");
+      return;
+    }
+      await updateSubmissionStatus(sub.id, "rejected", {
+      remarks: remarks,
+        rejectedStage: "admin", // Using 'admin' to signify rejection by a guard/admin role
+      });
+      toast.success("Gate Pass has been rejected.");
+      setSelectedSubmission(null);
+  };
   const renderLeaveDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
     const passType = sub.data.purposeType === 'company' ? 'Company Business / Urusan Syarikat' : 'Personal Matter / Urusan Peribadi';
@@ -159,12 +179,9 @@ const SecurityDashboard = () => {
         <div className="bg-muted/30 rounded-xl divide-y divide-border/50 mb-8 border border-border/50 print:bg-transparent print:border-gray-300 print:rounded-none">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Ref No</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{refNo}</div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Form Type / Jenis Borang</span>
             <div className="sm:col-span-2 text-left">
-              <Badge className="bg-emerald-100 text-emerald-800 border-0 text-xs font-bold print:bg-transparent print:text-black print:border print:border-black print:px-2 print:py-0.5">Gate Pass</Badge>
+              <p className="text-xs sm:text-sm font-bold text-foreground">{refNo}</p>
+              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Submitted on: {new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
@@ -187,11 +204,11 @@ const SecurityDashboard = () => {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut || '—'}</div>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut ? sub.data.securityLog.actualTimeOut.split(' ')[1] : '—'}</div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn || '—'}</div>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn ? sub.data.securityLog.actualTimeIn.split(' ')[1] : '—'}</div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Vehicle No.</span>
@@ -264,15 +281,34 @@ const SecurityDashboard = () => {
           </div>
         )}
 
-        {!(canApprove || isOnLeave) && (
+        {!(canApprove || isOnLeave) && !["pending", "approved_hos"].includes(selectedSubmission.status) && (
           <div className="p-4 rounded-xl text-center print:hidden bg-muted/30">
             <p className="text-sm text-muted-foreground font-medium">
-              {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
-               selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
-               selectedSubmission.status === "approved" ? "This Gate Pass has been completed." :
+              {selectedSubmission.status === "approved" ? "This Gate Pass has been completed." :
                selectedSubmission.status === "rejected" ? "This Gate Pass was rejected." :
                "No further action is required at this time."}
             </p>
+          </div>
+        )}
+
+        {["pending", "approved_hos"].includes(selectedSubmission.status) && (
+          <div className="p-4 bg-muted/30 rounded-xl text-center print:hidden">
+            <div className="flex flex-col items-center justify-center gap-4">
+              <p className="text-sm text-muted-foreground font-medium">
+                {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
+                 "Waiting for Head of Department (HOD) approval."}
+              </p>
+              <div className="w-full max-w-md">
+                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Security Admin Action</p>
+                <Input
+                  placeholder="Enter remarks if rejecting..."
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  className="mb-3 h-11 bg-background"
+                />
+                <button onClick={() => handleReject(selectedSubmission)} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">REJECT SUBMISSION</button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -283,7 +319,7 @@ const SecurityDashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs font-semibold text-primary">Actual Time Out</Label>
-                  <Input type="time" value={securityLog.actualTimeOut} onChange={e => setSecurityLog(p => ({...p, actualTimeOut: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" />
+                  <Input type="time" value={securityLog.actualTimeOut} onChange={e => setSecurityLog(p => ({...p, actualTimeOut: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" required />
                 </div>
                 <div>
                   <Label className="text-xs font-semibold text-primary">Vehicle No.</Label>
@@ -297,8 +333,10 @@ const SecurityDashboard = () => {
               <div className="flex gap-4 pt-4 border-t border-border">
                 <button onClick={() => handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors">REJECT</button>
                 <button onClick={() => {
-                  const timeOutWithDate = `${new Date().toLocaleDateString('en-GB')} ${securityLog.actualTimeOut}`;
-                  handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: timeOutWithDate, vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
+                  const timePart = securityLog.actualTimeOut; // HH:MM from time input
+                  const datePart = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
+                  const fullDateTime = `${datePart} ${timePart}`;
+                  handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: fullDateTime, vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
                 }} className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" disabled={!securityLog.actualTimeOut}>
                   <LogOut className="h-4 w-4" /> CONFIRM EXIT
                 </button>
@@ -332,7 +370,8 @@ const SecurityDashboard = () => {
               <div className="pt-4 border-t border-border">
                 <button 
                   onClick={() => {
-                    const timeInWithDate = `${new Date().toLocaleDateString('en-GB')} ${securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)}`;
+                    const timePart = securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5);
+                    const timeInWithDate = `${new Date().toLocaleDateString('en-GB')} ${timePart}`;
                     handleAction(selectedSubmission.id, "approved", { actualTimeIn: timeInWithDate, remarks: securityLog.remarks });
                   }} 
                   className="w-full px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
@@ -407,7 +446,28 @@ const SecurityDashboard = () => {
       {/* Submissions Table */}
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
+          {activeTab === 'history' ? (
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Submission History</h2>
+              <div className="flex bg-muted p-1 rounded-lg w-fit mt-2">
+                {(['approved', 'rejected'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => { setHistoryFilter(tab); setIsViewAll(false); }}
+                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                      historyFilter === tab
+                        ? "bg-background shadow-sm text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab === 'approved' ? 'Approved' : 'Rejected'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -458,8 +518,9 @@ const SecurityDashboard = () => {
                     </TableCell>
                     <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
                     <TableCell>
-                      <div className="flex flex-col items-start gap-1">
+                      <div className="flex flex-col items-start gap-0.5">
                         <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
+                        <span className="text-xs text-muted-foreground/80">{new Date(sub.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                         {activeTab === "action_required" && isRecent(sub.submittedAt) && (
                           <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
                         )}
@@ -467,7 +528,7 @@ const SecurityDashboard = () => {
                     </TableCell>
                     <TableCell>{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">
+                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors print:hidden">
                         {sub.status === "approved_hod" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
                       </button>
                     </TableCell>

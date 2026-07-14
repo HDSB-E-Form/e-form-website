@@ -50,7 +50,7 @@ const getInitialColor = (name: string) => {
 
 const ApproverDashboard = () => {
   const { user } = useAuth();
-  const { submissions, updateSubmissionStatus } = useSubmissions();
+  const { submissions, updateSubmissionStatus, refNoMap } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -124,23 +124,9 @@ const ApproverDashboard = () => {
     resolved: filtered.filter(s => s.status === "approved" || s.status === "rejected").length,
   };
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-    const standardForms = submissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => {
-        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-      });
-    standardForms.forEach((s, idx) => {
-      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
-    });
-    return map;
-  }, [submissions]);
-
   const generateRefNo = (sub: Submission) => {
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    if (sub.data?.refNo) return sub.data.refNo;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
   const renderLeaveDetailsForApprover = (sub: Submission) => {
@@ -340,7 +326,9 @@ const ApproverDashboard = () => {
                 <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-center flex items-center justify-center gap-2">
                   <XCircle className="h-5 w-5 text-red-600" />
                   <p className="text-sm text-destructive dark:text-red-400 font-medium">
-                    This submission has been rejected.
+                    This submission was rejected by {
+                      selectedSubmission.data.rejectedStage === 'finance_review' ? 'the Finance Admin' : `the ${selectedSubmission.data.rejectedStage?.toUpperCase()}`
+                    }.
                   </p>
                 </div>
               );

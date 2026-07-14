@@ -15,8 +15,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { NavLink } from "@/components/NavLink"; 
-import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle, Database } from "lucide-react";
+import { NavLink } from "@/components/NavLink";
+import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle, Database, Hash } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -95,7 +95,7 @@ export function AppSidebar() {
   const { submissions } = useSubmissions();
   const navigate = useNavigate(); 
 
-  const isAdmin = user?.role && ["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard", "safety_admin"].includes(user.role);
+  const isAdmin = user?.role && (["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
   const isSuperAdmin = user?.role === "super_admin";
   const isSecurityGuard = user?.role === "security_guard";
 
@@ -131,7 +131,14 @@ export function AppSidebar() {
 
   }, [submissions, user]);
 
-  const adminNav = getAdminNav(user?.role);
+  const adminNav = useMemo(() => {
+    const primaryNav = getAdminNav(user?.role);
+    const secondaryNavs = (user?.secondary_roles || []).flatMap(role => getAdminNav(role));
+    // Combine and remove duplicates, preserving order
+    const combined = [...primaryNav, ...secondaryNavs];
+    const uniqueNav = Array.from(new Map(combined.map(item => [item.title, item])).values());
+    return uniqueNav;
+  }, [user]);
 
   const visibleEmployeeNav = employeeNav.filter(item => {
     // Hide personal "My Submissions" for standard admin/manager roles to keep their sidebars clean

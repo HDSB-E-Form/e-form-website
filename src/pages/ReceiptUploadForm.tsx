@@ -85,14 +85,13 @@ const ReceiptUploadForm = () => {
         attachmentUrls.push(urlData.publicUrl);
       }
 
-      const existingAttachments = submission.data.receiptAttachments || [];
+      const existingAttachments = submission.data.attachments || [];
       const updatedData = {
-        ...submission.data,
-        receiptAttachments: [...existingAttachments, ...attachmentUrls],
+        attachments: [...existingAttachments, ...attachmentUrls],
       };
 
       // The updateSubmissionStatus function resolves on success or throws on error.
-      await updateSubmissionStatus(submission.id, submission.status, updatedData);
+      await updateSubmissionStatus(submission.id, submission.status, { attachments: updatedData.attachments });
       toast.success("Receipt uploaded and attached successfully!");
       navigate("/submissions");
     } catch (error: any) {

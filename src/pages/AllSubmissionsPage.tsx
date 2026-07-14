@@ -43,18 +43,20 @@ const statusBadge = (status: string) => {
 };
 
 const AllSubmissionsPage = () => {
-  const { submissions: allSubmissions } = useSubmissions();
+  const { submissions: allSubmissions, refNoMap } = useSubmissions();
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'car_rental' | 'claim' | 'leave'>('all');
 
   const isDateFiltered = startDate !== "" || endDate !== "";
 
   const submissions = allSubmissions
     .filter(s => !excludedForms.includes(s.formType))
+    .filter(s => activeTab === 'all' ? true : s.formType === activeTab)
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -73,22 +75,9 @@ const AllSubmissionsPage = () => {
       return subDate >= start && subDate <= end;
     });
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const standardForms = allSubmissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => {
-        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-      });
-    standardForms.forEach((s, idx) => {
-      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
-    });
-    return map;
-  }, [allSubmissions]);
-
   const generateRefNo = (sub: Submission) => {
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    if (sub.data?.refNo) return sub.data.refNo;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
   if (selectedSubmission) {
@@ -186,12 +175,6 @@ const AllSubmissionsPage = () => {
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.drivingLicenseNo || "—"}</div>
-                </div>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">License Expiry</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                    {selectedSubmission.data.drivingLicenseExpiry ? new Date(selectedSubmission.data.drivingLicenseExpiry).toLocaleDateString("en-GB") : "—"}
-                  </div>
                 </div>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Destination</span>
@@ -373,21 +356,11 @@ const AllSubmissionsPage = () => {
         {(selectedSubmission.data.attachments?.length > 0 || selectedSubmission.data.attachment || selectedSubmission.data.licenseAttachment) && (
           <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start print:hidden">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Attachments</span>
-            <a href={selectedSubmission.data.attachments?.[0] || selectedSubmission.data.attachment || selectedSubmission.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2 print:col-span-2 print:text-black">
-              <FileText className="h-4 w-4" /> 
-              View Attachment
-              {selectedSubmission.data.attachments?.length > 1 && `s (${selectedSubmission.data.attachments.length})`}
-            </a>
-          </div>
-        )}
-
-        {selectedSubmission.data.receiptAttachments && selectedSubmission.data.receiptAttachments.length > 0 && (
-          <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start print:hidden">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Uploaded Receipts</span>
             <div className="sm:col-span-2 print:col-span-2 flex flex-col gap-2">
-              {selectedSubmission.data.receiptAttachments.map((url: string, idx: number) => (
+              {(selectedSubmission.data.attachments || [selectedSubmission.data.attachment, selectedSubmission.data.licenseAttachment].filter(Boolean)).map((url: string, idx: number) => (
                 <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left print:text-black">
-                  <FileText className="h-4 w-4" /> View Receipt {idx + 1}
+                  <FileText className="h-4 w-4" />
+                  View Attachment {idx + 1}
                 </a>
               ))}
             </div>
@@ -502,10 +475,32 @@ const AllSubmissionsPage = () => {
       </div>
 
       <div className="card-elevated overflow-hidden">
+        <div className="p-5 flex items-center justify-between border-b border-border">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Submissions</h2>
+            <div className="flex bg-muted p-1 rounded-lg w-fit mt-2">
+              {(['all', 'car_rental', 'claim', 'leave'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => { setActiveTab(tab); setIsViewAll(false); }}
+                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    activeTab === tab
+                      ? "bg-background shadow-sm text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab === 'all' ? 'All Forms' : formTypeLabels[tab] || tab}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
+              <TableHead className="text-xs font-bold uppercase tracking-wider">Ref No.</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
@@ -516,9 +511,10 @@ const AllSubmissionsPage = () => {
           <TableBody>
             {(isViewAll ? submissions : submissions.slice(0, 10)).map((sub) => (
               <TableRow key={sub.id} className="hover:bg-muted/20">
+                <TableCell className="font-medium text-primary text-sm whitespace-nowrap">{generateRefNo(sub)}</TableCell>
                 <TableCell className="font-medium text-foreground">{sub.employeeName}</TableCell>
-                <TableCell className="uppercase text-xs font-bold text-foreground">{formTypeLabels[sub.formType] || sub.formType.replace("_", " ")}</TableCell>
-                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
+                <TableCell className="uppercase text-xs font-bold text-foreground">{formTypeLabels[sub.formType] || sub.formType.replace(/_/g, " ")}</TableCell>
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</TableCell>
                 <TableCell>{statusBadge(sub.status)}</TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-3">

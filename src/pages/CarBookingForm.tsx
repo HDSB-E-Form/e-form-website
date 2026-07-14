@@ -45,7 +45,6 @@ const CarBookingForm = () => {
     position: (user as any)?.position || "",
     mobileNumber: user?.phone || "", 
     drivingLicenseNo: (user as any)?.drivingLicenseNo || "",
-    drivingLicenseExpiry: "",
     hos: "",
     hod: "",
   });
@@ -148,18 +147,17 @@ const CarBookingForm = () => {
       toast.error("Please select both Head of Section and Head of Department.");
       return;
     }
-    if (!licenseFile) {
-      toast.error("Please upload a copy of your driving license.");
-      return;
-    }
-    if (isSubmitting) return;
-    setIsSubmitting(true);
 
     let initialStatus: "pending" | "approved_hos";
     if (form.hos === "N/A") {
       initialStatus = "approved_hos";
     } else {
       initialStatus = "pending";
+    }
+
+    if (!licenseFile) {
+      toast.error("Please upload a copy of your driving license.");
+      return;
     }
     let licenseAttachmentUrl = null;
     if (licenseFile) {

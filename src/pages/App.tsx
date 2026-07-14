@@ -8,19 +8,17 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SubmissionsProvider } from "@/contexts/SubmissionsContext";
 import { UsersProvider } from "@/contexts/UsersContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
 import Index from "@/pages/Index";
+import VerifyOtpPage from "@/pages/VerifyOtpPage";
 import RegisterPage from "@/pages/RegisterPage";
-import HomePage from "@/pages/HomePage";
-import Root from "@/pages/Root"; // Import the new Root component
 import HRFormsPage from "@/pages/HRFormsPage";
 import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import CarBookingForm from "@/pages/CarBookingForm";
 import GatePassForm from "@/pages/GatePassForm";
 import PettyCashForm from "@/pages/PettyCashForm";
-import ReceiptUploadForm from "@/pages/ReceiptUploadForm"; // Import the new form
+import ReceiptUploadForm from "@/pages/ReceiptUploadForm";
 import MySubmissions from "@/pages/MySubmissions";
 import AdminDashboard from "@/pages/AdminDashboard";
 import FinanceDashboard from "@/pages/FinanceDashboard"; 
@@ -38,8 +36,10 @@ import NotFound from "@/pages/NotFound";
 import AllSubmissionsPage from "@/pages/AllSubmissionsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import WasteInventoryForm from "@/pages/WasteInventoryForm"; 
+import HomePage from "@/pages/HomePage";
 import PpeRequestForm from "@/pages/PpeRequestForm";
 import DailyOperationMonitoringForm from "@/pages/WaterTreatmentForm"; // Note: Renamed component
+import Root from "@/pages/Root";
 
 import { useRealtimeNotifications } from "@/useRealtimeNotifications";
 
@@ -63,9 +63,9 @@ const App = () => (
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/verify-otp" element={<VerifyOtpPage />} />
                 {/* No /register route needed if it's part of the login page */}
-
-                {/* The Root component now handles the logic for the "/" path */}
+                
                 <Route path="/" element={<Root />}>
                   <Route path="home" element={<HomePage />} />
                   <Route path="hr" element={<HRFormsPage />} />

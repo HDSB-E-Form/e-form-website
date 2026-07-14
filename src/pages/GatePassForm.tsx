@@ -72,12 +72,7 @@ const GatePassForm = () => {
       return;
     }
 
-    let initialStatus: "pending" | "approved_hos";
-    if (hosName === "N/A") {
-      initialStatus = "approved_hos";
-    } else {
-      initialStatus = "pending";
-    }
+    const initialStatus: "pending" | "approved_hos" = hosName === "N/A" ? "approved_hos" : "pending";
     if (isSubmitting) return;
     setIsSubmitting(true);
 

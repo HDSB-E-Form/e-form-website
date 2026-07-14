@@ -65,8 +65,8 @@ const RegisterPage = () => {
       return;
     }
 
-      toast.success("Account created successfully! Please log in.");
-      navigate("/login");
+      toast.success("Registration successful! Please check your email for a verification code.");
+      navigate("/verify-otp", { state: { email: form.email, ...form } });
       setIsRegistering(false);
   };
 

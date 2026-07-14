@@ -197,7 +197,8 @@ const AdminDashboard = () => {
   }, [submissions]);
 
   const generateRefNo = (sub: Submission) => {
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    if (sub.data?.refNo) return sub.data.refNo;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
@@ -518,7 +519,7 @@ const AdminDashboard = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col items-start gap-1 whitespace-nowrap">
-                                <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                               </div>
                             </TableCell>
                             <TableCell>

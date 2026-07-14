@@ -28,9 +28,9 @@ const statusBadge = (status: string) => {
     case "approved":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
     case "approved_hod":
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOP</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "pending":
@@ -53,7 +53,7 @@ const getInitialColor = (name: string) => {
 };
 
 const FinanceDashboard = () => {
-  const { submissions, updateSubmissionStatus } = useSubmissions();
+  const { submissions, updateSubmissionStatus, refNoMap } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -101,23 +101,8 @@ const FinanceDashboard = () => {
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => ["approved", "paid", "completed"].includes(s.status)).length / filtered.length) * 100) : 0,
   };
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-    const standardForms = submissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => {
-        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-      });
-    standardForms.forEach((s, idx) => {
-      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
-    });
-    return map;
-  }, [submissions]);
-
   const generateRefNo = (sub: Submission) => {
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.replace(/\D/g, "").slice(0, 4).padStart(4, "0")}`;
+    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
   const handleAction = (id: string, status: SubmissionStatus) => {
@@ -257,17 +242,16 @@ const FinanceDashboard = () => {
 
         {/* Attachment */}
         {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 ? (
-          <div className="space-y-3 mb-6">
+          <div className="mb-6">
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">Attachments / Lampiran</p>
+            <div className="flex flex-wrap gap-3">
             {selectedSubmission.data.attachments.map((url: string, idx: number) => (
-              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium text-primary">View Attachment {idx + 1} / Lihat Lampiran {idx + 1}</span>
-                </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 border border-border rounded-full text-xs font-bold text-primary bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <FileText className="h-3.5 w-3.5" /> Attachment {idx + 1} <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </a>
             ))}
           </div>
+            </div>
         ) : selectedSubmission.data.attachment && (
           <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20 transition-colors">
             <div className="flex items-center gap-3">
@@ -276,22 +260,6 @@ const FinanceDashboard = () => {
             </div>
             <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
-        )}
-
-        {/* Uploaded Receipts */}
-        {selectedSubmission.data.receiptAttachments && selectedSubmission.data.receiptAttachments.length > 0 && (
-          <div className="space-y-3 mb-6">
-            <p className="text-xs font-bold text-primary uppercase tracking-wider">Uploaded Receipts</p>
-            {selectedSubmission.data.receiptAttachments.map((url: string, idx: number) => (
-              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium text-primary">View Receipt {idx + 1}</span>
-                </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              </a>
-            ))}
-          </div>
         )}
 
 
@@ -381,12 +349,24 @@ const FinanceDashboard = () => {
 
         {["pending", "approved_hos", "approved_hod", "approved_hop"].includes(selectedSubmission.status) && (
           <div className="p-4 bg-muted/30 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground font-medium">
-              {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
-               selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
-               selectedSubmission.status === "approved_hod" ? "Waiting for Head of Purchasing (HOP) approval." :
-               "Waiting for Head of Finance (HOF) approval."}
-            </p>
+            <div className="flex flex-col items-center justify-center gap-4">
+              <p className="text-sm text-muted-foreground font-medium">
+                {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
+                 selectedSubmission.status === "approved_hos" ? "Waiting for Head of Department (HOD) approval." :
+                 selectedSubmission.status === "approved_hod" ? "Waiting for Head of Purchasing (HOP) approval." :
+                 "Waiting for Head of Finance (HOF) approval."}
+              </p>
+              <div className="w-full max-w-md">
+                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Finance Admin Action</p>
+                <Input
+                  placeholder="Enter remarks if rejecting..."
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  className="mb-3 h-11 bg-background"
+                />
+                <button onClick={() => handleAction(selectedSubmission.id, "rejected")} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">REJECT SUBMISSION</button>
+              </div>
+            </div>
           </div>
         )}
       </div>
