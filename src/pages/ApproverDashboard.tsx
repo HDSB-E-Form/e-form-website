@@ -1,18 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSubmissions, type Submission, type SubmissionStatus, type AppUser } from "@/contexts/SubmissionsContext";
+import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
+import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { renderValue } from "@/components/DataRenderer";
+import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
+import DashboardStatCard from "@/components/DashboardStatCard";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
   leave: "Gate Pass",
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
+  cctv_access_request: "CCTV Access Request",
 };
 
 const statusBadge = (status: string) => {
@@ -31,6 +35,7 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "pending":
     default:
+      // For the forms this dashboard handles, 'pending' always means waiting for HOS.
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOS</Badge>;
   }
 };
@@ -50,15 +55,21 @@ const getInitialColor = (name: string) => {
 
 const ApproverDashboard = () => {
   const { user } = useAuth();
-  const { submissions, updateSubmissionStatus, refNoMap } = useSubmissions();
+  const { users } = useUsers();
+  const { submissions, updateSubmissionStatus, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
+
+  useEffect(() => {
+    refreshSubmissions();
+  }, [refreshSubmissions]);
   const [isViewAll, setIsViewAll] = useState(false);
 
-  const isHOD = user?.role === "hod";
-  const isHOS = user?.role === "hos";
+  const isHOD = user?.role === "hod" || user?.secondary_roles?.includes("hod");
+  const isHOS = user?.role === "hos" || user?.secondary_roles?.includes("hos");
   const isHOP = user?.role === "head_of_purchasing" || user?.secondary_roles?.includes('head_of_purchasing');
   const isHOF = user?.role === "head_of_finance" || user?.secondary_roles?.includes('head_of_finance');
 
@@ -68,10 +79,10 @@ const ApproverDashboard = () => {
       const hodValue = s.data.hodName || s.data.hod;
       const hopValue = s.data.hopName;
       const hofValue = s.data.hofName;
-      const isUserHOS = isHOS && hosValue === user?.name;
-      const isUserHOD = isHOD && hodValue === user?.name;
-      const isUserHOP = isHOP && hopValue === user?.name && s.formType === 'claim';
-      const isUserHOF = isHOF && hofValue === user?.name && s.formType === 'claim';
+      const isUserHOS = isHOS && (s.data.hosUserId ? s.data.hosUserId === user?.id : hosValue === user?.name);
+      const isUserHOD = isHOD && (s.data.hodUserId ? s.data.hodUserId === user?.id : hodValue === user?.name);
+      const isUserHOP = isHOP && (s.data.hopUserId ? s.data.hopUserId === user?.id : hopValue === user?.name) && s.formType === 'claim';
+      const isUserHOF = isHOF && (s.data.hofUserId ? s.data.hofUserId === user?.id : hofValue === user?.name) && s.formType === 'claim';
       return isUserHOS || isUserHOD || isUserHOP || isUserHOF;
     })
     .filter(s => {
@@ -103,13 +114,13 @@ const ApproverDashboard = () => {
       return conditions.some(Boolean);
     }
     if (activeTab === "in_progress") {
-      if (isHOS) return ["approved_hod", "approved_hop", "approved_hof"].includes(s.status);
+      if (isHOS) return ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "paid"].includes(s.status);
       if (isHOD) return s.status === "pending";
-      if (isHOP && s.formType === 'claim') return ["pending", "approved_hos"].includes(s.status);
-      if (isHOF) return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status);
+      if (isHOP && s.formType === 'claim') return ["pending", "approved_hos", "pending_finance_review"].includes(s.status);
+      if (isHOF) return ["pending", "approved_hos", "approved_hod", "pending_finance_review"].includes(s.status);
       return false;
     }
-    if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
+    if (activeTab === "history") return ["approved", "rejected", "paid", "completed"].includes(s.status);
     return true;
   });
 
@@ -201,14 +212,34 @@ const ApproverDashboard = () => {
     );
   };
 
-  const handleAction = (id: string, status: SubmissionStatus) => {
-    updateSubmissionStatus(id, status, { remarks, rejectedStage: status === "rejected" ? (isHOS ? "hos" : isHOD ? "hod" : isHOP ? "hop" : "hof") : undefined });
-    toast.success(`Submission ${status === "approved" || status === "approved_hos" || status === "approved_hod" ? "accepted" : "rejected"} successfully`);
+  const handleAction = async (id: string, status: SubmissionStatus) => {
+    if (isProcessingAction) return;
+    if (status === "rejected" && !remarks.trim()) {
+      toast.error("Please enter a reason before rejecting this claim.");
+      return;
+    }
+    setIsProcessingAction(true);
+    const success = await updateSubmissionStatus(id, status, { remarks: remarks.trim(), rejectedStage: status === "rejected" ? (isHOS ? "hos" : isHOD ? "hod" : isHOP ? "hop" : "hof") : undefined });
+    setIsProcessingAction(false);
+    if (!success) return;
+    toast.success(`Submission ${status === "rejected" ? "rejected" : "approved"} successfully`);
     setSelectedSubmission(null);
     setRemarks("");
   };
 
+  if (isLoading) {
+    return (
+      <ApprovalDashboardSkeleton
+        title="Loading approvals…"
+        description="Retrieving the latest submissions assigned to you."
+      />
+    );
+  }
+
   if (selectedSubmission) {
+    const submittingUser = users.find(candidate => candidate.id === selectedSubmission.submittedBy);
+    const employeeStaffId = selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || submittingUser?.staffId || "—";
+    const employeePosition = selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || submittingUser?.position || "—";
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0 animate-in fade-in-5">
         <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
@@ -219,11 +250,11 @@ const ApproverDashboard = () => {
         <div className="bg-muted/30 rounded-xl p-5 mb-6">
           <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
           <p className="text-sm text-muted-foreground mb-1">
-            Staff ID: {selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy}
+            Staff ID: {employeeStaffId}
           </p>
           <p className="text-sm text-muted-foreground mb-1">Department: {selectedSubmission.department}</p>
           <p className="text-sm text-muted-foreground mb-3">
-            Position: {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
+            Position: {employeePosition}
           </p>
         </div>
 
@@ -261,6 +292,17 @@ const ApproverDashboard = () => {
                 <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount || "0.00"}</p>
               </div>
             </>
+          )}
+          {selectedSubmission.formType === 'cctv_access_request' && (
+            <div className="mt-4 space-y-4 border-t border-border/50 pt-4">
+              <div><p className="text-xs text-muted-foreground">Type of Request</p><div className="mt-1 text-sm font-bold text-foreground">{renderValue(selectedSubmission.data.requestTypes)}</div></div>
+              <div><p className="text-xs text-muted-foreground">Camera Location</p><p className="mt-1 text-sm font-bold text-foreground">{selectedSubmission.data.cameraLocation || "—"}</p></div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div><p className="text-xs text-muted-foreground">From</p><p className="mt-1 text-sm font-bold text-foreground">{selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString() : "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">To</p><p className="mt-1 text-sm font-bold text-foreground">{selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString() : "—"}</p></div>
+              </div>
+              <div><p className="text-xs text-muted-foreground">Purpose of Access</p><p className="mt-1 text-sm font-bold text-foreground">{selectedSubmission.data.purpose || "—"}</p></div>
+            </div>
           )}
         </div>
 
@@ -316,9 +358,9 @@ const ApproverDashboard = () => {
                              (isHOP && selectedSubmission.formType === 'claim' && selectedSubmission.status === "approved_hod") ||
                              (isHOF && selectedSubmission.status === "approved_hop");
           if (!canApprove) {
-            const alreadyApproved = (isHOS && ["approved_hos", "approved_hod", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
-                                    (isHOD && ["approved_hod", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
-                                    (isHOP && ["approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+            const alreadyApproved = (isHOS && ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+                                   (isHOD && ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+                                   (isHOP && ["pending_finance_review", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
                                     (isHOF && ["approved_hof", "approved"].includes(selectedSubmission.status));
 
             if (selectedSubmission.status === "rejected") {
@@ -396,9 +438,10 @@ const ApproverDashboard = () => {
               <div className="flex gap-4">
                 <button
                   onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                  className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors"
+                  disabled={isProcessingAction}
+                  className="w-1/3 px-6 py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  REJECT / TOLAK
+                  {isProcessingAction ? "SAVING..." : "REJECT / TOLAK"}
                 </button>
                 <button
                   onClick={() => {
@@ -408,15 +451,16 @@ const ApproverDashboard = () => {
                     } else if (isHOD && selectedSubmission.status === "approved_hos") {
                       nextStatus = "approved_hod";
                     } else if (isHOP && selectedSubmission.status === "approved_hod") {
-                      nextStatus = "approved_hop";
+                      nextStatus = "pending_finance_review";
                     } else if (isHOF && selectedSubmission.status === "approved_hop") {
                       nextStatus = "approved_hof";
                     }
                     handleAction(selectedSubmission.id, nextStatus);
                   }}
-                  className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors"
+                  disabled={isProcessingAction}
+                  className="w-2/3 px-6 py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  APPROVE / LULUS
+                  {isProcessingAction ? "SAVING..." : "APPROVE / LULUS"}
                 </button>
               </div>
             </>
@@ -433,52 +477,33 @@ const ApproverDashboard = () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="card-elevated p-5 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <p className="text-xs font-bold text-primary uppercase tracking-wider">Total Assigned</p>
-          </div>
-          <p className="text-4xl font-bold text-foreground">{stats.total}</p>
-        </div>
-        <div className="card-elevated p-5 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
-            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Action Required</p>
-          </div>
-          <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
-        </div>
-        <div className="card-elevated p-5 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Clock className="h-5 w-5 text-blue-500" />
-            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">In Progress</p>
-          </div>
-          <p className="text-4xl font-bold text-foreground">{stats.inProgress}</p>
-        </div>
-        <div className="card-elevated p-5 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <CheckCircle className="h-5 w-5 text-emerald-500" />
-            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Resolved</p>
-          </div>
-          <p className="text-4xl font-bold text-foreground">{stats.resolved}</p>
-        </div>
+        <DashboardStatCard label="Total Assigned" value={stats.total} icon={FileText} tone="blue" />
+        <DashboardStatCard label="Action Required" value={stats.actionRequired} icon={AlertCircle} tone="amber" />
+        <DashboardStatCard label="In Progress" value={stats.inProgress} icon={Clock} tone="indigo" />
+        <DashboardStatCard label="Resolved" value={stats.resolved} icon={CheckCircle} tone="emerald" />
       </div>
 
-      <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6">
-        <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "action_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          Action Required
-          {stats.actionRequired > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.actionRequired}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "in_progress" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          In Progress
-          {stats.inProgress > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-amber-500 text-white hover:bg-amber-600">{stats.inProgress}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "history" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          History
-        </button>
+      <div className="card-elevated p-4 sm:p-5 mb-4">
+        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Approvals</p>
+        <div className="flex w-full sm:w-fit max-w-full items-center overflow-x-auto no-scrollbar rounded-xl border border-black/25 bg-white/70 p-1.5 shadow-sm backdrop-blur-xl dark:border-white/25 dark:bg-white/10">
+          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "action_required" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+            Action Required
+            {stats.actionRequired > 0 && (
+              <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.actionRequired}</Badge>
+            )}
+          </button>
+          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
+          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "in_progress" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+            In Progress
+            {stats.inProgress > 0 && (
+              <Badge className="h-5 min-w-5 justify-center border-0 bg-amber-500 px-1.5 text-[10px] text-white hover:bg-amber-500">{stats.inProgress}</Badge>
+            )}
+          </button>
+          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
+          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "history" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+            History
+          </button>
+        </div>
       </div>
 
       <div className="card-elevated overflow-hidden">

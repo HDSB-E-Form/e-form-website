@@ -5,7 +5,7 @@ import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Droplet, Plus, Save, Settings, Download, MessageSquare, ImageIcon, Upload } from "lucide-react";
+import { Droplet, Plus, Save, Settings, Download, MessageSquare, ImageIcon, Upload, RotateCcw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
@@ -19,14 +19,15 @@ const parameterOptions = [
 
 const DischargeDashboard = () => {
     const { user } = useAuth();
-    const { submissions, addSubmission } = useSubmissions();
+    const { submissions } = useSubmissions();
     const [selectedParameter, setSelectedParameter] = useState("ph4");
 
-    const getToday = () => new Date().toISOString().split('T')[0];
+    const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const getToday = () => formatLocalDate(new Date());
     const getOneMonthAgo = () => {
         const date = new Date();
         date.setMonth(date.getMonth() - 1);
-        return date.toISOString().split('T')[0];
+        return formatLocalDate(date);
     };
 
     const [dischargeStartDate, setDischargeStartDate] = useState(getOneMonthAgo());
@@ -38,12 +39,10 @@ const DischargeDashboard = () => {
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [exportStartDate, setExportStartDate] = useState("");
     const [exportEndDate, setExportEndDate] = useState("");
+    const hasInvalidDateRange = dischargeStartDate > dischargeEndDate;
     const [isUploading, setIsUploading] = useState(false);
-    const [posterConfig, setPosterConfig] = useState(() => {
-        try { return JSON.parse(localStorage.getItem("hdsb_safety_poster_config") || "null") || { enabled: true, url: null }; } 
-        catch { return { enabled: true, url: null }; }
-    });
-    useEffect(() => { localStorage.setItem("hdsb_safety_poster_config", JSON.stringify(posterConfig)); }, [posterConfig]);
+    const [posterConfig, setPosterConfig] = useState<{ enabled: boolean; url: string | null }>({ enabled: true, url: null });
+    const [dashboardRemarks, setDashboardRemarks] = useState<Array<{ id: string; remark: string; created_by_name: string; created_at: string }>>([]);
 
     const [isPosterSettingsOpen, setIsPosterSettingsOpen] = useState(false);
     const [isRemarksOpen, setIsRemarksOpen] = useState(false);
@@ -71,19 +70,46 @@ const DischargeDashboard = () => {
         submissions.filter(s => ["final_discharge", "mixing_chemical_stages", "daily_operation_monitoring"].includes(s.formType)), 
     [submissions]);
 
+    useEffect(() => {
+        const loadSharedData = async () => {
+            const [{ data: settings }, { data: remarks }] = await Promise.all([
+                supabase.from("safety_dashboard_settings").select("value").eq("key", "safety_poster").maybeSingle(),
+                supabase.from("safety_dashboard_remarks").select("id, remark, created_by_name, created_at").eq("dashboard", "final_discharge").order("created_at", { ascending: false }),
+            ]);
+            if (settings?.value) setPosterConfig(settings.value as { enabled: boolean; url: string | null });
+            if (remarks) setDashboardRemarks(remarks);
+        };
+        loadSharedData();
+    }, []);
+
+    const savePosterConfig = async (nextConfig: { enabled: boolean; url: string | null }) => {
+        const previous = posterConfig;
+        setPosterConfig(nextConfig);
+        const { error } = await supabase.from("safety_dashboard_settings").upsert({
+            key: "safety_poster", value: nextConfig, updated_by: user?.id || "", updated_at: new Date().toISOString(),
+        });
+        if (error) {
+            setPosterConfig(previous);
+            toast.error(`Failed to save poster settings: ${error.message}`);
+            return false;
+        }
+        return true;
+    };
+
     const remarksList = useMemo(() => {
-        return submissions
+        const legacyRemarks = submissions
             .filter(s => s.formType === "final_discharge")
             .filter(s => s.data.remarks && s.data.remarks.trim() !== "")
-            .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-    }, [submissions]);
+            .map(s => ({ id: s.id, remark: s.data.remarks, created_by_name: s.employeeName || "System Log", created_at: s.submittedAt }));
+        return [...dashboardRemarks, ...legacyRemarks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }, [dashboardRemarks, submissions]);
 
     const chartData = useMemo(() => {
         const start = dischargeStartDate || "0000-00-00";
         const end = dischargeEndDate || "9999-12-31";
 
         const data = monitoringSubmissions
-            .filter(s => s.formType === "final_discharge" && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
+            .filter(s => s.formType === "final_discharge" && s.data.finalDischarge && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
             .map(s => ({
                 date: s.data.metaInfo.date,
                 value: parseFloat(s.data.finalDischarge?.[selectedParameter]) || 0,
@@ -113,7 +139,7 @@ const DischargeDashboard = () => {
         const end = dischargeEndDate || "9999-12-31";
 
         const filteredSubmissions = monitoringSubmissions.filter(s => {
-            return s.formType === "final_discharge" && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
+            return s.formType === "final_discharge" && s.data.finalDischarge && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
         });
         
         let phTotal = 0, phCount = 0;
@@ -144,22 +170,15 @@ const DischargeDashboard = () => {
             return;
         }
         setIsSavingRemark(true);
-        const success = await addSubmission({
-            formType: "final_discharge",
-            status: "approved",
-            submittedBy: user?.id || "",
-            employeeName: user?.name || "System",
-            department: user?.department || "Safety",
-            data: {
-                remarks: newRemark,
-                metaInfo: { date: new Date().toISOString().split('T')[0], time: new Date().toTimeString().slice(0, 5), shift: "N/A" }
-            }
-        });
-        if (success) {
+        const { data, error } = await supabase.from("safety_dashboard_remarks").insert({
+            dashboard: "final_discharge", remark: newRemark.trim(), created_by: user?.id || "", created_by_name: user?.name || "System",
+        }).select("id, remark, created_by_name, created_at").single();
+        if (!error && data) {
+            setDashboardRemarks(current => [data, ...current]);
             toast.success("Remark added successfully.");
             setIsAddRemarkOpen(false);
             setNewRemark("");
-        }
+        } else toast.error(`Failed to save remark: ${error?.message || "Unknown error"}`);
         setIsSavingRemark(false);
     };
 
@@ -178,8 +197,8 @@ const DischargeDashboard = () => {
                 
                 if (data) {
                     const { data: urlData } = supabase.storage.from('form-attachments').getPublicUrl(data.path);
-                    setPosterConfig(prev => ({ ...prev, url: urlData.publicUrl }));
-                    toast.success("New poster uploaded successfully!");
+                    const saved = await savePosterConfig({ ...posterConfig, url: urlData.publicUrl });
+                    if (saved) toast.success("New poster uploaded successfully!");
                 }
             } catch (error: any) {
                 toast.error(`Failed to upload poster: ${error.message}`);
@@ -190,7 +209,11 @@ const DischargeDashboard = () => {
     };
 
     const handleExportCSV = () => {
-        let dataToExport = monitoringSubmissions.filter(s => s.formType === "final_discharge");
+        if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
+            toast.error("The export From date must be earlier than or equal to the To date.");
+            return;
+        }
+        let dataToExport = monitoringSubmissions.filter(s => s.formType === "final_discharge" && s.data.finalDischarge);
 
         const start = exportStartDate || "0000-00-00";
         const end = exportEndDate || "9999-12-31";
@@ -218,7 +241,7 @@ const DischargeDashboard = () => {
         };
 
         let rows: string[][] = [
-            ["Ref No", "Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zink", "Iron", "Aluminum", "Fluoride", "Silver", "Sulphide", "Raw EQ", "Remarks"]
+            ["Ref No", "Date", "Time", "Employee", "Shift", "pH", "COD", "BOD", "TSS", "O&G", "Flowrate", "Mg", "Nickel", "Zinc", "Iron", "Aluminium", "Fluoride", "Silver", "Sulphide", "Raw EQ", "Remarks"]
         ];
         
         dataToExport.forEach(sub => {
@@ -275,8 +298,8 @@ const DischargeDashboard = () => {
                     {isMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                            <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 w-full sm:w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
-                                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                <button onClick={() => { setExportStartDate(dischargeStartDate); setExportEndDate(dischargeEndDate); setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
                                     <Download className="h-4 w-4 text-muted-foreground" /> Export to Spreadsheet
                                 </button>
                                 <button onClick={() => { setIsPosterSettingsOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
@@ -310,15 +333,13 @@ const DischargeDashboard = () => {
                 </div>
             </div>
 
-            <div className="flex items-center justify-end gap-4 mb-6">
-                <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground">From:</Label>
-                    <Input type="date" value={dischargeStartDate} onChange={e => setDischargeStartDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+            <div className="mb-6 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[140px_140px_auto] sm:justify-end">
+                    <div><Label className="mb-1.5 block text-xs font-medium text-muted-foreground">From</Label><Input type="date" value={dischargeStartDate} max={dischargeEndDate || undefined} onChange={e => setDischargeStartDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" /></div>
+                    <div><Label className="mb-1.5 block text-xs font-medium text-muted-foreground">To</Label><Input type="date" value={dischargeEndDate} min={dischargeStartDate || undefined} onChange={e => setDischargeEndDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" /></div>
+                    <button onClick={() => { setDischargeStartDate(getOneMonthAgo()); setDischargeEndDate(getToday()); }} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted sm:w-auto"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground">To:</Label>
-                    <Input type="date" value={dischargeEndDate} onChange={e => setDischargeEndDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
-                </div>
+                {hasInvalidDateRange && <p className="mt-2 text-right text-xs font-semibold text-destructive">The From date must be earlier than or equal to the To date.</p>}
             </div>
 
             <div className="card-elevated p-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
@@ -408,21 +429,20 @@ const DischargeDashboard = () => {
                         {remarksList.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-8">No remarks found.</p>
                         ) : (
-                            remarksList.map(sub => (
-                                <div key={sub.id} className="p-4 rounded-xl border border-border bg-muted/10">
+                            remarksList.map(remark => (
+                                <div key={remark.id} className="p-4 rounded-xl border border-border bg-muted/10">
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <p className="font-bold text-sm text-foreground">{sub.employeeName || "System Log"}</p>
+                                                <p className="font-bold text-sm text-foreground">{remark.created_by_name}</p>
                                                 <Badge variant="outline" className="text-[9px] border-blue-500/50 text-blue-600">Final Discharge</Badge>
                                             </div>
-                                            <p className="text-[10px] font-bold text-primary mb-0.5">{generateRefNo(sub.id)}</p>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            {sub.data.metaInfo?.date ? new Date(sub.data.metaInfo.date).toLocaleDateString('en-GB') : new Date(sub.submittedAt).toLocaleDateString('en-GB')}
+                                            {new Date(remark.created_at).toLocaleDateString('en-GB')}
                                         </p>
                                     </div>
-                                    <p className="text-sm text-foreground">{sub.data.remarks}</p>
+                                    <p className="text-sm text-foreground">{remark.remark}</p>
                                 </div>
                             ))
                         )}
@@ -507,7 +527,7 @@ const DischargeDashboard = () => {
                                 <p className="text-xs text-muted-foreground">Show poster when users open Safety Forms.</p>
                             </div>
                             <button 
-                                onClick={() => setPosterConfig(p => ({ ...p, enabled: !p.enabled }))}
+                                onClick={() => savePosterConfig({ ...posterConfig, enabled: !posterConfig.enabled })}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${posterConfig.enabled ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`}
                             >
                                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${posterConfig.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -534,7 +554,7 @@ const DischargeDashboard = () => {
                                     <input type="file" accept="image/*" className="hidden" onChange={handlePosterUpload} disabled={isUploading} />
                                 </label>
                                 {posterConfig.url && (
-                                    <button onClick={() => { if(window.confirm("Remove custom poster and use the default?")) { setPosterConfig(p => ({ ...p, url: null })); } }} className="px-4 py-2.5 bg-destructive/10 text-destructive hover:bg-destructive/20 font-bold text-sm rounded-lg transition-colors">
+                                    <button onClick={() => { if(window.confirm("Remove custom poster and use the default?")) savePosterConfig({ ...posterConfig, url: null }); }} className="px-4 py-2.5 bg-destructive/10 text-destructive hover:bg-destructive/20 font-bold text-sm rounded-lg transition-colors">
                                         Remove
                                     </button>
                                 )}

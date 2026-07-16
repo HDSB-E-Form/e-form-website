@@ -5,6 +5,7 @@ export type UserRole =
   | "hod"
   | "hr_admin"
   | "finance_admin"
+  | "it_admin"
   | "head_of_purchasing"
   | "head_of_finance"
   | "safety_admin"

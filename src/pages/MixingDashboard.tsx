@@ -5,19 +5,21 @@ import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Layers, Plus, Save, Settings, Download } from "lucide-react";
+import { Layers, Plus, Save, Settings, Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { supabase } from "@/supabase";
 
 const MixingDashboard = () => {
     const { user } = useAuth();
-    const { submissions, addSubmission } = useSubmissions();
+    const { submissions } = useSubmissions();
 
-    const getToday = () => new Date().toISOString().split('T')[0];
+    const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const getToday = () => formatLocalDate(new Date());
     const getOneMonthAgo = () => {
         const date = new Date();
         date.setMonth(date.getMonth() - 1);
-        return date.toISOString().split('T')[0];
+        return formatLocalDate(date);
     };
 
     const [mixingStartDate, setMixingStartDate] = useState(getOneMonthAgo());
@@ -29,6 +31,7 @@ const MixingDashboard = () => {
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [exportStartDate, setExportStartDate] = useState("");
     const [exportEndDate, setExportEndDate] = useState("");
+    const hasInvalidDateRange = mixingStartDate > mixingEndDate;
 
     
     const mixingParameterOptions = [
@@ -48,7 +51,7 @@ const MixingDashboard = () => {
         const end = mixingEndDate || "9999-12-31";
 
         const data = monitoringSubmissions
-            .filter(s => (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
+            .filter(s => (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.processInfo && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end)
             .map(s => ({
                 date: s.data.metaInfo.date,
                 value: parseFloat(s.data.processInfo?.[selectedMixingParameter]) || 0,
@@ -76,7 +79,7 @@ const MixingDashboard = () => {
         const end = mixingEndDate || "9999-12-31";
 
         const filteredSubmissions = monitoringSubmissions.filter(s => {
-            return (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
+            return (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.processInfo && s.data.metaInfo && s.data.metaInfo.date >= start && s.data.metaInfo.date <= end;
         });
 
         let totalCaustic = 0;
@@ -107,27 +110,23 @@ const MixingDashboard = () => {
             return;
         }
         setIsSavingRemark(true);
-        const success = await addSubmission({
-            formType: "mixing_chemical_stages",
-            status: "approved",
-            submittedBy: user?.id || "",
-            employeeName: user?.name || "System",
-            department: user?.department || "Safety",
-            data: {
-                remarks: newRemark,
-                metaInfo: { date: new Date().toISOString().split('T')[0], time: new Date().toTimeString().slice(0, 5), shift: "N/A" }
-            }
+        const { error } = await supabase.from("safety_dashboard_remarks").insert({
+            dashboard: "mixing", remark: newRemark.trim(), created_by: user?.id || "", created_by_name: user?.name || "System",
         });
-        if (success) {
+        if (!error) {
             toast.success("Remark added successfully.");
             setIsAddRemarkOpen(false);
             setNewRemark("");
-        }
+        } else toast.error(`Failed to save remark: ${error.message}`);
         setIsSavingRemark(false);
     };
 
     const handleExportCSV = () => {
-        let dataToExport = monitoringSubmissions.filter(s => s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring");
+        if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
+            toast.error("The export From date must be earlier than or equal to the To date.");
+            return;
+        }
+        let dataToExport = monitoringSubmissions.filter(s => (s.formType === "mixing_chemical_stages" || s.formType === "daily_operation_monitoring") && s.data.processInfo);
 
         const start = exportStartDate || "0000-00-00";
         const end = exportEndDate || "9999-12-31";
@@ -213,8 +212,8 @@ const MixingDashboard = () => {
                     {isMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                            <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 w-full sm:w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
-                                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                <button onClick={() => { setExportStartDate(mixingStartDate); setExportEndDate(mixingEndDate); setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
                                     <Download className="h-4 w-4 text-muted-foreground" /> Export to Spreadsheet
                                 </button>
                             </div>
@@ -242,15 +241,13 @@ const MixingDashboard = () => {
                 </div>
             </div>
 
-            <div className="flex items-center justify-end gap-4 mb-6">
-                <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground">From:</Label>
-                    <Input type="date" value={mixingStartDate} onChange={e => setMixingStartDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+            <div className="mb-6 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[140px_140px_auto] sm:justify-end">
+                    <div><Label className="mb-1.5 block text-xs font-medium text-muted-foreground">From</Label><Input type="date" value={mixingStartDate} max={mixingEndDate || undefined} onChange={e => setMixingStartDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" /></div>
+                    <div><Label className="mb-1.5 block text-xs font-medium text-muted-foreground">To</Label><Input type="date" value={mixingEndDate} min={mixingStartDate || undefined} onChange={e => setMixingEndDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" /></div>
+                    <button onClick={() => { setMixingStartDate(getOneMonthAgo()); setMixingEndDate(getToday()); }} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted sm:w-auto"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground">To:</Label>
-                    <Input type="date" value={mixingEndDate} onChange={e => setMixingEndDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
-                </div>
+                {hasInvalidDateRange && <p className="mt-2 text-right text-xs font-semibold text-destructive">The From date must be earlier than or equal to the To date.</p>}
             </div>
 
             <div className="card-elevated p-6 mb-8 animate-in fade-in slide-in-from-bottom-4">

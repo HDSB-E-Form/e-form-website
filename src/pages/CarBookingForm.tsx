@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers, type AppUser } from "@/contexts/UsersContext";
@@ -15,7 +15,7 @@ import { supabase } from "@/supabase";
 const CarBookingForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addSubmission, submissions, cars } = useSubmissions();
+  const { addSubmission, submissions, cars, updateSubmission } = useSubmissions();
   const { getUsersByRole, isLoading: areUsersLoading } = useUsers();
   const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
   const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
@@ -52,6 +52,13 @@ const CarBookingForm = () => {
   const [passengers, setPassengers] = useState(
     Array.from({ length: 2 }, () => ({ name: "", staffId: "", position: "", department: "" }))
   );
+  const [existingLicenseUrl, setExistingLicenseUrl] = useState<string | null>(null);
+
+  // Edit mode detection
+  const location = useLocation();
+  const editSubmissionId = useMemo(() => new URLSearchParams(location.search).get("editId"), [location.search]);
+  const editSubmission = useMemo(() => editSubmissionId ? submissions.find(s => s.id === editSubmissionId) : null, [editSubmissionId, submissions]);
+  const isEditMode = Boolean(editSubmission);
 
   useEffect(() => {
     if (user) {
@@ -68,6 +75,53 @@ const CarBookingForm = () => {
       }));
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!editSubmissionId) return;
+    if (!editSubmission) return;
+
+    if (editSubmission.formType !== "car_rental") {
+      toast.error("Only car booking requests can be edited here.");
+      navigate("/submissions");
+      return;
+    }
+
+    if (editSubmission.submittedBy !== user?.id) {
+      toast.error("You can only edit your own submissions.");
+      navigate("/submissions");
+      return;
+    }
+
+    // Employees may edit only until HOD approval. This includes requests where HOS is N/A.
+    if (!["pending", "approved_hos"].includes(editSubmission.status)) {
+      toast.error("This booking cannot be edited after HOD approval.");
+      navigate("/submissions");
+      return;
+    }
+
+    // Prefill form values
+    const data = editSubmission.data || {};
+    setForm(prev => ({
+      ...prev,
+      journeyType: data.journeyType || prev.journeyType,
+      fromDate: data.fromDate || prev.fromDate,
+      toDate: data.toDate || prev.toDate,
+      destination: data.destination || prev.destination,
+      purpose: data.purpose || prev.purpose,
+      name: editSubmission.employeeName || prev.name,
+      staffId: data.employeeInfo?.employeeNumber || prev.staffId,
+      icNo: data.employeeInfo?.icNo || prev.icNo,
+      department: editSubmission.department || prev.department,
+      position: data.position || prev.position,
+      mobileNumber: data.mobileNumber || prev.mobileNumber,
+      drivingLicenseNo: data.drivingLicenseNo || prev.drivingLicenseNo,
+      hos: data.hosName || prev.hos,
+      hod: data.hodName || prev.hod,
+    }));
+
+    setPassengers(data.passengers || [{ name: "", staffId: "", position: "", department: "" }, { name: "", staffId: "", position: "", department: "" }]);
+    setExistingLicenseUrl(data.licenseAttachment || null);
+  }, [editSubmissionId, editSubmission, user?.id, navigate]);
 
   // Get upcoming approved bookings to show in the availability modal
   const activeBookings = submissions
@@ -155,11 +209,11 @@ const CarBookingForm = () => {
       initialStatus = "pending";
     }
 
-    if (!licenseFile) {
+    if (!licenseFile && !existingLicenseUrl) {
       toast.error("Please upload a copy of your driving license.");
       return;
     }
-    let licenseAttachmentUrl = null;
+    let licenseAttachmentUrl = existingLicenseUrl || null;
     if (licenseFile) {
       const filePath = `public/${user?.id || 'unknown_user'}/license_${Date.now()}_${licenseFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       
@@ -180,13 +234,39 @@ const CarBookingForm = () => {
       licenseAttachmentUrl = urlData?.publicUrl;
     }
 
+    const submissionData = {
+      ...form,
+      passengers,
+      hosName: form.hos,
+      hodName: form.hod,
+      licenseAttachment: licenseAttachmentUrl,
+      ...(isEditMode ? {
+        rejectedStage: undefined,
+        remarks: undefined,
+        lastEditedAt: new Date().toISOString(),
+        lastEditedBy: user?.id || "",
+        approvalRestartedAfterEdit: true,
+      } : {}),
+    };
+
+    if (isEditMode && editSubmissionId && editSubmission) {
+      const success = await updateSubmission(editSubmissionId, submissionData, initialStatus);
+      if (success) {
+        toast.success("Company car booking updated. The approval process has restarted.");
+        navigate("/submissions");
+      } else {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const success = await addSubmission({
       formType: "car_rental",
       status: initialStatus,
       submittedBy: user?.id || "",
       employeeName: form.name || user?.name || "",
       department: form.department || user?.department || "",
-      data: { ...form, passengers, hosName: form.hos, hodName: form.hod, licenseAttachment: licenseAttachmentUrl },
+      data: submissionData,
     });
     if (success) {
       // // --- 🔔 SEND EMAIL NOTIFICATION (DEACTIVATED) ---
@@ -228,7 +308,7 @@ const CarBookingForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Availability Modal - Calendar Timeline */}
       {isAvailabilityModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsAvailabilityModalOpen(false)}>
@@ -384,19 +464,18 @@ const CarBookingForm = () => {
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
 
-      <div className="mb-8">
-        <h1 className="text-2xl lg:text-2xl font-bold text-foreground uppercase tracking-wide">
-          Company Car Request / Permohonan Kereta Syarikat
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+      <div className="mb-5">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Company Car Request</h1>
+        <p className="mt-1 text-base font-medium text-primary">Permohonan Kereta Syarikat</p>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
         {/* Section 1: Requester Details */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <UserCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Requester & Driver Details / <span className="font-normal">Butiran Pemohon & Pemandu</span>
             </h2>
           </div>
@@ -405,27 +484,27 @@ const CarBookingForm = () => {
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.name || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.position || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.staffId || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.staffId || "—"}</div>
             </div>
-            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
+            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.department || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.department || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">IC Number / No. K/P</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.icNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.icNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Driving License No. / Lesen</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{form.drivingLicenseNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.drivingLicenseNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
             </div>
           </div>
 
@@ -433,17 +512,18 @@ const CarBookingForm = () => {
 
         {/* Section 2: Journey Details */}
         <div className="card-elevated p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
               <MapPin className="h-5 w-5 text-primary" />
-              <h2 className="font-bold text-foreground text-sm">
+              <h2 className="font-bold text-foreground text-base">
                 Journey Details / <span className="font-normal">Butiran Perjalanan</span>
               </h2>
             </div>
             <button 
               type="button" 
               onClick={() => setIsAvailabilityModalOpen(true)} 
-              className="flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/90 transition-colors bg-primary/10 hover:bg-primary/20 px-4 py-2 rounded-lg shadow-sm border border-primary/20"
+              className="flex w-full sm:w-auto items-center justify-center gap-2 text-sm font-bold text-primary hover:text-primary/90 transition-colors bg-primary/10 hover:bg-primary/20 px-4 py-2 rounded-lg shadow-sm border border-primary/20"
             >
               <CalendarDays className="h-4 w-4" /> View Availability
             </button>
@@ -452,8 +532,9 @@ const CarBookingForm = () => {
           <div className="space-y-6">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Journey Type / Jenis Perjalanan <span className="text-destructive">*</span></Label>
-              <div className="flex gap-3 sm:gap-4 mt-1.5">
-                <div
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-1.5">
+                <button
+                  type="button"
                   className={`flex-1 rounded-xl border-2 p-3 sm:p-4 transition-all cursor-pointer ${
                     form.journeyType === "business"
                       ? "border-primary bg-primary/5"
@@ -470,8 +551,9 @@ const CarBookingForm = () => {
                     <span className="font-bold text-sm">Business / Perniagaan</span>
                   </div>
                   <p className="text-xs text-muted-foreground pl-7">Official company travel</p>
-                </div>
-                <div
+                </button>
+                <button
+                  type="button"
                   className={`flex-1 rounded-xl border-2 p-3 sm:p-4 transition-all cursor-pointer ${
                     form.journeyType === "other"
                       ? "border-primary bg-primary/5"
@@ -488,7 +570,7 @@ const CarBookingForm = () => {
                     <span className="font-bold text-sm">Other / Lain-lain</span>
                   </div>
                   <p className="text-xs text-muted-foreground pl-7">Non-business journey</p>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -522,6 +604,16 @@ const CarBookingForm = () => {
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
+                ) : existingLicenseUrl ? (
+                  <div className="flex items-center justify-between h-11 px-3 border border-border rounded-lg bg-muted/10">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <FileText className="h-4 w-4 text-primary shrink-0" />
+                      <a href={existingLicenseUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline truncate">View existing license</a>
+                    </div>
+                    <button type="button" onClick={() => setExistingLicenseUrl(null)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 ) : (
                   <label 
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -551,14 +643,15 @@ const CarBookingForm = () => {
 
         {/* Section 3: Passenger Details */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <Users className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Passenger Details / <span className="font-normal">Butiran Penumpang</span>
             </h2>
           </div>
           <div className="border border-border rounded-lg overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full min-w-[760px] border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left w-12">No.</th>
@@ -609,9 +702,10 @@ const CarBookingForm = () => {
 
         {/* Section 4: Approvals */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
             <ShieldCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Digital Approvals / <span className="font-normal">Kelulusan Digital</span>
             </h2>
           </div>
@@ -651,14 +745,15 @@ const CarBookingForm = () => {
 
         {/* Section 5: Company Vehicles Policy */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">05</span>
             <FileText className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Company Vehicles Policy / <span className="font-normal">Polisi Kenderaan Syarikat</span>
             </h2>
           </div>
 
-          <div className="bg-muted/50 rounded-xl p-6 space-y-4 border border-border h-32 overflow-y-auto mb-4">
+          <div className="bg-muted/50 rounded-xl p-5 sm:p-6 space-y-4 border border-border h-48 overflow-y-auto mb-4">
             <div className="text-sm text-muted-foreground space-y-4">
               <p>The employee is required to report the loss of or damage to the Company vehicle to the police in the first instance and then to Human Capital Department. The employee must drive within the law, including:-</p>
               
@@ -712,7 +807,7 @@ const CarBookingForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit Request"}

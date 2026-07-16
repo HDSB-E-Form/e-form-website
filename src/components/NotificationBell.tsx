@@ -67,7 +67,7 @@ export function NotificationBell() {
       let path = "";
 
       const targetedRoute = getNotificationTarget(
-        { role: user.role, secondary_roles: user.secondary_roles || [], name: user.name },
+        { id: user.id, role: user.role, secondary_roles: user.secondary_roles || [], name: user.name },
         { formType: s.formType, status: s.status, data: s.data }
       );
 
@@ -83,7 +83,7 @@ export function NotificationBell() {
             id: `${s.id}-${s.status}`, 
             formType: s.formType, 
             employeeName: "You", 
-            createdAt: s.updatedAt || s.submittedAt, 
+            createdAt: (s as any).updatedAt || s.submittedAt, 
             read: readIds.includes(`${s.id}-${s.status}`), 
             url: "/submissions", type: 'self', status: s.status 
           });

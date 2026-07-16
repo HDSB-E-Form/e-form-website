@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 import bgImage from "@/assets/digital.jpg";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,19 +14,41 @@ const RegisterPage = () => {
   const [error, setError] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
+  const passwordChecks = {
+    length: form.password.length >= 8,
+    lowercase: /[a-z]/.test(form.password),
+    uppercase: /[A-Z]/.test(form.password),
+    number: /\d/.test(form.password),
+    special: /[^A-Za-z0-9]/.test(form.password),
+  };
+  const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
+  const passwordStrength = form.password.length === 0
+    ? null
+    : passwordScore <= 2
+      ? { label: "Weak", color: "bg-destructive", text: "text-destructive", bars: 1 }
+      : passwordScore <= 4
+        ? { label: "Moderate", color: "bg-amber-500", text: "text-amber-600", bars: 2 }
+        : { label: "Strong", color: "bg-emerald-500", text: "text-emerald-600", bars: 3 };
+
   useEffect(() => {
-    // Force light mode for auth pages to maintain a clean, standard look against the background image
+    const wasDark = document.documentElement.classList.contains("dark");
     document.documentElement.classList.remove("dark");
 
     const fetchDepartments = async () => {
-      const { data } = await supabase.from("departments").select("name").order("name");
+      const { data, error } = await supabase.from("departments").select("name").order("name");
       if (data) {
         setDepartmentsList(data.map((d: any) => d.name));
       }
+      if (error) setError("Unable to load departments. Please refresh and try again.");
+      setIsLoadingDepartments(false);
     };
     fetchDepartments();
+    return () => { if (wasDark) document.documentElement.classList.add("dark"); };
   }, []);
 
   const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
@@ -42,11 +64,15 @@ const RegisterPage = () => {
       setError("Passwords do not match");
       return;
     }
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
 
       setIsRegistering(true);
 
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         password: form.password,
         options: {
           data: {
@@ -65,8 +91,13 @@ const RegisterPage = () => {
       return;
     }
 
+      const pendingProfile = {
+        email: form.email.trim().toLowerCase(), name: form.name.trim(), employeeId: form.employeeId.trim(),
+        department: form.department, phone: form.phone.trim(), position: form.position.trim(),
+      };
+      sessionStorage.setItem("hdsb_pending_registration", JSON.stringify(pendingProfile));
       toast.success("Registration successful! Please check your email for a verification code.");
-      navigate("/verify-otp", { state: { email: form.email, ...form } });
+      navigate("/verify-otp", { state: pendingProfile });
       setIsRegistering(false);
   };
 
@@ -93,28 +124,28 @@ const RegisterPage = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
-                  <Input id="name" value={form.name} onChange={e => handleChange("name", e.target.value)} placeholder="Enter your full name" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                  <Input id="name" autoComplete="name" value={form.name} onChange={e => handleChange("name", e.target.value)} placeholder="Enter your full name" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-email">Email Address <span className="text-destructive">*</span></Label>
-                  <Input id="reg-email" type="email" value={form.email} onChange={e => handleChange("email", e.target.value)} placeholder="sara@hidsb.com" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                  <Input id="reg-email" type="email" autoComplete="email" value={form.email} onChange={e => handleChange("email", e.target.value)} placeholder="name@company.com" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="employeeId">Staff ID <span className="text-destructive">*</span></Label>
-                    <Input id="employeeId" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <Input id="employeeId" autoComplete="off" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="Enter staff ID" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                   <div className="space-y-2">
                   <Label htmlFor="phone">Phone No. <span className="text-muted-foreground text-[10px] font-normal ml-1">(Optional)</span></Label>
-                    <Input id="phone" value={form.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="01x-xxxxxxx" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <Input id="phone" type="tel" autoComplete="tel" value={form.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="01x-xxxxxxx" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
                     <Select value={departmentsList.includes(form.department) ? form.department : undefined} onValueChange={val => handleChange("department", val)}>
-                      <SelectTrigger className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow">
-                        <SelectValue placeholder="Select Department" />
+                      <SelectTrigger disabled={isLoadingDepartments || departmentsList.length === 0} className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow">
+                        <SelectValue placeholder={isLoadingDepartments ? "Loading departments…" : "Select Department"} />
                       </SelectTrigger>
                       <SelectContent className="max-h-64">
                         {departmentsList.map(dept => (
@@ -128,20 +159,34 @@ const RegisterPage = () => {
                     <Input id="position" value={form.position} onChange={e => handleChange("position", e.target.value)} placeholder="e.g. Executive" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="reg-password">Password <span className="text-destructive">*</span></Label>
-                    <Input id="reg-password" type="password" value={form.password} onChange={e => handleChange("password", e.target.value)} placeholder="Password" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <div className="relative"><Input id="reg-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={e => handleChange("password", e.target.value)} placeholder="At least 6 characters" className="h-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm Password <span className="text-destructive">*</span></Label>
-                    <Input id="confirm-password" type="password" value={form.confirmPassword} onChange={e => handleChange("confirmPassword", e.target.value)} placeholder="Confirm" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                    <div className="relative"><Input id="confirm-password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" value={form.confirmPassword} onChange={e => handleChange("confirmPassword", e.target.value)} placeholder="Confirm password" className="h-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"} onClick={() => setShowConfirmPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showConfirmPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
                   </div>
                 </div>
+                {passwordStrength && (
+                  <div className="rounded-xl border border-border bg-muted/20 p-3" aria-live="polite">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-foreground">Password strength</p>
+                      <p className={`text-xs font-bold ${passwordStrength.text}`}>{passwordStrength.label}</p>
+                    </div>
+                    <div className="mb-2.5 grid grid-cols-3 gap-1.5">
+                      {[1, 2, 3].map(bar => <span key={bar} className={`h-1.5 rounded-full ${bar <= passwordStrength.bars ? passwordStrength.color : "bg-muted"}`} />)}
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Use at least 8 characters with uppercase and lowercase letters, a number, and a special character such as @, #, or $.
+                    </p>
+                  </div>
+                )}
                 {error && <p className="text-destructive text-sm">{error}</p>}
                 <button 
                   type="submit" 
-                  disabled={isRegistering}
+                  disabled={isRegistering || isLoadingDepartments || departmentsList.length === 0}
               className="btn-gold w-full text-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 py-3 rounded-full shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
                 >
                   {isRegistering ? (

@@ -64,6 +64,8 @@ const InventoryDashboard = () => {
   const [customItem, setCustomItem] = useState("");
   const [inventoryTab, setInventoryTab] = useState<"ppe" | "uniform" | "office">("ppe");
   const [inventorySearch, setInventorySearch] = useState("");
+  const [activityFilter, setActivityFilter] = useState<"all" | "restock" | "distribution">("all");
+  const [isViewAllActivity, setIsViewAllActivity] = useState(false);
   const [stockSheetCategory, setStockSheetCategory] = useState<"ppe" | "uniform" | "office">("ppe");
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -154,11 +156,30 @@ const InventoryDashboard = () => {
   const lowStockItems = allInventoryKeys.filter(k => (inventoryStock[k] || 0) - (distributedItems[k] || 0) <= getSafetyStockLevel(k));
 
   const recentActivity = useMemo(() => {
-    return submissions
-      .filter(s => (s.formType === "ppe_request" && s.status === "approved") || s.formType === "inventory_addition")
-      .sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-      .slice(0, 30);
-  }, [submissions]);
+    const activity = submissions
+      .filter(s => (["ppe_request", "ppe_purchase"].includes(s.formType) && s.status === "approved") || s.formType === "inventory_addition")
+      .filter(s => activityFilter === "all" || (activityFilter === "restock" ? s.formType === "inventory_addition" : s.formType !== "inventory_addition"))
+      .sort((a,b) => {
+        const dateA = a.data?.lastUpdatedAt || (a as any).updatedAt || a.submittedAt;
+        const dateB = b.data?.lastUpdatedAt || (b as any).updatedAt || b.submittedAt;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+    return isViewAllActivity ? activity : activity.slice(0, 30);
+  }, [submissions, activityFilter, isViewAllActivity]);
+
+  const formatItemDescription = (sub: Submission) => {
+    if (sub.formType === "inventory_addition") {
+      const itemInfo = ALL_ITEMS.find(item => item.name === sub.data.itemName);
+      const size = sub.data.size || (itemInfo?.sizes.length === 1 ? itemInfo.sizes[0].size : "Standard");
+      return `+${sub.data.quantity}x ${sub.data.itemName} (${size})`;
+    }
+    return (sub.data.items || []).map((item: any) => {
+      const name = item["Item Name"];
+      const itemInfo = ALL_ITEMS.find(candidate => candidate.name === name);
+      const size = item.Size || (itemInfo?.sizes.length === 1 ? itemInfo.sizes[0].size : "Standard");
+      return `${item.Quantity}x ${name} (${size})`;
+    }).join(", ");
+  };
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
@@ -201,7 +222,7 @@ const InventoryDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
+          <div className="lg:col-span-2 card-elevated overflow-hidden flex flex-col h-[600px]">
             <div className="p-5 border-b border-border bg-muted/10 shrink-0 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
@@ -305,6 +326,11 @@ const InventoryDashboard = () => {
             <div className="p-5 border-b border-border bg-muted/10 shrink-0">
               <h2 className="text-lg font-bold text-foreground">Recent Activity</h2>
               <p className="text-xs text-muted-foreground">Latest distributed items and restocks</p>
+              <div className="mt-3 flex gap-1.5 overflow-x-auto no-scrollbar">
+                {([['all', 'All'], ['distribution', 'Distributed'], ['restock', 'Restocked']] as const).map(([value, label]) => (
+                  <button key={value} onClick={() => { setActivityFilter(value); setIsViewAllActivity(false); }} className={`whitespace-nowrap rounded-full border px-3 py-1 text-[10px] font-bold transition-colors ${activityFilter === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground'}`}>{label}</button>
+                ))}
+              </div>
             </div>
             <div className="overflow-y-auto flex-1 p-0">
               {recentActivity.length === 0 ? (
@@ -315,8 +341,9 @@ const InventoryDashboard = () => {
                 <div className="divide-y divide-border">
                   {recentActivity.map(sub => {
                     const isRestock = sub.formType === "inventory_addition";
+                    const activityDate = sub.data?.lastUpdatedAt || (sub as any).updatedAt || sub.submittedAt;
                     return (
-                      <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors cursor-pointer">
+                      <div key={sub.id} className="p-4 hover:bg-muted/20 transition-colors">
                         <div className="flex justify-between items-start mb-1.5">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
@@ -324,14 +351,11 @@ const InventoryDashboard = () => {
                               {isRestock ? "RESTOCK" : (sub.data.requestCategory || "PPE")}
                             </Badge>
                           </div>
-                          <span className="text-[10px] text-muted-foreground font-medium">{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">{new Date(activityDate).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
                         </div>
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground line-clamp-2">
-                            {isRestock
-                              ? `+${sub.data.quantity}x ${sub.data.itemName} (${sub.data.size})`
-                              : (sub.data.items || []).map((i: any) => `${i.Quantity}x ${i["Item Name"]} (${i.Size})`).join(", ")
-                            }
+                            {formatItemDescription(sub)}
                           </p>
                           {isRestock && sub.data.poNumber && (
                             <p className="text-[10px] text-muted-foreground">
@@ -345,6 +369,11 @@ const InventoryDashboard = () => {
                 </div>
               )}
             </div>
+            {recentActivity.length >= 30 && (
+              <div className="shrink-0 border-t border-border bg-muted/10 p-3 text-center">
+                <button onClick={() => setIsViewAllActivity(value => !value)} className="text-xs font-bold text-primary hover:underline">{isViewAllActivity ? "Show Recent 30" : "View All Activity"}</button>
+              </div>
+            )}
           </div>
         </div>
       </div>

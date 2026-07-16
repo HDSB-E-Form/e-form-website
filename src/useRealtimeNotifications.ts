@@ -54,7 +54,7 @@ export function useRealtimeNotifications() {
       if (excludedForms.includes(formType)) return;
 
       const notificationTarget = getNotificationTarget(
-        { role: user.role, secondary_roles: (user as any)?.secondary_roles || [], name: user.name },
+        { id: user.id, role: user.role, secondary_roles: (user as any)?.secondary_roles || [], name: user.name },
         { formType, status: newSubmission.status, data }
       );
 

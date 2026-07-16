@@ -63,6 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           supabase.from("users").select("*").eq("id", parsedUser.id).single()
             .then(async ({ data, error }) => {
               if (data && !error) {
+                if (data.status === "inactive") {
+                  await supabase.auth.signOut();
+                  setUser(null);
+                  localStorage.removeItem("hr_user");
+                  sessionStorage.removeItem("hr_user");
+                  toast.error("This account has been deactivated. Contact an administrator if you need access.");
+                  return;
+                }
                 // Also fetch auth metadata to grab the phone number safely
                 const { data: authData } = await supabase.auth.getUser();
                 
@@ -139,6 +147,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Try to insert the missing profile now that the user is authenticated
         await supabase.from("users").upsert([{ ...userData, createdAt: new Date().toISOString() }]);
       } else {
+        if (userProfile.status === "inactive") {
+          await supabase.auth.signOut();
+          throw new Error("This account has been deactivated. Contact an administrator if you need access.");
+        }
         // Clean up the role just in case there's a trailing space in the DB
         const dbRole = (userProfile.role || "employee").toString().trim().toLowerCase();
         

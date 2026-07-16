@@ -5,7 +5,7 @@ import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Trash2, PlusCircle, Scale, FileText, Send, FileDown, RotateCcw, Calendar, Upload } from "lucide-react";
+import { ArrowLeft, Trash2, PlusCircle, Scale, FileText, Send, FileDown, RotateCcw, Upload, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import logo from "@/assets/logo.png";
@@ -40,14 +40,8 @@ const WasteInventoryForm = () => {
   const [recordDate, setRecordDate] = useState(new Date().toISOString().split("T")[0]);
   const [recordTime, setRecordTime] = useState(new Date().toTimeString().slice(0, 5));
   
-  const [sellWasteTypes] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("hdsb_waste_types_sell") || "null") || DEFAULT_SELL_WASTE_TYPES; } 
-    catch { return DEFAULT_SELL_WASTE_TYPES; }
-  });
-  const [payWasteTypes] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("hdsb_waste_types_pay") || "null") || DEFAULT_PAY_WASTE_TYPES; } 
-    catch { return DEFAULT_PAY_WASTE_TYPES; }
-  });
+  const [sellWasteTypes, setSellWasteTypes] = useState<string[]>(DEFAULT_SELL_WASTE_TYPES);
+  const [payWasteTypes, setPayWasteTypes] = useState<string[]>(DEFAULT_PAY_WASTE_TYPES);
 
   const [wasteType, setWasteType] = useState(sellWasteTypes[0]);
   const [rows, setRows] = useState<{
@@ -67,6 +61,18 @@ const WasteInventoryForm = () => {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    supabase.from("safety_dashboard_settings").select("value").eq("key", "waste_types").maybeSingle()
+      .then(({ data }) => {
+        const value = data?.value as { sell?: string[]; pay?: string[] } | undefined;
+        if (value?.sell?.length) {
+          setSellWasteTypes(value.sell);
+          setWasteType(value.sell[0]);
+        }
+        if (value?.pay?.length) setPayWasteTypes(value.pay);
+      });
   }, []);
 
   // Automatically update the waste type list when switching categories
@@ -178,7 +184,7 @@ const WasteInventoryForm = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto waste-inventory-print print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto waste-inventory-print print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
       {/* Navigation Header */}
       <button onClick={() => navigate("/safety")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Safety Forms
@@ -200,11 +206,9 @@ const WasteInventoryForm = () => {
         </div>
       </div>
 
-      <div className="mb-8 print:hidden">
-        <h1 className="text-2xl lg:text-2xl font-bold text-foreground uppercase tracking-wide">
-          Waste Inventory Smart Calculator / <span className="font-normal text-muted-foreground">Kira Inventori Sisa</span>
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+      <div className="mb-5 print:hidden">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Waste Inventory Smart Calculator</h1>
+        <p className="mt-1 text-base font-medium text-primary">Kira Inventori Sisa</p>
       </div>
 
       <div className="space-y-6">
@@ -214,45 +218,50 @@ const WasteInventoryForm = () => {
         </div>
 
         {/* Section 1: Waste Configuration */}
-        <div className="card-elevated p-6 print:border-none print:shadow-none print:p-0">
-          <div className="flex items-center gap-2 mb-5">
+        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm print:border-none print:shadow-none print:p-0">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary print:hidden">01</span>
             <Scale className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase">
-              Configuration / <span className="font-normal">Konfigurasi</span>
+            <h2 className="font-bold text-foreground text-base">
+              Configuration / <span className="font-normal text-muted-foreground">Konfigurasi</span>
             </h2>
           </div>
 
-          <div className="max-w-md space-y-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Plant Toggle */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Plant / Kilang <span className="text-destructive">*</span></Label>
-              <div className="flex gap-3 sm:gap-4 mt-1.5 print:hidden">
-                <div
-                  className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-1.5 print:hidden">
+                <button
+                  type="button"
+                  className={`rounded-xl border-2 p-3 transition-all flex items-center gap-2 text-left ${
                     plant === "Plant 1"
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-border hover:border-muted-foreground/30 text-muted-foreground"
                   }`}
                   onClick={() => setPlant("Plant 1")}
+                  aria-pressed={plant === "Plant 1"}
                 >
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${plant === "Plant 1" ? "border-primary" : "border-muted-foreground"}`}>
                     {plant === "Plant 1" && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <span className="font-bold text-sm uppercase tracking-wider">Plant 1</span>
-                </div>
-                <div
-                  className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-xl border-2 p-3 transition-all flex items-center gap-2 text-left ${
                     plant === "Plant 2"
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-border hover:border-muted-foreground/30 text-muted-foreground"
                   }`}
                   onClick={() => setPlant("Plant 2")}
+                  aria-pressed={plant === "Plant 2"}
                 >
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${plant === "Plant 2" ? "border-primary" : "border-muted-foreground"}`}>
                     {plant === "Plant 2" && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <span className="font-bold text-sm uppercase tracking-wider">Plant 2</span>
-                </div>
+                </button>
               </div>
               <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
                 Plant: {plant}
@@ -262,33 +271,37 @@ const WasteInventoryForm = () => {
             {/* Category Toggle */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Inventory Category / Kategori Inventori <span className="text-destructive">*</span></Label>
-              <div className="flex gap-3 sm:gap-4 mt-1.5 print:hidden">
-                <div
-                  className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-1.5 print:hidden">
+                <button
+                  type="button"
+                  className={`rounded-xl border-2 p-3 transition-all flex items-center gap-2 text-left ${
                     category === "sell"
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-border hover:border-muted-foreground/30 text-muted-foreground"
                   }`}
                   onClick={() => handleCategoryChange("sell")}
+                  aria-pressed={category === "sell"}
                 >
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${category === "sell" ? "border-primary" : "border-muted-foreground"}`}>
                     {category === "sell" && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <span className="font-bold text-sm uppercase tracking-wider">Recycle (Sell)</span>
-                </div>
-                <div
-                  className={`flex-1 rounded-xl border-2 p-3 transition-all cursor-pointer flex items-center gap-2 ${
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-xl border-2 p-3 transition-all flex items-center gap-2 text-left ${
                     category === "pay"
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-border hover:border-muted-foreground/30 text-muted-foreground"
                   }`}
                   onClick={() => handleCategoryChange("pay")}
+                  aria-pressed={category === "pay"}
                 >
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${category === "pay" ? "border-primary" : "border-muted-foreground"}`}>
                     {category === "pay" && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <span className="font-bold text-sm uppercase tracking-wider">Dispose (Pay)</span>
-                </div>
+                </button>
               </div>
               <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
                 Category: {category === "sell" ? "Recycle (Sell)" : "Dispose (Pay)"}
@@ -296,7 +309,7 @@ const WasteInventoryForm = () => {
             </div>
             
             {/* Record Date & Time (Backdating support) */}
-            <div className="grid grid-cols-2 gap-4 print:hidden">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:hidden">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-primary">Record Date</Label>
                 <Input type="date" value={recordDate} onChange={e => setRecordDate(e.target.value)} className="h-11 dark:[color-scheme:dark]" />
@@ -330,18 +343,19 @@ const WasteInventoryForm = () => {
         </div>
 
         {/* Section 2: Weight Entry Table */}
-        <div className="card-elevated p-6 print:border-none print:shadow-none print:p-0">
+        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm print:border-none print:shadow-none print:p-0">
           <div className="flex items-center justify-between mb-5 print:hidden">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
               <FileText className="h-5 w-5 text-primary" />
-              <h2 className="font-bold text-foreground text-sm uppercase">
-                Weight Entry / <span className="font-normal">Kemasukan Berat</span>
+              <h2 className="font-bold text-foreground text-base">
+                Weight Entry / <span className="font-normal text-muted-foreground">Kemasukan Berat</span>
               </h2>
             </div>
           </div>
 
           <div className="border border-border rounded-lg overflow-x-auto print:border-gray-400 print:overflow-hidden">
-            <table className="w-full border-collapse">
+            <table className="w-full min-w-[760px] border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border print:bg-gray-100 print:border-gray-400">
                   <th className="text-[10px] uppercase font-bold text-muted-foreground print:text-black px-4 py-3 text-left w-12 whitespace-nowrap">#</th>
@@ -397,7 +411,7 @@ const WasteInventoryForm = () => {
                       )}
                     </td>
                     <td className="px-2 py-2 text-center print:hidden">
-                      <button onClick={() => deleteRow(row.id)} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors">
+                      <button type="button" onClick={() => deleteRow(row.id)} aria-label={`Delete row ${i + 1}`} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
@@ -408,17 +422,22 @@ const WasteInventoryForm = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 mt-5 print:hidden">
-            <button onClick={addRow} className="flex items-center gap-2 px-4 py-2 text-primary font-bold text-xs bg-primary/10 rounded-lg hover:bg-primary/20 transition-all uppercase tracking-wider">
+            <button type="button" onClick={addRow} className="flex items-center gap-2 px-4 py-2 text-primary font-bold text-xs bg-primary/10 rounded-lg hover:bg-primary/20 transition-all uppercase tracking-wider">
               <PlusCircle className="h-4 w-4" /> Add Row
             </button>
-            <button onClick={resetForm} className="flex items-center gap-2 px-4 py-2 text-muted-foreground font-bold text-xs bg-muted/50 rounded-lg hover:bg-muted transition-all uppercase tracking-wider">
+            <button type="button" onClick={resetForm} className="flex items-center gap-2 px-4 py-2 text-muted-foreground font-bold text-xs bg-muted/50 rounded-lg hover:bg-muted transition-all uppercase tracking-wider">
               <RotateCcw className="h-4 w-4" /> Reset
             </button>
           </div>
         </div>
 
         {/* Section 3: Summary & Total */}
-        <div className="card-elevated p-6 bg-primary/5 border-primary/20 print:border-gray-400 print:bg-transparent print:border-2">
+        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm print:border-gray-400 print:bg-transparent print:border-2">
+          <div className="mb-5 flex items-center gap-3 print:hidden">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
+            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <h2 className="text-base font-bold text-foreground">Weight Summary / <span className="font-normal text-muted-foreground">Ringkasan Berat</span></h2>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
               <Label className="text-[10px] uppercase tracking-wider text-primary font-bold print:text-gray-600">Total Gross Weight</Label>
@@ -436,7 +455,7 @@ const WasteInventoryForm = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4 pb-8 print:hidden">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-center gap-3 sm:gap-4 pt-4 pb-8 print:hidden">
           <button 
             onClick={(e) => {
               e.preventDefault();
@@ -456,14 +475,14 @@ const WasteInventoryForm = () => {
                 setTimeout(() => { document.title = originalTitle; }, 2000);
               }, 50);
             }}
-          className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-3 rounded-full text-sm sm:text-xs font-bold flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+          className="w-full sm:w-auto sm:min-w-56 px-6 py-3.5 sm:py-4 rounded-full border-2 border-border text-foreground text-sm font-bold flex items-center justify-center gap-2 hover:bg-muted transition-colors"
           >
             <FileDown className="h-4 w-4" /> Export as PDF
           </button>
           <button
             onClick={handleOpenConfirm}
             disabled={isSubmitting}
-          className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-3 rounded-full text-sm sm:text-xs font-bold flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+          className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" /> Submit Records
           </button>
@@ -471,8 +490,11 @@ const WasteInventoryForm = () => {
 
         {showConfirm && (
           <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
-            <div className="bg-card max-w-md w-full rounded-lg p-6 shadow-lg">
-              <h3 className="text-lg font-bold">Confirm Submission</h3>
+            <div className="bg-card max-w-md w-full rounded-2xl border border-border p-5 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Scale className="h-4 w-4" /></div>
+                <h3 className="text-lg font-bold text-foreground">Confirm Submission</h3>
+              </div>
               <p className="mt-2 text-sm text-muted-foreground">Please review the record summary below, then confirm to submit.</p>
 
               <div className="mt-4 p-3 rounded-md border bg-muted/5">
@@ -488,9 +510,9 @@ const WasteInventoryForm = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3">
-                <button onClick={() => setShowConfirm(false)} className="px-4 py-2 rounded-lg bg-muted/20 font-semibold">Cancel</button>
-                <button onClick={confirmSubmit} disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">Confirm</button>
+              <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-border pt-4">
+                <button onClick={() => setShowConfirm(false)} className="px-5 py-2.5 rounded-lg border border-border hover:bg-muted font-semibold transition-colors">Cancel</button>
+                <button onClick={confirmSubmit} disabled={isSubmitting} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 font-semibold transition-colors">Confirm Submission</button>
               </div>
             </div>
           </div>

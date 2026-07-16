@@ -4,6 +4,7 @@ export interface NotificationRecipient {
 }
 
 interface NotificationContext {
+  id?: string;
   role: string;
   secondary_roles?: string[];
   name?: string;
@@ -19,6 +20,7 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
   const role = user.role;
   const secondaryRoles = user.secondary_roles || [];
   const name = user.name;
+  const id = user.id;
   const data = submission.data || {};
 
   const isHOS = role === 'hos' || secondaryRoles.includes('hos');
@@ -29,11 +31,11 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
   const isHOP = role === 'head_of_purchasing' || secondaryRoles.includes('head_of_purchasing');
   const isHOF = role === 'head_of_finance' || secondaryRoles.includes('head_of_finance');
 
-  if (isHOS && submission.status === 'pending' && (data.hosName === name || data.hos === name)) {
+  if (isHOS && submission.status === 'pending' && (data.hosUserId ? data.hosUserId === id : (data.hosName === name || data.hos === name))) {
     return { path: '/admin/approvals', recipientType: 'hos' };
   }
 
-  if (isHOD && submission.status === 'approved_hos' && (data.hodName === name || data.hod === name)) {
+  if (isHOD && submission.status === 'approved_hos' && (data.hodUserId ? data.hodUserId === id : (data.hodName === name || data.hod === name))) {
     return { path: '/admin/approvals', recipientType: 'hod' };
   }
 
@@ -41,7 +43,7 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
     return { path: '/admin/hr', recipientType: 'hr_admin' };
   }
 
-  if (isFinanceAdmin && submission.formType === 'claim' && submission.status === 'approved_hof') {
+  if (isFinanceAdmin && submission.formType === 'claim' && ['pending_finance_review', 'approved_hof'].includes(submission.status)) {
     return { path: '/admin/finance', recipientType: 'finance_admin' };
   }
 
@@ -49,11 +51,11 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
     return { path: '/admin/security', recipientType: 'security_guard' };
   }
 
-  if (isHOP && submission.formType === 'claim' && submission.status === 'approved_hod' && data.hopName === name) {
+  if (isHOP && submission.formType === 'claim' && submission.status === 'approved_hod' && (data.hopUserId ? data.hopUserId === id : data.hopName === name)) {
     return { path: '/admin/approvals', recipientType: 'head_of_purchasing' };
   }
 
-  if (isHOF && submission.formType === 'claim' && submission.status === 'approved_hop' && data.hofName === name) {
+  if (isHOF && submission.formType === 'claim' && submission.status === 'approved_hop' && (data.hofUserId ? data.hofUserId === id : data.hofName === name)) {
     return { path: '/admin/approvals', recipientType: 'head_of_finance' };
   }
 

@@ -9,12 +9,15 @@ import { SubmissionsProvider } from "@/contexts/SubmissionsContext";
 import { UsersProvider } from "@/contexts/UsersContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
-import Index from "@/pages/Index";
+import Index from "@/pages/Index.tsx";
 import VerifyOtpPage from "@/pages/VerifyOtpPage";
 import RegisterPage from "@/pages/RegisterPage";
 import HRFormsPage from "@/pages/HRFormsPage";
 import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
+import ITFormsPage from "@/pages/ITFormsPage";
+import CCTVAccessRequestForm from "@/pages/CCTVAccessRequestForm";
+import ITAdminDashboard from "@/pages/ITAdminDashboard";
 import CarBookingForm from "@/pages/CarBookingForm";
 import GatePassForm from "@/pages/GatePassForm";
 import PettyCashForm from "@/pages/PettyCashForm";
@@ -40,6 +43,7 @@ import HomePage from "@/pages/HomePage";
 import PpeRequestForm from "@/pages/PpeRequestForm";
 import DailyOperationMonitoringForm from "@/pages/WaterTreatmentForm"; // Note: Renamed component
 import Root from "@/pages/Root";
+import loginBackground from "@/assets/digital.jpg";
 
 import { useRealtimeNotifications } from "@/useRealtimeNotifications";
 
@@ -47,6 +51,15 @@ const queryClient = new QueryClient();
 
 const GlobalNotificationListener = () => {
   useRealtimeNotifications();
+  return null;
+};
+
+const LoginBackgroundPreloader = () => {
+  React.useEffect(() => {
+    const image = new Image();
+    image.src = loginBackground;
+  }, []);
+
   return null;
 };
 
@@ -60,6 +73,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <GlobalNotificationListener />
+              <LoginBackgroundPreloader />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -74,11 +88,13 @@ const App = () => (
                   <Route path="safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="finance" element={<FinanceFormsPage />} />
+                  <Route path="it" element={<ITFormsPage />} />
                   <Route path="hr/car-rental" element={<CarBookingForm />} /> 
                   <Route path="hr/leave" element={<GatePassForm />} />
                   <Route path="hr/ppe-request" element={<PpeRequestForm />} />
                   <Route path="finance/receipt-upload" element={<ReceiptUploadForm />} />
                   <Route path="finance/claim" element={<PettyCashForm />} />
+                  <Route path="it/cctv-access-request" element={<CCTVAccessRequestForm />} />
                   <Route path="submissions" element={<MySubmissions />} />
                   <Route path="profile" element={<ProfilePage />} />
                   
@@ -87,6 +103,7 @@ const App = () => (
                   <Route path="admin/hr/inventory" element={<ProtectedRoute allowedRoles={["hr_admin"]}><InventoryDashboard /></ProtectedRoute>} />
                   <Route path="admin/hr/purchases" element={<ProtectedRoute allowedRoles={["hr_admin"]}><PurchasesDashboard /></ProtectedRoute>} />
                   <Route path="admin/finance" element={<ProtectedRoute allowedRoles={["finance_admin"]}><FinanceDashboard /></ProtectedRoute>} />
+                  <Route path="admin/it" element={<ProtectedRoute allowedRoles={["it_admin"]}><ITAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/security" element={<ProtectedRoute allowedRoles={["security_guard"]}><SecurityDashboard /></ProtectedRoute>} />
                   <Route path="admin/approvals" element={<ProtectedRoute allowedRoles={["hod", "hos", "head_of_purchasing", "head_of_finance"]}><ApproverDashboard /></ProtectedRoute>} /> 
                   <Route path="admin/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />

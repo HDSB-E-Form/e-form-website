@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Scale, Droplet, Layers, XCircle } from "lucide-react";
 import safetyPoster from "@/assets/safety_poster.png";
+import { supabase } from "@/supabase";
 
 const SafetyFormsPage = () => {
   const navigate = useNavigate();
-  const [posterConfig] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("hdsb_safety_poster_config") || "null") || { enabled: true, url: null };
-    } catch {
-      return { enabled: true, url: null };
-    }
-  });
-  const [showPoster, setShowPoster] = useState(posterConfig.enabled);
+  const [posterConfig, setPosterConfig] = useState<{ enabled: boolean; url: string | null }>({ enabled: true, url: null });
+  const [showPoster, setShowPoster] = useState(false);
+
+  useEffect(() => {
+    supabase.from("safety_dashboard_settings").select("value").eq("key", "safety_poster").maybeSingle()
+      .then(({ data }) => {
+        const config = (data?.value || { enabled: true, url: null }) as { enabled: boolean; url: string | null };
+        setPosterConfig(config);
+        setShowPoster(config.enabled);
+      });
+  }, []);
 
   return (
     <>

@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, User, Receipt, Upload, PlusCircle, Trash2, Wallet, FileText, Send } from "lucide-react";
+import { ArrowLeft, User, Receipt, Upload, PlusCircle, Trash2, Wallet, FileText, Send, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 
@@ -67,16 +67,20 @@ const DEPARTMENT_CODES = [
 
 const PettyCashForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const { addSubmission } = useSubmissions();
-  const { users, getUsersByRole, isLoading: areUsersLoading } = useUsers();
-  const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
-  const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
+  const { addSubmission, updateSubmission, submissions, isLoading: areSubmissionsLoading } = useSubmissions();
+  const { users, isLoading: areUsersLoading } = useUsers();
+  const hosUsers: AppUser[] = useMemo(() => [...users.filter(u => u.role === 'hos' || u.secondary_roles?.includes('hos'))].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [users]);
+  const hodUsers: AppUser[] = useMemo(() => [...users.filter(u => u.role === 'hod' || u.secondary_roles?.includes('hod'))].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [users]);
   // A HOP can have the primary role or a secondary role of 'head_of_purchasing'
   const purchasingHeads: AppUser[] = useMemo(() => [...users.filter(u => u.role === 'head_of_purchasing' || u.secondary_roles?.includes('head_of_purchasing'))].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [users]);
   // A HOF can have the primary role or a secondary role of 'head_of_finance'
   const financeHeads: AppUser[] = useMemo(() => [...users.filter(u => u.role === 'head_of_finance' || u.secondary_roles?.includes('head_of_finance'))].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [users]);
-  const financeAdmins = getUsersByRole("finance_admin") || [];
+  const getLocalDate = () => {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
 
   const [employeeInfo, setEmployeeInfo] = useState({
     name: user?.name || "",
@@ -86,7 +90,7 @@ const PettyCashForm = () => {
     position: (user as any)?.position || "",
     departmentCode: "",
     avatar: user?.avatar || "",
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDate(),
   });
 
   useEffect(() => {
@@ -113,6 +117,7 @@ const PettyCashForm = () => {
   const [hopName, setHopName] = useState(""); // Head of Purchasing
   const [hofName, setHofName] = useState(""); // Head of Finance
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [existingAttachmentUrls, setExistingAttachmentUrls] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -126,22 +131,88 @@ const PettyCashForm = () => {
     setIsDragging(false);
   };
 
+  const addValidatedFiles = (files: File[]) => {
+    const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+    const invalidType = files.find(file => !allowedTypes.has(file.type));
+    if (invalidType) return toast.error(`${invalidType.name} is not a PDF, JPG, or PNG file.`);
+    const oversized = files.find(file => file.size > 10 * 1024 * 1024);
+    if (oversized) return toast.error(`${oversized.name} exceeds the 10 MB file limit.`);
+    setAttachedFiles(current => {
+      const unique = files.filter(file => !current.some(existing => existing.name === file.name && existing.size === file.size));
+      if (unique.length !== files.length) toast.info("Duplicate attachments were ignored.");
+      return [...current, ...unique];
+    });
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setAttachedFiles(prev => [...prev, ...Array.from(e.dataTransfer.files!)]);
+      addValidatedFiles(Array.from(e.dataTransfer.files!));
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+      addValidatedFiles(Array.from(e.target.files!));
     }
   };
 
+  const editSubmissionId = useMemo(() => new URLSearchParams(location.search).get("editId"), [location.search]);
+  const editSubmission = useMemo(
+    () => editSubmissionId ? submissions.find(sub => sub.id === editSubmissionId) : null,
+    [editSubmissionId, submissions]
+  );
+  const isEditMode = Boolean(editSubmission);
+
+  useEffect(() => {
+    if (!editSubmissionId) return;
+    if (areSubmissionsLoading) return;
+    if (!editSubmission) {
+      toast.error("The claim selected for editing could not be found.");
+      navigate("/submissions");
+      return;
+    }
+
+    if (editSubmission.formType !== "claim") {
+      toast.error("Only petty cash claims can be edited here.");
+      navigate("/submissions");
+      return;
+    }
+
+    if (editSubmission.submittedBy !== user?.id) {
+      toast.error("You can only edit your own submissions.");
+      navigate("/submissions");
+      return;
+    }
+
+    if (!["pending", "approved_hos"].includes(editSubmission.status)) {
+      toast.error("This claim cannot be edited after HOD approval.");
+      navigate("/submissions");
+      return;
+    }
+
+    const employeeInfoData = editSubmission.data.employeeInfo || {};
+    setEmployeeInfo(prev => ({
+      ...prev,
+      ...employeeInfoData,
+      departmentCode: employeeInfoData.departmentCode || prev.departmentCode,
+      date: employeeInfoData.date || prev.date,
+    }));
+    setClaimRows(editSubmission.data.claimRows || [{ description: "", receiptNo: "", amount: "" }] );
+    setHosName(editSubmission.data.hosName || "");
+    setHodName(editSubmission.data.hodName || "");
+    setHopName(editSubmission.data.hopName || "");
+    setHofName(editSubmission.data.hofName || "");
+    setExistingAttachmentUrls(Array.isArray(editSubmission.data.attachments) ? editSubmission.data.attachments : []);
+  }, [editSubmissionId, editSubmission, user?.id, navigate, areSubmissionsLoading]);
+
   const removeFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = (index: number) => {
+    setExistingAttachmentUrls(current => current.filter((_, attachmentIndex) => attachmentIndex !== index));
   };
 
   const addRow = () => {
@@ -166,6 +237,10 @@ const PettyCashForm = () => {
     return sum + amountVal;
   }, 0);
 
+  if (editSubmissionId && areSubmissionsLoading) {
+    return <div className="flex min-h-[50vh] items-center justify-center p-6 text-sm font-medium text-muted-foreground">Loading claim details…</div>;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -175,8 +250,94 @@ const PettyCashForm = () => {
       return;
     }
 
-    if (totalAmount > 5000) {
+    const populatedRows = claimRows.filter(row => row.description.trim() || row.receiptNo.trim() || row.amount.trim());
+    if (populatedRows.length === 0) {
+      toast.error("Please enter at least one claim item.");
+      return;
+    }
+    if (populatedRows.some(row => !row.description.trim() || !row.receiptNo.trim() || !row.amount.trim())) {
+      toast.error("Each claim item must include a description, receipt number, and amount.");
+      return;
+    }
+    if (populatedRows.some(row => !Number.isFinite(Number(row.amount)) || Number(row.amount) <= 0)) {
+      toast.error("Every claim amount must be greater than RM 0.00.");
+      return;
+    }
+    const validatedTotalAmount = populatedRows.reduce((sum, row) => sum + Number(row.amount), 0);
+
+    if (validatedTotalAmount > 5000) {
       toast.error("The total claim amount cannot exceed RM 5000.");
+      return;
+    }
+    if (existingAttachmentUrls.length === 0 && attachedFiles.length === 0) {
+      toast.error("Please attach at least one receipt or supporting document.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const finalAttachmentUrls = [...existingAttachmentUrls];
+    const newlyUploadedPaths: string[] = [];
+    if (attachedFiles.length > 0) {
+      for (const file of attachedFiles) {
+        const filePath = `public/${user?.id || 'unknown_user'}/${crypto.randomUUID()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        
+        const { data, error } = await supabase.storage
+          .from('form-attachments')
+          .upload(filePath, file);
+
+        if (error) {
+          if (newlyUploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(newlyUploadedPaths);
+          toast.error(`Attachment upload failed: ${error.message}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('form-attachments')
+          .getPublicUrl(data.path);
+        
+        finalAttachmentUrls.push(urlData.publicUrl);
+        newlyUploadedPaths.push(data.path);
+      }
+    }
+
+    const submissionData = {
+      employeeInfo,
+      claimRows: populatedRows.map(row => ({ ...row, description: row.description.trim(), receiptNo: row.receiptNo.trim(), amount: Number(row.amount).toFixed(2) })),
+      hosName,
+      hodName,
+      hopName,
+      hofName,
+      totalAmount: Number(validatedTotalAmount.toFixed(2)),
+      hosUserId: hosName === "N/A" ? null : hosUsers.find(approver => approver.name === hosName)?.id || null,
+      hodUserId: hodName === "N/A" ? null : hodUsers.find(approver => approver.name === hodName)?.id || null,
+      hopUserId: purchasingHeads.find(approver => approver.name === hopName)?.id || null,
+      hofUserId: financeHeads.find(approver => approver.name === hofName)?.id || null,
+      attachment: finalAttachmentUrls.length > 0 ? finalAttachmentUrls[0] : null,
+      attachments: finalAttachmentUrls,
+      ...(isEditMode ? {
+        rejectedStage: undefined,
+        remarks: undefined,
+        lastEditedAt: new Date().toISOString(),
+        lastEditedBy: user?.id || "",
+        approvalRestartedAfterEdit: true,
+      } : {}),
+    };
+
+    if (isEditMode && editSubmissionId && editSubmission) {
+      let restartedStatus: "pending" | "approved_hos" | "approved_hod" = "pending";
+      if (hosName === "N/A") {
+        restartedStatus = hodName === "N/A" ? "approved_hod" : "approved_hos";
+      }
+      const success = await updateSubmission(editSubmissionId, submissionData, restartedStatus);
+      if (success) {
+        toast.success("Petty cash claim updated. The approval process has restarted.");
+        navigate("/submissions");
+      } else {
+        if (newlyUploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(newlyUploadedPaths);
+        setIsSubmitting(false);
+      }
       return;
     }
 
@@ -188,48 +349,13 @@ const PettyCashForm = () => {
       }
     }
 
-    setIsSubmitting(true);
-
-    let attachmentUrls: string[] = [];
-    if (attachedFiles.length > 0) {
-      for (const file of attachedFiles) {
-        const filePath = `public/${user?.id || 'unknown_user'}/${Date.now()}_${file.name}`;
-        
-        const { data, error } = await supabase.storage
-          .from('form-attachments')
-          .upload(filePath, file);
-
-        if (error) {
-          toast.error(`Attachment upload failed: ${error.message}`);
-          setIsSubmitting(false);
-          return;
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('form-attachments')
-          .getPublicUrl(data.path);
-        
-        attachmentUrls.push(urlData.publicUrl);
-      }
-    }
-
     const success = await addSubmission({
       formType: "claim",
       status: initialStatus,
       submittedBy: user?.id || "",
       employeeName: employeeInfo.name,
       department: employeeInfo.department,
-      data: { 
-        employeeInfo, 
-        claimRows, 
-        hosName, 
-        hodName,
-        hopName,
-        hofName,
-        totalAmount, 
-        attachment: attachmentUrls.length > 0 ? attachmentUrls[0] : null,
-        attachments: attachmentUrls,
-      },
+      data: submissionData,
     });
     if (success) {
       // // --- 🔔 SEND EMAIL NOTIFICATION (DEACTIVATED) ---
@@ -269,31 +395,33 @@ const PettyCashForm = () => {
       // }
 
       toast.success("Petty cash claim submitted successfully!");
-      navigate("/home");
+      navigate("/submissions");
     } else {
+      if (newlyUploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(newlyUploadedPaths);
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <button onClick={() => navigate("/finance")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Finance Forms
       </button>
 
-      <div className="mb-8">
-        <h1 className="text-2xl lg:text-2xl font-bold text-foreground uppercase tracking-wide">
-          Petty Cash Claim Form / Permohonan Wang Pendahuluan
+      <div className="mb-5">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          {isEditMode ? "Edit Petty Cash Claim" : "Petty Cash Claim Form"}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+        <p className="mt-1 text-base font-medium text-primary">Permohonan Wang Pendahuluan</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Employee Information */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <User className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Employee Information / <span className="font-normal">Maklumat Pekerja</span>
             </h2>
           </div>
@@ -302,19 +430,19 @@ const PettyCashForm = () => {
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.employeeNumber || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.employeeNumber || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
 
@@ -341,6 +469,7 @@ const PettyCashForm = () => {
               <Label className="text-xs font-semibold text-primary">Date / Tarikh <span className="text-destructive">*</span></Label>
               <Input
                 type="date"
+                max={getLocalDate()}
                 value={employeeInfo.date}
                 onChange={e => setEmployeeInfo(p => ({ ...p, date: e.target.value }))}
                 className="h-11 dark:[color-scheme:dark]"
@@ -352,15 +481,16 @@ const PettyCashForm = () => {
 
         {/* Claim Details Table */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <Receipt className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Claim Details / <span className="font-normal">Butiran Tuntutan</span>
             </h2>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full min-w-[720px] border-collapse">
               <thead>
                 <tr className="bg-muted/50">
                   <th className="text-center text-xs font-semibold text-primary p-3 border border-border w-12">
@@ -403,6 +533,7 @@ const PettyCashForm = () => {
                     <td className="p-1.5 border border-border">
                       <Input
                         type="number"
+                        min="0.01"
                         step="0.01"
                         value={row.amount}
                         onChange={e => updateRow(i, "amount", e.target.value)}
@@ -445,12 +576,19 @@ const PettyCashForm = () => {
 
         {/* Approvals */}
         <div className="card-elevated p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-base">
+              Digital Approvals / <span className="font-normal">Kelulusan Digital</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
                 Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
               </Label>
-              <Select value={hosName || undefined} onValueChange={setHosName} disabled={areUsersLoading || hosUsers.length === 0}>
+              <Select value={hosName || undefined} onValueChange={setHosName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
                 </SelectTrigger>
@@ -469,7 +607,7 @@ const PettyCashForm = () => {
               <Label className="font-semibold text-sm">
                 Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
               </Label>
-              <Select value={hodName || undefined} onValueChange={setHodName} disabled={areUsersLoading || hodUsers.length === 0}>
+              <Select value={hodName || undefined} onValueChange={setHodName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
                 </SelectTrigger>
@@ -525,12 +663,22 @@ const PettyCashForm = () => {
 
         {/* Upload Document */}
         <div className="card-elevated p-6">
-          <Label className="font-semibold text-sm mb-3 block">
-            Upload Document / <span className="text-primary">Muat Naik Dokumen</span>
-          </Label>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
+            <FileText className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-base">
+              Supporting Documents / <span className="font-normal">Dokumen Sokongan</span>
+            </h2>
+          </div>
           
-          {attachedFiles.length > 0 && (
+          {(existingAttachmentUrls.length > 0 || attachedFiles.length > 0) && (
             <div className="space-y-3 mb-4">
+              {existingAttachmentUrls.map((url, i) => (
+                <div key={url} className="border border-border rounded-xl p-4 flex items-center justify-between bg-muted/10">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-4 text-sm font-medium text-primary hover:underline"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="h-5 w-5 text-primary" /></div><span className="truncate">Existing attachment {i + 1}</span></a>
+                  <button type="button" onClick={() => removeExistingAttachment(i)} className="ml-4 flex-shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive" title="Remove existing attachment"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              ))}
               {attachedFiles.map((file, i) => (
                 <div key={i} className="border border-border rounded-xl p-4 flex items-center justify-between bg-muted/10">
                   <div className="flex items-center gap-4">
@@ -562,7 +710,7 @@ const PettyCashForm = () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer block w-full ${
+              className={`border-2 border-dashed rounded-xl p-6 sm:p-10 flex flex-col items-center justify-center text-center transition-colors cursor-pointer block w-full ${
                 isDragging ? "border-primary bg-primary/10" : "border-border bg-muted/20 hover:bg-muted/30"
               }`}
             >
@@ -587,10 +735,10 @@ const PettyCashForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit"}
+            {isSubmitting ? (isEditMode ? "Updating..." : "Submitting...") : (isEditMode ? "Update Claim" : "Submit")}
           </button>
           <button
             type="button"

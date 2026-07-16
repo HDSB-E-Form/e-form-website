@@ -1,26 +1,26 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, PieChart as PieChartIcon, Settings, Trash2, Pencil, Plus, Recycle, Download, Database } from "lucide-react";
+import { BarChart3, PieChart as PieChartIcon, Settings, Trash2, Pencil, Plus, Recycle, Download, Database, RotateCcw } from "lucide-react";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
-const disposeYAxisTicks = [0, 1000, 5000, 10000, 20000, 30000, 40000, 50000];
 const formatYAxis = (tick: number) => {
     if (tick === 0) return '0';
     if (tick >= 1000) return `${tick / 1000}k`;
     return tick.toString();
 };
 
-const recycleYAxisTicks = [0, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000];
-
 const WasteDashboard = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { submissions } = useSubmissions();
     const [wasteStartDate, setWasteStartDate] = useState("");
     const [wasteEndDate, setWasteEndDate] = useState("");
@@ -33,14 +33,34 @@ const WasteDashboard = () => {
     const [isWasteTypesOpen, setIsWasteTypesOpen] = useState(false);
     const [newTypeCategory, setNewTypeCategory] = useState<"sell" | "pay">("sell");
     const [newTypeName, setNewTypeName] = useState("");
+    const hasInvalidDateRange = Boolean(wasteStartDate && wasteEndDate && wasteStartDate > wasteEndDate);
+    const hasActiveFilters = Boolean(wasteStartDate || wasteEndDate || wastePlantFilter !== "All" || wasteSwFilter !== "All");
 
 
-    const [sellTypes] = useState<string[]>(() => {
-        try { return JSON.parse(localStorage.getItem("hdsb_waste_types_sell") || "null") || DEFAULT_SELL_WASTE_TYPES; } catch { return DEFAULT_SELL_WASTE_TYPES; }
-    });
-    const [payTypes] = useState<string[]>(() => {
-        try { return JSON.parse(localStorage.getItem("hdsb_waste_types_pay") || "null") || DEFAULT_PAY_WASTE_TYPES; } catch { return DEFAULT_PAY_WASTE_TYPES; }
-    });
+    const [sellTypes, setSellTypes] = useState<string[]>(DEFAULT_SELL_WASTE_TYPES);
+    const [payTypes, setPayTypes] = useState<string[]>(DEFAULT_PAY_WASTE_TYPES);
+
+    useEffect(() => {
+        supabase.from("safety_dashboard_settings").select("value").eq("key", "waste_types").maybeSingle()
+            .then(({ data }) => {
+                const value = data?.value as { sell?: string[]; pay?: string[] } | undefined;
+                if (value?.sell) setSellTypes(value.sell);
+                if (value?.pay) setPayTypes(value.pay);
+            });
+    }, []);
+
+    const saveWasteTypes = async (nextSell: string[], nextPay: string[]) => {
+        const { error } = await supabase.from("safety_dashboard_settings").upsert({
+            key: "waste_types", value: { sell: nextSell, pay: nextPay }, updated_by: user?.id || "", updated_at: new Date().toISOString(),
+        });
+        if (error) {
+            toast.error(`Failed to save waste types: ${error.message}`);
+            return false;
+        }
+        setSellTypes(nextSell);
+        setPayTypes(nextPay);
+        return true;
+    };
 
     const wasteSubmissions = useMemo(() => 
         submissions.filter(s => s.formType === "waste_inventory"), 
@@ -128,7 +148,7 @@ const WasteDashboard = () => {
 
         const pieData = [
             { name: "Recycle (Sell)", value: parseFloat(totalSell.toFixed(2)), color: "#10b981" }, // Cool Green
-            { name: "Dispose (Pay)", value: parseFloat(totalPay.toFixed(2)), color: "#f59e0b" }  // Warm Orange
+            { name: "Dispose (Pay)", value: parseFloat(totalPay.toFixed(2)), color: "#3b82f6" }
         ].filter(d => d.value > 0);
 
         return { 
@@ -137,28 +157,46 @@ const WasteDashboard = () => {
         };
     }, [wasteSubmissions, wasteStartDate, wasteEndDate, wastePlantFilter, wasteSwFilter]);
 
-    const handleAddWasteType = () => {
+    const sharedBarScale = useMemo(() => {
+        const values = [...wasteChartData.sellData, ...wasteChartData.payData].map(item => item.value);
+        const largestValue = Math.max(0, ...values);
+        if (largestValue === 0) return { maximum: 100, ticks: [0, 20, 40, 60, 80, 100] };
+
+        const roughStep = largestValue / 5;
+        const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+        const step = Math.ceil(roughStep / magnitude) * magnitude;
+        return { maximum: step * 5, ticks: Array.from({ length: 6 }, (_, index) => index * step) };
+    }, [wasteChartData.sellData, wasteChartData.payData]);
+
+    const handleAddWasteType = async () => {
         if (!newTypeName.trim()) return toast.error("Waste type name cannot be empty");
         if (newTypeCategory === "sell") {
             if (sellTypes.includes(newTypeName.trim())) return toast.error("This waste type already exists in Recycle (Sell).");
-            // setSellTypes([...sellTypes, newTypeName.trim()]); // This would require sellTypes to be state
+            if (!await saveWasteTypes([...sellTypes, newTypeName.trim()], payTypes)) return;
         } else {
             if (payTypes.includes(newTypeName.trim())) return toast.error("This waste type already exists in Dispose (Pay).");
-            // setPayTypes([...payTypes, newTypeName.trim()]); // This would require payTypes to be state
+            if (!await saveWasteTypes(sellTypes, [...payTypes, newTypeName.trim()])) return;
         }
         setNewTypeName("");
-        toast.info("This feature is in development. Please contact support to add new types permanently.");
+        toast.success("Waste type added for all Safety Admins.");
     };
 
-    const handleDeleteWasteType = (cat: "sell" | "pay", name: string) => {
+    const handleDeleteWasteType = async (cat: "sell" | "pay", name: string) => {
         if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
-        toast.info("This feature is in development. Please contact support to delete types permanently.");
+        const saved = cat === "sell"
+            ? await saveWasteTypes(sellTypes.filter(item => item !== name), payTypes)
+            : await saveWasteTypes(sellTypes, payTypes.filter(item => item !== name));
+        if (saved) toast.success("Waste type removed.");
     };
 
-    const handleRenameWasteType = (cat: "sell" | "pay", oldName: string) => {
+    const handleRenameWasteType = async (cat: "sell" | "pay", oldName: string) => {
         const newName = window.prompt("Enter new name for this waste type:", oldName);
         if (!newName || !newName.trim() || newName.trim() === oldName) return;
-        toast.info("This feature is in development. Please contact support to rename types permanently.");
+        const cleanedName = newName.trim();
+        const saved = cat === "sell"
+            ? await saveWasteTypes(sellTypes.map(item => item === oldName ? cleanedName : item), payTypes)
+            : await saveWasteTypes(sellTypes, payTypes.map(item => item === oldName ? cleanedName : item));
+        if (saved) toast.success("Waste type renamed.");
     };
 
     const handleExportCSV = () => {
@@ -167,7 +205,10 @@ const WasteDashboard = () => {
 
         let dataToExport = wasteSubmissions.filter(s => {
             const subDate = s.data.recordDate || new Date(s.submittedAt).toISOString().split('T')[0];
-            return subDate >= start && subDate <= end;
+            const dateMatch = subDate >= start && subDate <= end;
+            const plantMatch = wastePlantFilter === "All" || s.data.plant === wastePlantFilter;
+            const swCodeMatch = wasteSwFilter === "All" || (s.data.wasteType || "").startsWith(wasteSwFilter);
+            return dateMatch && plantMatch && swCodeMatch;
         });
 
         if (dataToExport.length === 0) {
@@ -236,8 +277,8 @@ const WasteDashboard = () => {
                     {isMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                            <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 w-full sm:w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
-                                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                                <button onClick={() => { setExportStartDate(wasteStartDate); setExportEndDate(wasteEndDate); setIsExportOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
                                     <Download className="h-4 w-4 text-muted-foreground" /> Export to Spreadsheet
                         </button>
                                 <button onClick={() => { setIsWasteTypesOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
@@ -269,25 +310,21 @@ const WasteDashboard = () => {
                     </div>
                 </div>
 
-                {/* Responsive Filter Bar Split Left/Right */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-muted/20 p-4 rounded-xl border border-border">
-                    {/* Left Side Group: Date Filters */}
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <Label className="text-xs font-medium text-muted-foreground">From:</Label>
-                            <Input type="date" value={wasteStartDate} onChange={e => setWasteStartDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+                {/* Compact responsive filter bar */}
+                <div className="mb-6 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[140px_140px_150px_minmax(270px,1fr)_auto]">
+                        <div>
+                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">From</Label>
+                            <Input type="date" value={wasteStartDate} max={wasteEndDate || undefined} onChange={e => setWasteStartDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                            <Label className="text-xs font-medium text-muted-foreground">To:</Label>
-                            <Input type="date" value={wasteEndDate} onChange={e => setWasteEndDate(e.target.value)} className="h-9 w-36 text-xs dark:[color-scheme:dark]" />
+                        <div>
+                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">To</Label>
+                            <Input type="date" value={wasteEndDate} min={wasteStartDate || undefined} onChange={e => setWasteEndDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
                         </div>
-                    </div>
-
-                    {/* Right Side Group: Waste Type & Plant Filters */}
-                    <div className="flex flex-wrap items-center gap-3 ml-auto sm:ml-0">
+                        <div>
+                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">SW Code</Label>
                         <Select value={wasteSwFilter} onValueChange={setWasteSwFilter}>
-                            <SelectTrigger className="h-9 w-[4cm] text-xs bg-background border-input shadow-sm rounded-lg truncate">
+                            <SelectTrigger className="h-9 w-full text-xs bg-background border-input shadow-sm rounded-lg truncate">
                                 <SelectValue placeholder="All SW Codes" />
                             </SelectTrigger>
                             <SelectContent className="max-h-[150px]">
@@ -297,53 +334,89 @@ const WasteDashboard = () => {
                                 ))}
                             </SelectContent>
                         </Select>
-
-                        <div className="flex bg-background p-0.5 rounded-lg border border-input w-fit shadow-sm">
+                        </div>
+                        <div className="sm:col-span-2 xl:col-span-1">
+                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Plant</Label>
+                        <div className="grid h-9 w-full grid-cols-3 bg-background p-0.5 rounded-lg border border-input shadow-sm">
                             {["All", "Plant 1", "Plant 2"].map(plant => (
                                 <button
                                     key={plant}
                                     onClick={() => setWastePlantFilter(plant as any)}
-                                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${wastePlantFilter === plant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                                    className={`px-2 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${wastePlantFilter === plant ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
                                 >
                                     {plant === "All" ? "All Plants" : plant}
                                 </button>
                             ))}
                         </div>
+                        </div>
+                        <button
+                            onClick={() => { setWasteStartDate(""); setWasteEndDate(""); setWastePlantFilter("All"); setWasteSwFilter("All"); }}
+                            disabled={!hasActiveFilters}
+                            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" /> Reset Filters
+                        </button>
                     </div>
+                    {hasInvalidDateRange && <p className="mt-2 text-xs font-semibold text-destructive">The From date must be earlier than or equal to the To date.</p>}
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 mb-6">
-                    <div className="card-elevated p-6">
+                <div className="flex flex-col">
+                <div className="order-2 mt-6 grid grid-cols-1 gap-6">
+                    <div className="card-elevated p-4 sm:p-6">
                         <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-1"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
-                        <div className="h-72">
+                        <div className="min-h-72">
                             {wasteChartData.pieData.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
+                                <div className="h-72 flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
                             ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`} stroke="hsl(var(--border))" strokeWidth={1}>
-                                            {wasteChartData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        </Pie>
-                                        <Tooltip formatter={(value: number) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
-                                        <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <div className="flex min-h-72 flex-col items-center justify-center gap-4 md:flex-row md:gap-10">
+                                    <div className="h-64 w-full max-w-sm sm:h-72">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={wasteChartData.pieData} cx="50%" cy="50%" innerRadius={64} outerRadius={94} paddingAngle={5} dataKey="value" stroke="hsl(var(--border))" strokeWidth={1}>
+                                                    {wasteChartData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                                </Pie>
+                                                <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" fill="hsl(var(--muted-foreground))" fontSize="11" fontWeight="600">TOTAL NET</text>
+                                                <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="hsl(var(--foreground))" fontSize="16" fontWeight="700">
+                                                    {`${wasteChartData.stats.total.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg`}
+                                                </text>
+                                                <Tooltip formatter={(value: number) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, 'Net Weight']} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="grid w-full max-w-sm gap-3 pb-2 md:pb-0">
+                                        {wasteChartData.pieData.map(item => {
+                                            const percentage = wasteChartData.stats.total > 0 ? (item.value / wasteChartData.stats.total) * 100 : 0;
+                                            return (
+                                                <div key={item.name} className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/10 p-3.5">
+                                                    <div className="flex min-w-0 items-center gap-3">
+                                                        <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                                                        <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <p className="text-sm font-bold text-foreground">{item.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</p>
+                                                        <p className="text-xs font-medium text-muted-foreground">{percentage.toFixed(1)}%</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="card-elevated p-6 md:col-span-1">
+                <div className="order-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="card-elevated p-4 sm:p-6 md:col-span-1">
                         <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-emerald-500" /> Recycle (Sell) by SW Code</h3>
-                        <div className="h-[500px]">
+                        <div className="h-[340px] md:h-[400px]">
                             {wasteChartData.sellData.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={wasteChartData.sellData} margin={{ top: 10, right: 20, left: -25, bottom: 0 }} barCategoryGap="20%">
+                                    <BarChart data={wasteChartData.sellData} margin={{ top: 20, right: 12, left: 8, bottom: 0 }} barCategoryGap="20%">
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} tickLine={false} axisLine={false} interval={0} height={50} />
-                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 60000]} ticks={recycleYAxisTicks} tickFormatter={formatYAxis} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: wasteChartData.sellData.length > 6 ? -45 : 0, textAnchor: wasteChartData.sellData.length > 6 ? 'end' : 'middle' } as any} tickLine={false} axisLine={false} interval={0} height={wasteChartData.sellData.length > 6 ? 50 : 30} />
+                                        <YAxis width={44} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, sharedBarScale.maximum]} ticks={sharedBarScale.ticks} tickFormatter={formatYAxis} />
                                         <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, props.payload?.fullName || "Net Weight"]} />
                                         <Bar dataKey="value" fill="#10b981" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold', formatter: (value: number) => value > 0 ? value.toLocaleString('en-US') : '' }} />
                                     </BarChart>
@@ -352,17 +425,17 @@ const WasteDashboard = () => {
                         </div>
                     </div>
 
-                    <div className="card-elevated p-6 md:col-span-1">
+                    <div className="card-elevated p-4 sm:p-6 md:col-span-1">
                         <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-6"><BarChart3 className="h-4 w-4 text-blue-500" /> Dispose (Pay) by SW Code</h3>
-                        <div className="h-[500px]">
+                        <div className="h-[340px] md:h-[400px]">
                             {wasteChartData.payData.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={wasteChartData.payData} margin={{ top: 10, right: 20, left: -25, bottom: 0 }} barCategoryGap="20%">
+                                    <BarChart data={wasteChartData.payData} margin={{ top: 20, right: 12, left: 8, bottom: 0 }} barCategoryGap="20%">
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: -45, textAnchor: 'end' }} tickLine={false} axisLine={false} interval={0} height={50} />
-                                        <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, 50000]} ticks={disposeYAxisTicks} tickFormatter={formatYAxis} />
+                                        <XAxis dataKey="code" tick={{ fontSize: 10, angle: wasteChartData.payData.length > 6 ? -45 : 0, textAnchor: wasteChartData.payData.length > 6 ? 'end' : 'middle' } as any} tickLine={false} axisLine={false} interval={0} height={wasteChartData.payData.length > 6 ? 50 : 30} />
+                                        <YAxis width={44} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0, sharedBarScale.maximum]} ticks={sharedBarScale.ticks} tickFormatter={formatYAxis} />
                                         <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} formatter={(value: number, name: string, props: any) => [`${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`, props.payload?.fullName || "Net Weight"]} />
                                         <Bar dataKey="value" fill="#3b82f6" maxBarSize={36} label={{ position: 'top', fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold', formatter: (value: number) => value > 0 ? value.toLocaleString('en-US') : '' }} />
                                     </BarChart>
@@ -370,6 +443,7 @@ const WasteDashboard = () => {
                             )}
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
 

@@ -110,21 +110,26 @@ const ReceiptUploadForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       <button onClick={() => navigate("/finance")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Finance Forms
       </button>
 
-      <div className="mb-8">
-        <h1 className="text-2xl lg:text-2xl font-bold text-foreground uppercase tracking-wide">
-          Upload Petty Cash Receipt
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+      <div className="mb-5">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Upload Petty Cash Receipt</h1>
+        <p className="mt-1 text-base font-medium text-primary">Muat Naik Resit Tunai Runcit</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card-elevated p-6">
-          <div className="space-y-1.5 mb-6">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
+            <FileText className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-base">
+              Claim Reference / <span className="font-normal">Rujukan Tuntutan</span>
+            </h2>
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="refNo" className="text-xs font-semibold text-primary">Submission Reference Number <span className="text-destructive">*</span></Label>
             <Input
               id="refNo"
@@ -136,7 +141,16 @@ const ReceiptUploadForm = () => {
             />
             <p className="text-xs text-muted-foreground">Enter the reference number from your original Petty Cash Claim submission.</p>
           </div>
+        </div>
 
+        <div className="card-elevated p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
+            <Upload className="h-5 w-5 text-primary" />
+            <h2 className="font-bold text-foreground text-base">
+              Receipt Files / <span className="font-normal">Fail Resit</span>
+            </h2>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-primary">Receipt / Invoice File(s) <span className="text-destructive">*</span></Label>
             {attachedFiles.length > 0 && (
@@ -157,18 +171,18 @@ const ReceiptUploadForm = () => {
               onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${isDragging ? "border-primary bg-primary/10" : "border-border hover:border-border/70"}`}
+              className={`border-2 border-dashed rounded-xl p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${isDragging ? "border-primary bg-primary/10" : "border-border bg-muted/20 hover:bg-muted/30 hover:border-border/70"}`}
             >
               <Upload className="h-8 w-8 text-muted-foreground mb-2" />
               <p className="text-sm font-semibold text-muted-foreground">Drag & drop or click to upload</p>
               <p className="text-xs text-muted-foreground mt-1">(PDF, JPG, PNG supported)</p>
-              <input id="file-upload" type="file" className="hidden" multiple onChange={handleFileChange} />
+              <input id="file-upload" type="file" className="hidden" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} />
             </label>
           </div>
         </div>
 
-        <div className="flex justify-end pt-4">
-          <Button type="submit" disabled={isSubmitting} className="px-12 py-6 text-base">
+        <div className="flex justify-center pt-4 pb-8">
+          <Button type="submit" disabled={isSubmitting} className="btn-gold h-auto w-full sm:w-auto sm:min-w-64 rounded-full px-6 py-3.5 text-sm font-bold shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/40 active:scale-95">
             {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
             {isSubmitting ? "Uploading..." : "Submit Receipt"}
           </Button>

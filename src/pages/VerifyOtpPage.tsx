@@ -44,17 +44,22 @@ const VerifyOtpPage = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const email = location.state?.email;
-  const registrationData = location.state;
+  const storedRegistration = (() => {
+    try { return JSON.parse(sessionStorage.getItem("hdsb_pending_registration") || "null"); } catch { return null; }
+  })();
+  const registrationData = location.state || storedRegistration;
+  const email = registrationData?.email;
   const [isResending, setIsResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
+    const wasDark = document.documentElement.classList.contains("dark");
     document.documentElement.classList.remove("dark");
     if (!email) {
       toast.error("No email address provided. Redirecting to register.");
       navigate("/register");
     }
+    return () => { if (wasDark) document.documentElement.classList.add("dark"); };
   }, [email, navigate]);
 
   // Timer effect for resend cooldown
@@ -86,15 +91,31 @@ const VerifyOtpPage = () => {
       setIsVerifying(false);
     } else {
       // OTP is correct, now create the user profile in the public.users table
-      if (verifyData.user && registrationData) {
-        const { error: profileError } = await supabase.from('users').insert({
+      if (verifyData.user) {
+        const metadata = verifyData.user.user_metadata || {};
+        const profileData = registrationData || {
+          email: verifyData.user.email,
+          name: metadata.name,
+          employeeId: metadata.employeeId,
+          department: metadata.department,
+          phone: metadata.phone,
+          position: metadata.position,
+        };
+        if (!profileData?.name || !profileData?.employeeId || !profileData?.department) {
+          setError("Email verification succeeded, but required profile information is missing. Please contact an administrator.");
+          setIsVerifying(false);
+          return;
+        }
+
+        const { data: existingProfile } = await supabase.from('users').select('id').eq('id', verifyData.user.id).maybeSingle();
+        const { error: profileError } = existingProfile ? { error: null } : await supabase.from('users').insert({
           id: verifyData.user.id,
-          email: registrationData.email,
-          name: registrationData.name,
-          employeeId: registrationData.employeeId,
-          department: registrationData.department,
-          phone: registrationData.phone,
-          position: registrationData.position,
+          email: profileData.email || verifyData.user.email,
+          name: profileData.name,
+          employeeId: profileData.employeeId,
+          department: profileData.department,
+          phone: profileData.phone || "",
+          position: profileData.position || "",
           role: 'employee', // Default role
         });
 
@@ -102,12 +123,13 @@ const VerifyOtpPage = () => {
           setError(`Verification successful, but failed to create profile: ${profileError.message}`);
           toast.error(`Verification successful, but failed to create profile: ${profileError.message}`);
         } else {
+          sessionStorage.removeItem("hdsb_pending_registration");
           toast.success("Email confirmed successfully! You can now log in.");
           navigate("/login");
         }
       } else {
-        setError("Could not find user data to create profile. Please try registering again.");
-        toast.error("Could not find user data to create profile. Please try registering again.");
+        setError("Could not verify the user account. Please try again.");
+        toast.error("Could not verify the user account. Please try again.");
       }
       setIsVerifying(false);
     }

@@ -1,21 +1,25 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type CarInfo, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, ArrowLeft, Printer, Car, Wallet, HandCoins, Trash2 } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, ArrowLeft, Printer, Car, Wallet, HandCoins, EyeOff, Pencil } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
 import { renderValue } from "@/components/DataRenderer";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import DashboardStatCard from "@/components/DashboardStatCard";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
   leave: "Gate Pass",
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
+  cctv_access_request: "CCTV Access Request",
 };
 
 type FilterType = "all" | "pending" | "approved" | "rejected" | "action_required";
@@ -41,35 +45,41 @@ const naStatus = () => (
 );
 
 const getOverallStatus = (sub: Submission) => {
-  if (sub.status === "rejected") return { label: "Rejected", color: "bg-destructive", progress: 100 };
-  if (sub.status === "completed") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
-  if (sub.status === "approved" || sub.status === "paid") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
+  const status = sub.status as string;
+  if (status === "rejected") return { label: "Rejected", color: "bg-destructive", progress: 100 };
+  if (status === "completed") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
+  if (status === "approved" || status === "paid") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
   
   if (sub.formType === 'claim') {
-    if (sub.status === "approved_hof") return { label: "Pending Finance Payment", color: "bg-teal-500", progress: 95 };
-    if (sub.status === "approved_hop") return { label: "Pending HOF", color: "bg-sky-500", progress: 85 };
-    if (sub.status === "pending_finance_review") return { label: "Pending Finance Review", color: "bg-fuchsia-500", progress: 75 };
-    if (sub.status === "approved_hod") return { label: "Pending HOP", color: "bg-blue-500", progress: 60 };
-    if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 40 };
+    if (status === "approved_hof") return { label: "Pending Finance Payment", color: "bg-teal-500", progress: 95 };
+    if (status === "approved_hop") return { label: "Pending HOF", color: "bg-sky-500", progress: 85 };
+    if (status === "pending_finance_review") return { label: "Pending Finance Review", color: "bg-fuchsia-500", progress: 75 };
+    if (status === "approved_hod") return { label: "Pending HOP", color: "bg-blue-500", progress: 60 };
+    if (status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 40 };
     return { label: "Pending HOS", color: "bg-amber-500", progress: 20 }; // Default for claim
   } 
   
   if (sub.formType === 'leave') {
-    if (sub.status === "approved") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
-    if (sub.status === "on_leave") return { label: "On Leave", color: "bg-indigo-500", progress: 90 };
-    if (sub.status === "approved_hod") return { label: "Pending Security", color: "bg-blue-500", progress: 75 };
+    if (status === "approved") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
+    if (status === "on_leave") return { label: "On Leave", color: "bg-indigo-500", progress: 90 };
+    if (status === "approved_hod") return { label: "Pending Security", color: "bg-blue-500", progress: 75 };
+    if (status === "approved_hos") return { label: "Pending HOD", color: "bg-amber-500", progress: 50 };
+  } else if (sub.formType === 'cctv_access_request') {
+    if (status === "approved_hod") return { label: "Pending IT Admin", color: "bg-violet-500", progress: 75 };
+    if (status === "approved_hos") return { label: "Pending HOD", color: "bg-amber-500", progress: 50 };
   } else {
     // Standard HOD approval for other forms
-    if (sub.status === "approved_hod") return { label: "Pending Admin", color: "bg-blue-500", progress: 75 };
+    if (status === "approved_hod") return { label: "Pending Admin", color: "bg-blue-500", progress: 75 };
+    if (status === "approved_hos") return { label: "Pending HOD", color: "bg-amber-500", progress: 50 };
   }
 
-  if (sub.status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 50 };
   return { label: "Pending HOS", color: "bg-amber-500", progress: 25 };
 };
 
 const MySubmissions = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { submissions, cars, updateSubmissionStatus, refNoMap } = useSubmissions();
+  const { submissions, cars, updateSubmissionStatus, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [assignedCarDetails, setAssignedCarDetails] = useState<CarInfo | null>(null);
@@ -77,11 +87,74 @@ const MySubmissions = () => {
   const [isViewAll, setIsViewAll] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
   const { hiddenIds, hideSubmissions } = useHiddenSubmissions();
 
   const assignedCar = cars.find(c => c.status === 'checked_out' && c.lastCheckedOutBy === user?.name);
 
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+
+  useEffect(() => {
+    refreshSubmissions();
+  }, [refreshSubmissions]);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 duration-300" aria-busy="true" aria-live="polite">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileText className="h-5 w-5" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 animate-ping rounded-full bg-primary/60" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Loading submissions…</p>
+            <p className="text-sm text-muted-foreground">Retrieving your latest records.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {[0, 1, 2].map((card) => (
+            <div key={card} className="card-elevated p-5 flex items-center gap-4">
+              <Skeleton className="h-12 w-12 flex-shrink-0 rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-8 w-12" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card-elevated p-4 sm:p-5 mb-4">
+          <Skeleton className="mb-3 h-3 w-32" />
+          <div className="flex gap-2 overflow-hidden">
+            {[72, 128, 88, 92, 88].map((width, index) => (
+              <Skeleton key={index} className="h-9 flex-shrink-0 rounded-md" style={{ width }} />
+            ))}
+          </div>
+        </div>
+
+        <div className="card-elevated overflow-hidden">
+          <div className="border-b border-border p-5">
+            <Skeleton className="h-6 w-40" />
+          </div>
+          <div className="p-5 space-y-5">
+            {[0, 1, 2, 3, 4].map((row) => (
+              <div key={row} className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 items-center">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="hidden sm:block h-4 w-28" />
+                <Skeleton className="hidden sm:block h-5 w-16 rounded-full" />
+                <Skeleton className="hidden lg:block h-2 w-28 rounded-full" />
+                <Skeleton className="hidden lg:block h-4 w-12 justify-self-end" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const mySubmissions = submissions
     .filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType) && !hiddenIds.has(s.id));
 
@@ -106,9 +179,13 @@ const MySubmissions = () => {
     return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
   };
 
-  const handleAcknowledgeReceipt = (sub: Submission) => {
+  const handleAcknowledgeReceipt = async (sub: Submission) => {
+    if (acknowledgingId) return;
     if (window.confirm(`Please confirm that you have received RM ${sub.data.amountPaid || sub.data.totalAmount.toFixed(2)} in cash.`)) {
-      updateSubmissionStatus(sub.id, "completed", { acknowledgedAt: new Date().toISOString() });
+      setAcknowledgingId(sub.id);
+      const success = await updateSubmissionStatus(sub.id, "completed", { acknowledgedAt: new Date().toISOString() });
+      setAcknowledgingId(null);
+      if (!success) return;
       toast.success("Receipt acknowledged. Thank you!");
     }
   };
@@ -123,25 +200,44 @@ const MySubmissions = () => {
     setSelectedIds(newSelectedIds);
   };
 
-  const handleDeleteSelected = () => {
+  const handleRemoveFromView = () => {
     hideSubmissions(selectedIds);
-    toast.success(`${selectedIds.size} submission(s) have been deleted from your view.`);
+    toast.success(`${selectedIds.size} submission(s) removed from your view. Admin records are unchanged.`);
     setIsSelectionMode(false);
     setSelectedIds(new Set());
+  };
+
+  const handleEditSubmission = (path: string) => {
+    const confirmed = window.confirm(
+      "Editing this submission will restart its approval process. Previous approvals will need to be completed again. Do you want to continue?"
+    );
+    if (confirmed) navigate(path);
   };
 
   if (selectedSubmission) {
     const overall = getOverallStatus(selectedSubmission);
     
     const rejectedStage = selectedSubmission.data.rejectedStage;
+    const rejectedFromStatus = selectedSubmission.data.rejectedFromStatus;
+    const financeRejectionReached = (statuses: string[]) => rejectedStage === "finance_review" &&
+      (rejectedFromStatus ? statuses.includes(rejectedFromStatus) : true);
+    const wasApprovedByHosBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus
+      ? ["approved_hos", "approved_hod"].includes(rejectedFromStatus)
+      : rejectedStage === "admin";
+    const wasApprovedByHodBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus
+      ? rejectedFromStatus === "approved_hod"
+      : rejectedStage === "admin";
+    const isBeforeHodApproval = ["pending", "approved_hos"].includes(selectedSubmission.status);
+    const isEditableClaim = selectedSubmission.formType === 'claim' && isBeforeHodApproval;
+    const isEditableCar = selectedSubmission.formType === 'car_rental' && isBeforeHodApproval;
 
-    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "finance_review", "hof", "admin"].includes(rejectedStage);
+    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]) || wasApprovedByHosBeforeAdminRejection;
     const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
-                          ["hop", "finance_review", "hof", "admin"].includes(rejectedStage);
+                          ["hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]) || wasApprovedByHodBeforeAdminRejection;
     const isApprovedHOP = selectedSubmission.data.hopName === 'N/A' || ["pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || 
-                          ["finance_review", "hof", "admin"].includes(rejectedStage);
+                          ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["pending_finance_review", "approved_hop", "approved_hof"]);
     const isApprovedFinanceReview = ["approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
-                                    ["hof", "admin"].includes(rejectedStage);
+                                    ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["approved_hop", "approved_hof"]);
     const isApprovedHOF = selectedSubmission.data.hofName === 'N/A' || ["approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) ||
                           ["admin"].includes(rejectedStage);
     const isRejected = selectedSubmission.status === "rejected";
@@ -152,25 +248,46 @@ const MySubmissions = () => {
           <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
           </button>
-          <button onClick={() => {
-            const originalTitle = document.title;
-            document.title = generateRefNo(selectedSubmission);
-            
-            const isDark = document.documentElement.classList.contains('dark');
-            if (isDark) document.documentElement.classList.remove('dark');
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {isEditableClaim && (
+              <button
+                onClick={() => handleEditSubmission(`/finance/claim?editId=${selectedSubmission.id}`)}
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all"
+              >
+                <Pencil className="h-4 w-4" /> Edit Claim
+              </button>
+            )}
+            {isEditableCar && (
+              <button
+                onClick={() => handleEditSubmission(`/hr/car-rental?editId=${selectedSubmission.id}`)}
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all"
+              >
+                <Pencil className="h-4 w-4" /> Edit Booking
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const originalTitle = document.title;
+                document.title = generateRefNo(selectedSubmission);
 
-            setTimeout(() => {
-              window.onafterprint = () => {
-                document.title = originalTitle;
-                if (isDark) document.documentElement.classList.add('dark');
-                window.onafterprint = null;
-              };
-              window.print();
-              setTimeout(() => { document.title = originalTitle; }, 2000);
-            }, 50);
-          }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm">
-            <Printer className="h-4 w-4" /> Print
-          </button>
+                const isDark = document.documentElement.classList.contains('dark');
+                if (isDark) document.documentElement.classList.remove('dark');
+
+                setTimeout(() => {
+                  window.onafterprint = () => {
+                    document.title = originalTitle;
+                    if (isDark) document.documentElement.classList.add('dark');
+                    window.onafterprint = null;
+                  };
+                  window.print();
+                  setTimeout(() => { document.title = originalTitle; }, 2000);
+                }, 50);
+              }}
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all shadow-sm"
+            >
+              <Printer className="h-4 w-4" /> Print
+            </button>
+          </div>
         </div>
 
         {/* Print Header */}
@@ -381,12 +498,25 @@ const MySubmissions = () => {
                     if (key === 'securityLog') formattedKey = 'Security Log';
                     if (key === 'claimRows') formattedKey = 'Claim Details';
                     if (key === 'purposeType') formattedKey = 'Purpose Type';
+                    if (key === 'fromDateTime') formattedKey = 'From Date & Time';
+                    if (key === 'toDateTime') formattedKey = 'To Date & Time';
+
+                    const displayedValue = ['fromDateTime', 'toDateTime'].includes(key) && typeof value === 'string'
+                      ? new Date(value).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : renderValue(value);
 
                     return (
                       <div key={key} className={`py-2 sm:py-4 border-b border-border print:border-gray-300 last:border-0 ${typeof value === 'object' && value !== null ? 'flex flex-col items-start gap-2' : 'grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start'}`}>
                         <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{formattedKey}</span>
                         <div className={`text-xs sm:text-sm font-medium text-foreground print:text-black ${typeof value === 'object' && value !== null ? 'w-full' : 'text-left break-words sm:col-span-2 print:col-span-2'}`}>
-                          {renderValue(value)}
+                          {displayedValue}
                         </div>
                       </div>
                     );
@@ -469,18 +599,18 @@ const MySubmissions = () => {
               <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
                 <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Section Head</p>
                 <div className="print:hidden w-full flex justify-center">
-                  {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
+                  {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : (isRejected && rejectedStage === "admin") ? naStatus() : statusBadge("pending")}
                 </div>
                 <div className="hidden print:block font-bold text-[10px] sm:text-sm text-center">
-                  {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : "PENDING"}
+                  {isApprovedHOS ? "APPROVED" : (isRejected && rejectedStage === "hos") ? "REJECTED" : (isRejected && rejectedStage === "admin") ? "N/A" : "PENDING"}
                 </div>
               </div>
               <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
                 <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Dept Head</p>
-                <div className="print:hidden w-full flex justify-center">                  {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && rejectedStage === "hos") ? naStatus() : statusBadge("pending")}
+                <div className="print:hidden w-full flex justify-center">                  {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && ["hos", "admin"].includes(rejectedStage)) ? naStatus() : statusBadge("pending")}
                 </div>
                 <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                  {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && ["hos", "finance_review"].includes(rejectedStage as string)) ? "N/A" : "PENDING"}
+                  {isApprovedHOD ? "APPROVED" : (isRejected && rejectedStage === "hod") ? "REJECTED" : (isRejected && ["hos", "finance_review", "admin"].includes(rejectedStage as string)) ? "N/A" : "PENDING"}
                 </div>
               </div>
               <div className="text-center flex flex-col items-center justify-between">
@@ -583,187 +713,154 @@ const MySubmissions = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="card-elevated p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-            <FileText className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Submissions</p>
-            <p className="text-3xl font-bold text-foreground">{stats.total}</p>
-          </div>
-        </div>
-        <div className="card-elevated p-5 flex items-center gap-4 hover:bg-emerald-500/5 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-            <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accepted / Diterima</p>
-            <p className="text-3xl font-bold text-foreground">{stats.accepted}</p>
-          </div>
-        </div>
-        <div className="card-elevated p-5 flex items-center gap-4 hover:bg-destructive/5 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-destructive/15 flex items-center justify-center flex-shrink-0">
-            <XCircle className="h-6 w-6 text-destructive dark:text-red-400" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rejected / Ditolak</p>
-            <p className="text-3xl font-bold text-foreground">{stats.rejected}</p>
-          </div>
-        </div>
+        <DashboardStatCard label="Total Submissions" value={stats.total} icon={FileText} tone="blue" />
+        <DashboardStatCard label="Accepted / Diterima" value={stats.accepted} icon={CheckCircle} tone="emerald" />
+        <DashboardStatCard label="Rejected / Ditolak" value={stats.rejected} icon={XCircle} tone="rose" />
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6 pb-1">
-        {([
-          { value: "all", label: "All" },
-          { value: "action_required", label: "Action Required" },
-          { value: "pending", label: "Pending" },
-          { value: "approved", label: "Accepted" },
-          { value: "rejected", label: "Rejected" },
-        ] as { value: FilterType; label: string }[]).map(f => (
-          <button
-            key={f.value}
-            onClick={() => { setFilter(f.value); setIsViewAll(false); }}
-            className={`flex-1 sm:flex-none whitespace-nowrap px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${
-              filter === f.value
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:text-foreground"
-            } flex items-center gap-1.5`}
-          >
-            {f.label}
-            {f.value === 'action_required' && stats.actionRequired > 0 && (
-              <Badge className="border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.actionRequired}</Badge>
-            )}
-          </button>
-        ))}
+      <div className="card-elevated p-4 sm:p-5 mb-4">
+        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Submissions</p>
+        <div className="flex w-full sm:w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-border bg-muted/50 p-1.5">
+          {([
+            { value: "all", label: "All" },
+            { value: "action_required", label: "Action Required" },
+            { value: "pending", label: "Pending" },
+            { value: "approved", label: "Accepted" },
+            { value: "rejected", label: "Rejected" },
+          ] as const).map((f) => (
+            <button
+              key={f.value}
+              onClick={() => { setFilter(f.value); setIsViewAll(false); }}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                filter === f.value
+                  ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30"
+                  : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
+              }`}
+            >
+              {f.label}
+              {f.value === 'action_required' && stats.actionRequired > 0 && <Badge className="h-5 px-2 text-xs rounded-full bg-red-500 text-white">{stats.actionRequired}</Badge>}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Table */}
       {filtered.length === 0 ? (
         <div className="card-elevated p-12 text-center">
           <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-1">No submissions yet</h3>
-          <p className="text-muted-foreground text-sm">Submit a form from the home page to see it here</p>
+          <h3 className="text-lg font-semibold text-foreground mb-1">No submissions found</h3>
+          <p className="text-muted-foreground text-sm">There are no submissions matching the current filter.</p>
         </div>
       ) : (
         <div className="card-elevated overflow-hidden">
-          <div className="p-5 flex items-center justify-between border-b border-border">
+          <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
             <h2 className="text-lg font-bold text-foreground">Your Submissions</h2>
             {isSelectionMode ? (
               <div className="flex items-center gap-2">
                 <button onClick={() => { setIsSelectionMode(false); setSelectedIds(new Set()); }} className="px-4 py-2 text-sm font-bold text-foreground bg-muted rounded-lg hover:bg-muted/80">
                   Cancel
                 </button>
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={selectedIds.size === 0}
-                  className="px-4 py-2 text-sm font-bold text-white bg-destructive rounded-lg hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Trash2 className="h-4 w-4" /> Delete ({selectedIds.size})
+                <button onClick={handleRemoveFromView} disabled={selectedIds.size === 0} className="px-4 py-2 text-sm font-bold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                  <EyeOff className="h-4 w-4" /> Remove from My View ({selectedIds.size})
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setIsSelectionMode(true)}
-                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors"
-                title="Select submissions to delete"
-              >
-                <Trash2 className="h-5 w-5" />
+              <button onClick={() => setIsSelectionMode(true)} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Select submissions to remove from your view" aria-label="Select submissions to remove from your view">
+                <EyeOff className="h-5 w-5" />
               </button>
             )}
           </div>
 
-
-
-
-
           <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30">
-                {isSelectionMode && (
-                  <TableHead className="w-12 px-4"></TableHead>
-                )}
-                <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Ref No.</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider hidden sm:table-cell">Department</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Form Type</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Section Head</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Dept Head</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Admin</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider min-w-[180px]">Overall Status</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(isViewAll ? filtered : filtered.slice(0, 10)).map((sub) => {
-                const overall = getOverallStatus(sub);
-                const isApprovedCarRental = sub.formType === 'car_rental' && sub.status === 'approved';
-                const isPaidClaim = sub.formType === 'claim' && sub.status === 'paid' && sub.submittedBy === user?.id;
-                const isPending = sub.status === 'pending';
-                const rejectedStage = sub.data.rejectedStage || (sub.status === "rejected" ? "hos" : null);
-                const isApprovedHOS = sub.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hod", "hop", "finance_review", "hof", "admin"].includes(rejectedStage as string);
-                const isApprovedHOD = sub.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hop", "finance_review", "hof", "admin"].includes(rejectedStage);
-                const isRejected = sub.status === "rejected";
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  {isSelectionMode && (
+                    <TableHead className="w-12 px-4"></TableHead>
+                  )}
+                  <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Ref No.</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider hidden sm:table-cell">Department</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Form Type</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Section Head</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Dept Head</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center hidden md:table-cell">Admin</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider min-w-[180px]">Overall Status</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(isViewAll ? filtered : filtered.slice(0, 10)).map((sub) => {
+                  const overall = getOverallStatus(sub);
+                  const isApprovedCarRental = sub.formType === 'car_rental' && sub.status === 'approved';
+                  const isPaidClaim = sub.formType === 'claim' && sub.status === 'paid' && sub.submittedBy === user?.id;
+                  const rejectedStage = sub.data.rejectedStage || (sub.status === "rejected" ? "hos" : null);
+                  const rejectedFromStatus = sub.data.rejectedFromStatus;
+                  const wasApprovedByHosBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus ? ["approved_hos", "approved_hod"].includes(rejectedFromStatus) : rejectedStage === "admin";
+                  const wasApprovedByHodBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus ? rejectedFromStatus === "approved_hod" : rejectedStage === "admin";
+                  const isApprovedHOS = sub.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hod", "hop", "finance_review", "hof"].includes(rejectedStage as string) || wasApprovedByHosBeforeAdminRejection;
+                  const isApprovedHOD = sub.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hop", "finance_review", "hof"].includes(rejectedStage) || wasApprovedByHodBeforeAdminRejection;
+                  const isRejected = sub.status === "rejected";
 
-                return (
-                  <TableRow key={sub.id} className="hover:bg-muted/20">
-                    {isSelectionMode && (
-                      <TableCell className="px-4">
-                        <Checkbox
-                          checked={selectedIds.has(sub.id)}
-                          onCheckedChange={() => handleToggleSelection(sub.id)}
-                        />
+                  return (
+                    <TableRow key={sub.id} className="hover:bg-muted/20">
+                      {isSelectionMode && (
+                        <TableCell className="px-4">
+                          <Checkbox
+                            checked={selectedIds.has(sub.id)}
+                            onCheckedChange={() => handleToggleSelection(sub.id)}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell className="font-medium text-primary text-sm whitespace-nowrap">{generateRefNo(sub)}</TableCell>
+                      <TableCell className="text-sm text-foreground hidden sm:table-cell">{sub.department}</TableCell>
+                      <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : (isRejected && rejectedStage === "admin") ? naStatus() : statusBadge("pending")}
                       </TableCell>
-                    )}
-                    <TableCell className="font-medium text-primary text-sm whitespace-nowrap">{generateRefNo(sub)}</TableCell>
-                    <TableCell className="text-sm text-foreground hidden sm:table-cell">{sub.department}</TableCell>
-                    <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      {isApprovedHOS ? statusBadge("approved") : (isRejected && rejectedStage === "hos") ? statusBadge("rejected") : statusBadge("pending")}
-                    </TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && ["hos", "finance_review"].includes(rejectedStage as string)) ? naStatus() : statusBadge("pending")}
-                    </TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      {sub.formType === 'claim' ? 
-                        (["paid", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")) :
-                        (["approved", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending"))
-                      }
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full ${overall.color}`} style={{ width: `${overall.progress}%` }} />
+                      <TableCell className="text-center hidden md:table-cell">
+                        {isApprovedHOD ? statusBadge("approved") : (isRejected && rejectedStage === "hod") ? statusBadge("rejected") : (isRejected && ["hos", "finance_review", "admin"].includes(rejectedStage as string)) ? naStatus() : statusBadge("pending")}
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        {sub.formType === 'claim' ?
+                          (["paid", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")) :
+                          (["approved", "completed"].includes(sub.status) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending"))
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-2 rounded-full bg-muted overflow-hidden">
+                            <div className={`h-full rounded-full ${overall.color}`} style={{ width: `${overall.progress}%` }} />
+                          </div>
+                          <span className="text-xs font-medium text-foreground whitespace-nowrap">{overall.label}</span>
                         </div>
-                        <span className="text-xs font-medium text-foreground whitespace-nowrap">{overall.label}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-primary hover:underline">
-                          View
-                        </button>
-                        {isApprovedCarRental && assignedCar && (
-                          <button onClick={() => setAssignedCarDetails(assignedCar)} className="text-emerald-600 hover:text-emerald-700 p-1.5 rounded-md hover:bg-emerald-50 transition-colors" title="View Assigned Car">
-                            <Car className="h-4 w-4" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-primary hover:underline">
+                            View
                           </button>
-                        )}
-                        {isPaidClaim && (
-                          <button
-                            onClick={() => handleAcknowledgeReceipt(sub)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors whitespace-nowrap"
-                            title="Acknowledge Receipt"
-                          >
-                            <HandCoins className="h-3.5 w-3.5" /> Acknowledge
-                          </button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                          {isApprovedCarRental && assignedCar && (
+                            <button onClick={() => setAssignedCarDetails(assignedCar)} className="text-emerald-600 hover:text-emerald-700 p-1.5 rounded-md hover:bg-emerald-50 transition-colors" title="View Assigned Car">
+                              <Car className="h-4 w-4" />
+                            </button>
+                          )}
+                          {isPaidClaim && (
+                            <button
+                              onClick={() => handleAcknowledgeReceipt(sub)}
+                              disabled={acknowledgingId === sub.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+                              title="Acknowledge Receipt"
+                            >
+                              <HandCoins className="h-3.5 w-3.5" /> {acknowledgingId === sub.id ? "Saving..." : "Acknowledge"}
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
           
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">

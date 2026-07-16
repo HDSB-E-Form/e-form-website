@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, type UserRole } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import type { UserRole } from "@/contexts/types";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import {
   Sidebar,
@@ -36,6 +37,10 @@ const financeAdminNav = [
   { title: "Dashboard", url: "/admin/finance", icon: LayoutDashboard },
 ];
 
+const itAdminNav = [
+  { title: "CCTV Requests", url: "/admin/it", icon: ShieldCheck },
+];
+
 const safetyAdminNav = [
   { title: "Final Discharge", url: "/admin/safety/discharge", icon: Droplet },
   { title: "Mixing & Chemical", url: "/admin/safety/mixing", icon: Layers },
@@ -62,6 +67,9 @@ const roleLabels: Record<UserRole, string> = {
   hos: "Head of Section",
   hr_admin: "HR Admin",
   finance_admin: "Finance Admin",
+  it_admin: "IT Admin",
+  head_of_purchasing: "Head of Purchasing",
+  head_of_finance: "Head of Finance",
   super_admin: "Super Admin",
   security_guard: "Security Guard",
   safety_admin: "Safety Admin",
@@ -76,9 +84,11 @@ const getAdminNav = (role?: UserRole) => {
     return hrAdminNav;
   } else if (role === "finance_admin" ) {
     return financeAdminNav;
+  } else if (role === "it_admin") {
+    return itAdminNav;
   } else if (role === "safety_admin") {
     return safetyAdminNav;
-  } else if (role === "hod" || role === "hos") {
+  } else if (role === "hod" || role === "hos" || role === "head_of_purchasing" || role === "head_of_finance") {
     return approverNav;
   } else if (role === "super_admin") {
     return superAdminNav;
@@ -95,19 +105,23 @@ export function AppSidebar() {
   const { submissions } = useSubmissions();
   const navigate = useNavigate(); 
 
-  const isAdmin = user?.role && (["hr_admin", "finance_admin", "hod", "hos", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
+  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
   const isSuperAdmin = user?.role === "super_admin";
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
-    if (!user) return { hr: 0, finance: 0, approver: 0, security: 0 };
+    if (!user) return { hr: 0, finance: 0, it: 0, approver: 0, security: 0 };
 
     const hrCount = submissions.filter(s => 
-      s.status === 'approved_hod' && ['car_rental', 'leave'].includes(s.formType)
+      s.status === 'approved_hod' && s.formType === 'car_rental'
     ).length;
 
     const financeCount = submissions.filter(s => 
       s.formType === 'claim' && ['pending_finance_review', 'approved_hof'].includes(s.status)
+    ).length;
+
+    const itCount = submissions.filter(s =>
+      s.formType === "cctv_access_request" && s.status === "approved_hod"
     ).length;
 
     const securityCount = submissions.filter(s => 
@@ -115,16 +129,19 @@ export function AppSidebar() {
     ).length;
 
     const approverCount = submissions.filter(s => {
-      const isHOS = user.role === 'hos' && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name);
-      const isHOD = user.role === 'hod' && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name);
-      const isHOP = (user.role === 'head_of_purchasing' || user.secondary_roles?.includes('head_of_purchasing')) && s.formType === 'claim' && s.status === 'approved_hod' && s.data.hopName === user.name;
-      const isHOF = (user.role === 'head_of_finance' || user.secondary_roles?.includes('head_of_finance')) && s.formType === 'claim' && s.status === 'approved_hop' && s.data.hofName === user.name;
+      const isHOSRole = user.role === 'hos' || user.secondary_roles?.includes('hos');
+      const isHODRole = user.role === 'hod' || user.secondary_roles?.includes('hod');
+      const isHOS = isHOSRole && s.status === 'pending' && (s.data.hosUserId ? s.data.hosUserId === user.id : (s.data.hosName === user.name || s.data.hos === user.name));
+      const isHOD = isHODRole && s.status === 'approved_hos' && (s.data.hodUserId ? s.data.hodUserId === user.id : (s.data.hodName === user.name || s.data.hod === user.name));
+      const isHOP = (user.role === 'head_of_purchasing' || user.secondary_roles?.includes('head_of_purchasing')) && s.formType === 'claim' && s.status === 'approved_hod' && (s.data.hopUserId ? s.data.hopUserId === user.id : s.data.hopName === user.name);
+      const isHOF = (user.role === 'head_of_finance' || user.secondary_roles?.includes('head_of_finance')) && s.formType === 'claim' && s.status === 'approved_hop' && (s.data.hofUserId ? s.data.hofUserId === user.id : s.data.hofName === user.name);
       return isHOS || isHOD || isHOP || isHOF;
     }).length;
 
     return {
       hr: hrCount,
       finance: financeCount,
+      it: itCount,
       approver: approverCount,
       security: securityCount,
     };
@@ -136,7 +153,7 @@ export function AppSidebar() {
     const secondaryNavs = (user?.secondary_roles || []).flatMap(role => getAdminNav(role));
     // Combine and remove duplicates, preserving order
     const combined = [...primaryNav, ...secondaryNavs];
-    const uniqueNav = Array.from(new Map(combined.map(item => [item.title, item])).values());
+    const uniqueNav = Array.from(new Map(combined.map(item => [item.url, item])).values());
     return uniqueNav;
   }, [user]);
 
@@ -157,53 +174,59 @@ export function AppSidebar() {
     switch (user?.role) {
       case "hr_admin": return { main: "HR Admin", sub: "Dept. Dashboard" };
       case "finance_admin": return { main: "Finance Admin", sub: "Dept. Dashboard" }; 
+      case "it_admin": return { main: "IT Admin", sub: "Dept. Dashboard" };
       case "safety_admin": return { main: "Safety Admin", sub: "Dept. Dashboard" };
       case "hod": return { main: "HOD Portal", sub: "Approvals" };
       case "hos": return { main: "HOS Portal", sub: "Approvals" };
+      case "head_of_purchasing": return { main: "Purchasing Head", sub: "Approvals" };
+      case "head_of_finance": return { main: "Finance Head", sub: "Approvals" };
       case "security_guard": return { main: "Security", sub: "Guard Portal" };
       case "super_admin": return { main: "Super Admin", sub: "Management Portal" };
       default: return { main: "HICOM Diecasting", sub: "Employee Portal" };
     }
   })();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
+  };
+
+  const getPendingCount = (item: { title: string; url: string }) => {
+    if (item.url === "/admin/hr") return pendingCounts.hr;
+    if (item.url === "/admin/finance") return pendingCounts.finance;
+    if (item.url === "/admin/it") return pendingCounts.it;
+    if (item.url === "/admin/security") return pendingCounts.security;
+    if (item.url === "/admin/approvals") return pendingCounts.approver;
+    return 0;
   };
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 print:hidden">
       <div className={`px-4 flex items-center ${collapsed ? 'justify-center' : 'gap-3'} border-b border-white/20 h-16 shrink-0 transition-all`}>
         <div className="shrink-0">
-          <img src={logo} alt="HICOM Diecasting" className="h-8 w-auto brightness-200" />
+          <img src={logo} alt="HICOM Diecasting" className="h-8 w-auto brightness-150" />
         </div>
         {!collapsed && (
           <div className="min-w-0 overflow-hidden">
             <span className="text-sidebar-foreground font-bold text-sm block truncate">{sidebarTitle.main}</span>
-            <span className="text-sidebar-foreground/50 text-[10px] block truncate">{sidebarTitle.sub}</span>
+            <span className="text-sidebar-foreground/60 text-xs block truncate">{sidebarTitle.sub}</span>
           </div>
         )}
       </div>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="hover:bg-sidebar-accent/50 text-base py-2.5 flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold">
+                  <SidebarMenuButton asChild tooltip={item.title} className="h-10">
+                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-sm flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
                       <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
                         {!collapsed && (
                           <div className="flex items-center gap-2">
                             <span className="flex-1">{item.title}</span>
-                            {user?.role === 'hr_admin' && item.title === 'Form Approvals' && pendingCounts.hr > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.hr}</Badge>}
-                            {user?.role === 'finance_admin' && item.title.includes('Dashboard') && pendingCounts.finance > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.finance}</Badge>}
-                            {user?.role === 'security_guard' && item.title.includes('Dashboard') && pendingCounts.security > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.security}</Badge>}
-                            {(user?.role === 'hod' || user?.role === 'hos' || user?.secondary_roles?.includes('head_of_purchasing') || user?.secondary_roles?.includes('head_of_finance')) && item.title.includes('Dashboard') && pendingCounts.approver > 0 && (
-                              <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.approver}</Badge>
-                            )}
                           </div>
                         )}
                     </NavLink>
@@ -216,23 +239,21 @@ export function AppSidebar() {
 
         {isAdmin && adminNav.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50">Admin</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminNav.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="hover:bg-sidebar-accent/50 text-base py-2.5 flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold">
+                    <SidebarMenuButton asChild tooltip={item.title} className="h-10">
+                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-sm flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
                         <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
+                        {collapsed && getPendingCount(item) > 0 && (
+                          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-label={`${getPendingCount(item)} pending items`} />
+                        )}
                         {!collapsed && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
                             <span className="flex-1">{item.title}</span>
-                            {user?.role === 'hr_admin' && item.title === 'Form Approvals' && pendingCounts.hr > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.hr}</Badge>}
-                            {user?.role === 'finance_admin' && item.title.includes('Dashboard') && pendingCounts.finance > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.finance}</Badge>}
-                            {user?.role === 'security_guard' && item.title.includes('Dashboard') && pendingCounts.security > 0 && <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.security}</Badge>}
-                            {(user?.role === 'hod' || user?.role === 'hos' || user?.secondary_roles?.includes('head_of_purchasing') || user?.secondary_roles?.includes('head_of_finance')) && item.title.includes('Dashboard') && pendingCounts.approver > 0 && (
-                              <Badge className="ml-auto bg-red-500 text-white">{pendingCounts.approver}</Badge>
-                            )}
+                            {getPendingCount(item) > 0 && <Badge className="ml-auto h-5 min-w-5 rounded-full bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{getPendingCount(item)}</Badge>}
                           </div>
                         )}
                       </NavLink>
@@ -248,8 +269,8 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-white/20 p-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign out">
-              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className="hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground text-base py-5">
+            <SidebarMenuButton asChild tooltip="Sign out" className="h-10">
+              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className="hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground text-sm">
                 <LogOut className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
                 {!collapsed && <span>Sign out</span>}
               </button>

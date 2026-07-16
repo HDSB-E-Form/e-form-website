@@ -1,4 +1,5 @@
-import { useAuth, type UserRole } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import type { UserRole } from "@/contexts/types";
 import { Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 

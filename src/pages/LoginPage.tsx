@@ -15,7 +15,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
   const [isUpdatePasswordMode, setIsUpdatePasswordMode] = useState(false);
@@ -25,12 +24,27 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isBackgroundLoaded, setIsBackgroundLoaded] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const image = new Image();
+    image.src = bgImage;
+
+    const markAsLoaded = () => setIsBackgroundLoaded(true);
+    if (image.complete) {
+      markAsLoaded();
+    } else {
+      image.addEventListener("load", markAsLoaded);
+    }
+
+    return () => image.removeEventListener("load", markAsLoaded);
+  }, []);
+
   // Load saved email on startup if they selected "Remember Me" previously
   useEffect(() => {
-    // Force light mode for auth pages to maintain a clean, standard look against the background image
+    const wasDark = document.documentElement.classList.contains("dark");
     document.documentElement.classList.remove("dark");
     
     const savedEmail = localStorage.getItem("rememberedEmail");
@@ -38,6 +52,7 @@ const LoginPage = () => {
       setEmail(savedEmail);
       setRememberMe(true);
     }
+    return () => { if (wasDark) document.documentElement.classList.add("dark"); };
   }, []);
 
   // Detect password recovery token in URL
@@ -71,8 +86,7 @@ const LoginPage = () => {
     if (success) {
       navigate("/home", { replace: true });
     } else {
-      setError("Invalid credentials");
-      setShowForgotPassword(true);
+      setError("Unable to sign in. Check your email and password, then try again.");
     }
   };
 
@@ -92,7 +106,6 @@ const LoginPage = () => {
       });
       if (resetError) throw resetError;
       toast.success("Password reset email sent! Please check your inbox.");
-      setShowForgotPassword(false); // Hide the button after success
       setIsResetMode(false); // Go back to login view
     } catch (err: any) {
       console.error("Reset password error:", err);
@@ -129,25 +142,31 @@ const LoginPage = () => {
   };
 
   return (
-    <div 
-      className="h-screen overflow-hidden flex items-center justify-center p-4 relative"
-      style={{ 
-        backgroundImage: `url(${bgImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center"
-      }}
-    >
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center p-4 py-8 relative bg-slate-900">
+      <div
+        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-500 ${isBackgroundLoaded ? "opacity-100" : "opacity-0"}`}
+        style={{ backgroundImage: `url(${bgImage})` }}
+        aria-hidden="true"
+      />
       {/* Modern Centered Loading Overlay */}
       {isLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-md transition-all">
-          <div className="flex flex-col items-center gap-5 bg-background/60 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-border/50 animate-in fade-in zoom-in duration-300">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/45 p-4 backdrop-blur-md transition-all"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label="Signing in"
+        >
+          <div className="flex min-w-[260px] flex-col items-center gap-4 rounded-3xl border border-border/50 bg-background/70 px-7 py-6 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" aria-hidden="true" />
+            </div>
             <div className="space-y-1 text-center">
-              <p className="text-lg font-semibold text-foreground animate-pulse">
-                Signing In
+              <p className="text-base font-semibold text-foreground">
+                Signing in…
               </p>
               <p className="text-sm text-muted-foreground">
-                Please wait a moment...
+                Verifying your account securely.
               </p>
             </div>
           </div>
@@ -176,6 +195,7 @@ const LoginPage = () => {
                   <Input
                     id="newPassword"
                     type={showNewPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     placeholder="Enter new password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -184,6 +204,7 @@ const LoginPage = () => {
                   />
                   <button
                     type="button"
+                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                   >
@@ -197,6 +218,7 @@ const LoginPage = () => {
                   <Input
                     id="confirmNewPassword"
                     type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     placeholder="Confirm new password"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
@@ -205,6 +227,7 @@ const LoginPage = () => {
                   />
                   <button
                     type="button"
+                    aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                   >
@@ -229,6 +252,7 @@ const LoginPage = () => {
                 <Input
                   id="resetEmail"
                   type="email"
+                  autoComplete="email"
                   placeholder="Enter your email to receive a reset link"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
@@ -261,6 +285,7 @@ const LoginPage = () => {
                   <Input
                     id="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -273,6 +298,7 @@ const LoginPage = () => {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -280,6 +306,7 @@ const LoginPage = () => {
                     />
                     <button
                       type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                     >
@@ -300,7 +327,6 @@ const LoginPage = () => {
                 </div>
                 {error && <p className="text-destructive text-sm">{error}</p>}
                 
-                {showForgotPassword && (
                   <div className="text-center mt-1">
                     <button
                       type="button"
@@ -311,7 +337,6 @@ const LoginPage = () => {
                       Forgot your password? Click here to reset
                     </button>
                   </div>
-                )}
                 
                 <button 
                   type="submit" 

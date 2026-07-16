@@ -14,6 +14,7 @@ const formTypeLabels: Record<string, string> = {
   mixing_chemical_stages: "Mixing Log",
   final_discharge: "Discharge Log",
   ppe_purchase: "PPE | Uniform | Office Supplies",
+  cctv_access_request: "CCTV Access Request",
 };
 
 interface Notification {
@@ -98,7 +99,7 @@ export const NotificationBell = () => {
       }
       // 4. HR Admin
       else if (user.role === 'hr_admin') {
-        if (['car_rental', 'leave'].includes(s.formType) && s.status === 'approved_hod') {
+        if (s.formType === 'car_rental' && s.status === 'approved_hod') {
           isRelevant = true;
           message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
           path = "/admin/hr";
@@ -115,6 +116,12 @@ export const NotificationBell = () => {
         message = `New Petty Cash Claim requires Finance action.`;
         path = "/admin/finance";
         }
+      }
+      // IT Admin receives CCTV requests after HOD approval
+      else if ((user.role === 'it_admin' || user.secondary_roles?.includes('it_admin')) && s.formType === 'cctv_access_request' && s.status === 'approved_hod') {
+        isRelevant = true;
+        message = `A CCTV Access Request from ${s.employeeName} requires IT review.`;
+        path = "/admin/it";
       }
       // 6. Security Guard
       else if (user.role === 'security_guard' && s.formType === 'leave' && s.status === 'approved_hod') {
@@ -155,7 +162,7 @@ export const NotificationBell = () => {
 
           notifs.push({ 
             id: `${s.id}-${s.status}`, submissionId: s.id, title: formTypeLabels[s.formType] || s.formType, 
-            message, date: s.updatedAt || s.submittedAt, isRead: readIds.includes(`${s.id}-${s.status}`), 
+            message, date: (s as any).updatedAt || s.submittedAt, isRead: readIds.includes(`${s.id}-${s.status}`), 
             path: "/submissions", type, status: s.status 
           });
         }

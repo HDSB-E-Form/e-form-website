@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useSubmissions, type CarInfo, type Submission } from "@/contexts/SubmissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Car, CheckCircle, ArrowRightLeft, Info, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera } from "lucide-react";
@@ -39,6 +39,14 @@ const petrolCardOptions = [
   "708381 530122 65680",
   "708381 530098 38960",
 ];
+
+const fuelOptions = ["Empty", "1/7", "2/7", "3/7", "4/7", "5/7", "6/7", "Full"];
+const fuelBars: Record<string, number> = { Empty: 0, "1/7": 1, "2/7": 2, "3/7": 3, "4/7": 4, "5/7": 5, "6/7": 6, Full: 7 };
+
+const toLocalDateTimeValue = (date: Date) => {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+};
 
 const CarManagement = () => {
   const { submissions, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar } = useSubmissions();
@@ -105,8 +113,8 @@ const CarManagement = () => {
   const uniqueRequesters = [...new Set(approvedCarRequesters)].filter(name => name && name.trim() !== '');
 
   if (view === "checkout" && selectedCar) {
-    return <CheckOutForm car={selectedCar} requesters={uniqueRequesters} onCancel={() => setView("overview")} onSubmit={async (car, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut) => {
-      const success = await checkOutCar(car.id, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut);
+    return <CheckOutForm car={selectedCar} requesters={uniqueRequesters} onCancel={() => setView("overview")} onSubmit={async (car, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut) => {
+      const success = await checkOutCar(car.id, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut);
       if (success) {
         toast.success(`Vehicle checked out to ${employee}.`);
         setView("overview");
@@ -234,7 +242,7 @@ const CarManagement = () => {
                       {(() => {
                         const fuel = car.currentFuelLevel || car.history?.[0]?.fuelLevelIn;
                         if (!fuel) return null;
-                        const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[fuel] || 0;
+                        const activeBars = fuelBars[fuel] || 0;
                         return (
                           <div className="flex items-center gap-1.5 ml-2 border-l border-border pl-3">
                             <span className="text-[10px] font-bold text-muted-foreground">Fuel: {fuel}</span>
@@ -378,7 +386,7 @@ const CarManagement = () => {
 };
 
 /* ─── Check-Out Form ─── */
-function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; requesters: string[]; onCancel: () => void; onSubmit: (car: CarInfo, employee: string, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string) => void }) {
+function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; requesters: string[]; onCancel: () => void; onSubmit: (car: CarInfo, employee: string, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string, petrolCardOut: boolean, petrolCardSerialOut: string) => Promise<void> }) {
   const { user } = useAuth();
   const [employee, setEmployee] = useState<string | undefined>(requesters[0] || undefined);
   const [mileage, setMileage] = useState("");
@@ -389,34 +397,8 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   const [photos, setPhotos] = useState<{ [key: string]: { file: File | null; url: string | null } }>({
     front: { file: null, url: null }, back: { file: null, url: null }, left: { file: null, url: null }, right: { file: null, url: null }
   });
-  const [dateTimeOut] = useState(new Date().toISOString());
+  const [dateTimeOut] = useState(() => toLocalDateTimeValue(new Date()));
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const savedPetrolCard = window.localStorage.getItem("car_checkout_petrol_card");
-    const savedPetrolSerial = window.localStorage.getItem("car_checkout_petrol_serial");
-    if (savedPetrolCard === "true") setPetrolCard(true);
-    if (savedPetrolSerial) setPetrolSerial(savedPetrolSerial);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem("car_checkout_petrol_card", String(petrolCard));
-    if (!petrolCard) {
-      window.localStorage.removeItem("car_checkout_petrol_serial");
-      setPetrolSerial("");
-    }
-  }, [petrolCard]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (petrolCard) {
-      window.localStorage.setItem("car_checkout_petrol_serial", petrolSerial);
-    }
-  }, [petrolCard, petrolSerial]);
-
-  const fuelOptions = ["Empty", "2/7", "4/7", "5/7", "6/7", "Full"];
 
   const handlePhotoUpload = (side: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -435,7 +417,8 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
   };
 
   const renderPhotoUpload = (side: string, label: string) => (
-    <label className="relative w-full aspect-square sm:aspect-auto sm:h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden bg-background shadow-sm group">
+    <div className="relative w-full aspect-square sm:aspect-auto sm:h-24 border-2 border-dashed border-border rounded-xl overflow-hidden bg-background shadow-sm group">
+      <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
       {photos[side].url ? (
         <img src={photos[side].url!} alt={label} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
       ) : (
@@ -445,7 +428,9 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         </>
       )}
       <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
-    </label>
+      </label>
+      {photos[side].url && <button type="button" aria-label={`Remove ${label}`} onClick={() => setPhotos(prev => ({ ...prev, [side]: { file: null, url: null } }))} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-destructive"><XCircle className="h-4 w-4" /></button>}
+    </div>
   );
 
   return (
@@ -493,20 +478,20 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">Current Mileage (km)</label>
-            <input type="text" placeholder="Enter current mileage" value={mileage} onChange={e => setMileage(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
+            <input type="number" min="0" step="1" inputMode="numeric" placeholder="Enter current mileage" value={mileage} onChange={e => setMileage(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">Date & Time Out</label>
-            <Input type="datetime-local" value={dateTimeOut.slice(0, 16)} className="h-11 w-full bg-muted/20 text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" readOnly />
+            <Input type="datetime-local" value={dateTimeOut} className="h-11 w-full bg-muted/20 text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" readOnly />
           </div> 
         </div>
 
         {/* Fuel Level */}
         <div className="mb-4">
           <label className="text-sm font-medium text-foreground block mb-2">Fuel Level</label>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
             {fuelOptions.map(opt => {
-              const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[opt] || 0;
+              const activeBars = fuelBars[opt] || 0;
               const isSelected = fuelLevel === opt;
               return (
                 <button type="button" key={opt} onClick={() => setFuelLevel(opt)} className={`flex-1 py-2 flex flex-col items-center justify-center gap-1.5 rounded-lg border transition-all ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/30"}`}>
@@ -526,8 +511,8 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-foreground">Petrol Card</label>
           <div className="flex gap-1">
-            <button onClick={() => { setPetrolCard(false); setPetrolSerial(""); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${!petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>NO</button>
-            <button onClick={() => setPetrolCard(true)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>YES</button>
+            <button type="button" onClick={() => { setPetrolCard(false); setPetrolSerial(""); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${!petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>NO</button>
+            <button type="button" onClick={() => setPetrolCard(true)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${petrolCard ? "bg-primary text-primary-foreground" : "border border-border text-foreground"}`}>YES</button>
           </div>
         </div>
         {petrolCard && (
@@ -574,7 +559,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
           <label htmlFor="checkout-remarks" className="text-sm font-medium text-foreground">
             Condition Remarks
           </label>
-          <Input id="checkout-remarks" placeholder="Enter a remark if any..." value={remarks} onChange={e => setRemarks(e.target.value)} className="h-11" />
+          <textarea id="checkout-remarks" rows={3} placeholder="Enter a remark if any..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
       </div>
 
@@ -595,6 +580,9 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
               if (!mileage) {
                 throw new Error("Please enter the current mileage.");
               }
+              if (!Number.isFinite(Number(mileage)) || Number(mileage) < 0) {
+                throw new Error("Please enter a valid mileage.");
+              }
 
               for (const [side, data] of Object.entries(photos)) {
                 if (data.file) {
@@ -607,7 +595,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
                   }
                 }
               }
-              await onSubmit(car, employee, mileage, fuelLevel, remarks, uploadedUrls, dateTimeOut || new Date().toISOString());
+              await onSubmit(car, employee, mileage, fuelLevel, remarks, uploadedUrls, new Date(dateTimeOut).toISOString(), petrolCard, petrolSerial);
             } catch (error: any) {
               console.error("Upload error:", error);
               toast.error(error.message || `Failed to submit check-out.`);
@@ -634,13 +622,11 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   const [mileageIn, setMileageIn] = useState("");
   const [fuelLevel, setFuelLevel] = useState("4/7");
   const [remarks, setRemarks] = useState("");
-  const [dateTimeIn] = useState(new Date().toISOString());
+  const [dateTimeIn] = useState(() => toLocalDateTimeValue(new Date()));
   const [photos, setPhotos] = useState<{ [key: string]: { file: File | null; url: string | null } }>({
     front: { file: null, url: null }, back: { file: null, url: null }, left: { file: null, url: null }, right: { file: null, url: null }
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const fuelOptions = ["Empty", "2/7", "4/7", "5/7", "6/7", "Full"];
 
   const handlePhotoUpload = (side: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -659,7 +645,8 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   };
 
   const renderPhotoUpload = (side: string, label: string) => (
-    <label className="relative w-full aspect-square sm:aspect-auto sm:h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden bg-background shadow-sm group">
+    <div className="relative w-full aspect-square sm:aspect-auto sm:h-24 border-2 border-dashed border-border rounded-xl overflow-hidden bg-background shadow-sm group">
+      <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
       {photos[side].url ? (
         <img src={photos[side].url!} alt={label} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
       ) : (
@@ -669,7 +656,9 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
         </>
       )}
       <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
-    </label>
+      </label>
+      {photos[side].url && <button type="button" aria-label={`Remove ${label}`} onClick={() => setPhotos(prev => ({ ...prev, [side]: { file: null, url: null } }))} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-destructive"><XCircle className="h-4 w-4" /></button>}
+    </div>
   );
 
   return (
@@ -688,6 +677,10 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
             <p className="font-semibold text-foreground">{car.model} ({car.plateNumber})</p>
           </div>
           <div>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Petrol Card</p>
+            <p className="font-semibold text-foreground">{car.petrolCardOut ? car.petrolCardSerialOut || "Issued" : "Not issued"}</p>
+          </div>
+          <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Employee</p>
             <p className="font-semibold text-foreground">{car.lastCheckedOutBy || "—"}</p>
           </div>
@@ -704,7 +697,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5">Fuel Level Out</p>
             {car.fuelLevelOut ? (() => {
-              const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[car.fuelLevelOut] || 0;
+              const activeBars = fuelBars[car.fuelLevelOut] || 0;
               return (
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-foreground">{car.fuelLevelOut}</span>
@@ -739,22 +732,22 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Current Mileage (Return)</label>
             <div className="relative group mt-1.5">
-              <input type="text" placeholder="Enter current mileage" value={mileageIn} onChange={e => setMileageIn(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pr-10 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
+              <input type="number" min={car.mileageOut || "0"} step="1" inputMode="numeric" placeholder="Enter current mileage" value={mileageIn} onChange={e => setMileageIn(e.target.value)} className="w-full h-11 rounded-lg border border-input bg-muted/20 hover:bg-muted/50 focus:bg-background px-3 pr-10 text-base sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all shadow-sm" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">km</span>
             </div>
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-0.5">Date & Time In</label>
-            <Input type="datetime-local" value={dateTimeIn.slice(0, 16)} className="h-11 mt-1.5 w-full bg-muted/20 text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" readOnly />
+            <Input type="datetime-local" value={dateTimeIn} className="h-11 mt-1.5 w-full bg-muted/20 text-base sm:text-sm font-medium shadow-sm transition-colors dark:[color-scheme:dark]" readOnly />
           </div>
         </div>
 
         {/* Fuel Level */}
         <div className="mb-5">
           <label className="text-sm font-medium text-foreground block mb-0.5">Fuel Level (Return)</label>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-1.5">
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mt-1.5">
             {fuelOptions.map(opt => {
-              const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[opt] || 0;
+              const activeBars = fuelBars[opt] || 0;
               const isSelected = fuelLevel === opt;
               return (
                 <button type="button" key={opt} onClick={() => setFuelLevel(opt)} className={`flex-1 py-2 flex flex-col items-center justify-center gap-1.5 rounded-lg border transition-all ${isSelected ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/30"}`}>
@@ -775,7 +768,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <label htmlFor="checkin-remarks" className="text-sm font-medium text-foreground">
             Condition Remarks / <span className="font-normal text-muted-foreground">Catatan Keadaan</span>
           </label>
-          <Input id="checkin-remarks" placeholder="State any new scratches, cleaning required or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="h-11" />
+          <textarea id="checkin-remarks" rows={3} placeholder="State any new scratches, cleaning required or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
 
         {/* Vehicle Condition Photos */}
@@ -812,6 +805,12 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
               if (!mileageIn) {
                 throw new Error("Please enter the return mileage.");
               }
+              if (!Number.isFinite(Number(mileageIn)) || Number(mileageIn) < 0) {
+                throw new Error("Please enter a valid return mileage.");
+              }
+              if (car.mileageOut && Number(mileageIn) < Number(car.mileageOut)) {
+                throw new Error(`Return mileage cannot be lower than the check-out mileage (${car.mileageOut} km).`);
+              }
 
               for (const [side, data] of Object.entries(photos)) {
                 if (data.file) {
@@ -824,7 +823,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
                   }
                 }
               }
-              await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls, dateTimeIn || new Date().toISOString());
+              await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls, new Date(dateTimeIn).toISOString());
             } catch (error: any) {
               console.error("Upload error:", error);
               toast.error(error.message || `Failed to submit check-in.`);
@@ -892,7 +891,7 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
                           <span className="font-semibold">{entry.fuelLevelIn}</span>
                           <div className="flex gap-0.5 h-2.5">
                             {[1, 2, 3, 4, 5, 6, 7].map(bar => {
-                              const activeBars = {"Empty": 1, "2/7": 2, "4/7": 4, "5/7": 5, "6/7": 6, "Full": 7}[entry.fuelLevelIn!] || 0;
+                              const activeBars = fuelBars[entry.fuelLevelIn!] || 0;
                               return <div key={bar} className={`w-1 h-full ${bar <= activeBars ? (activeBars === 1 ? 'bg-destructive' : 'bg-primary') : 'bg-muted-foreground/20'}`} />
                             })}
                           </div>
@@ -1046,7 +1045,7 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
             </div>
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">Status <span className="text-destructive">*</span></label>
-              <Select value={status} onValueChange={setStatus} disabled={isUploading || status === 'checked_out'}>
+              <Select value={status} onValueChange={(v) => setStatus(v as any)} disabled={isUploading || status === 'checked_out'}>
                 <SelectTrigger className="h-10 text-base sm:text-sm">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>

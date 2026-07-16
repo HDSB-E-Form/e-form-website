@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, LogOut, LogIn, Settings, Printer } from "lucide-react";
+import { Clock, Search, ArrowLeft, LogOut, LogIn, Settings, Printer, FileText, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
+import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
 
 const formTypeLabels: Record<string, string> = {
   leave: "Gate Pass",
@@ -44,7 +45,7 @@ const getInitialColor = (name: string) => {
 };
 
 const SecurityDashboard = () => {
-  const { submissions, updateSubmissionStatus } = useSubmissions();
+  const { submissions, updateSubmissionStatus, isLoading, refreshSubmissions } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "on_leave" | "in_progress" | "history">("action_required");
@@ -72,6 +73,11 @@ const SecurityDashboard = () => {
       });
     }
   }, [selectedSubmission]);
+
+  useEffect(() => {
+    refreshSubmissions();
+  }, [refreshSubmissions]);
+
   // Security guard only sees leave forms
   const filtered = submissions
     .filter(s => s.formType === "leave")
@@ -222,6 +228,15 @@ const SecurityDashboard = () => {
   };
 
   // Review detail view
+  if (isLoading) {
+    return (
+      <ApprovalDashboardSkeleton
+        title="Loading security approvals…"
+        description="Retrieving the latest gate pass and movement records."
+      />
+    );
+  }
+
   if (selectedSubmission) {
     const canApprove = selectedSubmission.status === "approved_hod";
     const isOnLeave = selectedSubmission.status === "on_leave";
@@ -255,6 +270,7 @@ const SecurityDashboard = () => {
           )}
         </div>
 
+        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6 lg:p-8 dark:bg-card print:border-none print:bg-white print:p-0 print:shadow-none">
         {/* Print Header */}
         <div className="hidden print:flex items-start justify-between mb-8 border-b-2 border-black pb-6">
           <div className="flex items-center">
@@ -387,6 +403,7 @@ const SecurityDashboard = () => {
         <div className="hidden print:block mt-12 text-center text-xs text-gray-400">
           <p>This is computer generated and no signature is required.</p>
         </div>
+        </div>
       </div>
     );
   }
@@ -400,47 +417,73 @@ const SecurityDashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card-elevated p-5">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Total Submissions</p>
-          <p className="text-4xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
+        <div className="card-elevated border-l-4 border-l-blue-500 p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Total Submissions</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-400">
+              <FileText className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
         </div>
-        <div className="card-elevated p-5">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Action Required</p>
-          <p className="text-4xl font-bold text-foreground">{stats.actionRequired}</p>
+        <div className="card-elevated border-l-4 border-l-amber-500 p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Action Required</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-foreground">{stats.actionRequired}</p>
         </div>
-        <div className="card-elevated p-5">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Currently On Leave</p>
-          <p className="text-4xl font-bold text-foreground">{stats.onLeave}</p>
+        <div className="card-elevated border-l-4 border-l-indigo-500 p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Currently On Leave</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-400">
+              <LogOut className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-foreground">{stats.onLeave}</p>
         </div>
-        <div className="card-elevated p-5">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Approval Rate</p>
-          <p className="text-4xl font-bold text-foreground">{stats.approvalRate}%</p>
+        <div className="card-elevated border-l-4 border-l-emerald-500 p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Approval Rate</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+              <CheckCircle className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-foreground">{stats.approvalRate}%</p>
         </div>
       </div>
 
       {/* Action Tabs */}
-      <div className="flex w-full overflow-x-auto no-scrollbar gap-2 mb-6">
-        <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "action_required" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          Action Required
-          {stats.actionRequired > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-red-500 text-white hover:bg-red-600">{stats.actionRequired}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("on_leave"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "on_leave" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          On Leave
-          {stats.onLeave > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-indigo-500 text-white hover:bg-indigo-600">{stats.onLeave}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "in_progress" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          In Progress
-          {stats.inProgress > 0 && (
-            <Badge className="ml-1.5 border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 bg-amber-500 text-white hover:bg-amber-600">{stats.inProgress}</Badge>
-          )}
-        </button>
-        <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors border ${activeTab === "history" ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground"}`}>
-          History
-        </button>
+      <div className="card-elevated p-4 sm:p-5 mb-4">
+        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Gate Passes</p>
+        <div className="flex w-full sm:w-fit items-center overflow-x-auto no-scrollbar rounded-lg border border-border bg-muted/40 p-1">
+          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "action_required" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+            Action Required
+            {stats.actionRequired > 0 && (
+              <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.actionRequired}</Badge>
+            )}
+          </button>
+          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
+          <button onClick={() => { setActiveTab("on_leave"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "on_leave" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+            On Leave
+            {stats.onLeave > 0 && (
+              <Badge className="h-5 min-w-5 justify-center border-0 bg-indigo-500 px-1.5 text-[10px] text-white hover:bg-indigo-500">{stats.onLeave}</Badge>
+            )}
+          </button>
+          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
+          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "in_progress" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+            In Progress
+            {stats.inProgress > 0 && (
+              <Badge className="h-5 min-w-5 justify-center border-0 bg-amber-500 px-1.5 text-[10px] text-white hover:bg-amber-500">{stats.inProgress}</Badge>
+            )}
+          </button>
+          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
+          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "history" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+            History
+          </button>
+        </div>
       </div>
 
       {/* Submissions Table */}
@@ -492,7 +535,6 @@ const SecurityDashboard = () => {
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Status</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
@@ -516,19 +558,22 @@ const SecurityDashboard = () => {
                         <span className="text-sm font-medium text-foreground">{sub.employeeName}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-foreground">{formTypeLabels[sub.formType] || sub.formType}</TableCell>
                     <TableCell>
                       <div className="flex flex-col items-start gap-0.5">
                         <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
                         <span className="text-xs text-muted-foreground/80">{new Date(sub.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
-                        {activeTab === "action_required" && isRecent(sub.submittedAt) && (
-                          <Badge className="bg-blue-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold">NEW</Badge>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors print:hidden">
+                      <button
+                        onClick={() => setSelectedSubmission(sub)}
+                        className={`rounded-lg px-3 py-2 text-xs sm:text-sm font-bold transition-colors print:hidden ${
+                          sub.status === "approved_hod" || activeTab === "in_progress" || activeTab === "history"
+                            ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+                            : "text-foreground hover:bg-muted hover:text-primary"
+                        }`}
+                      >
                         {sub.status === "approved_hod" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
                       </button>
                     </TableCell>

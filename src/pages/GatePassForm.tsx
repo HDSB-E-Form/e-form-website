@@ -132,17 +132,15 @@ const GatePassForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
 
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
-            Gate Pass / Pas Keluar
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gate Pass</h1>
+          <p className="mt-1 text-base font-medium text-primary">Pas Keluar</p>
         </div>
 
         {/* Live Clock */}
@@ -164,9 +162,10 @@ const GatePassForm = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Employee Details */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <UserCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Employee Details / <span className="font-normal">Butiran Pekerja</span>
             </h2>
           </div>
@@ -175,41 +174,46 @@ const GatePassForm = () => {
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
               <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
-              <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
         </div>
 
         {/* Purpose of Exit */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <Info className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Purpose of Exit / <span className="font-normal">Tujuan Keluar</span>
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup" aria-label="Purpose of exit">
             {/* Company Business */}
             <div
+              role="radio"
+              aria-checked={purposeType === "company"}
+              tabIndex={0}
               className={`rounded-xl border-2 p-4 sm:p-5 transition-all cursor-pointer ${
                 purposeType === "company"
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-muted-foreground/30"
               }`}
               onClick={() => setPurposeType("company")}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPurposeType("company"); } }}
             >
               <div className="flex items-center gap-2 mb-4">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -245,12 +249,16 @@ const GatePassForm = () => {
 
             {/* Personal Matter */}
             <div
+              role="radio"
+              aria-checked={purposeType === "personal"}
+              tabIndex={0}
               className={`rounded-xl border-2 p-4 sm:p-5 transition-all cursor-pointer ${
                 purposeType === "personal"
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-muted-foreground/30"
               }`}
               onClick={() => setPurposeType("personal")}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPurposeType("personal"); } }}
             >
               <div className="flex items-center gap-2 mb-4">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -288,9 +296,10 @@ const GatePassForm = () => {
 
         {/* Digital Approvals */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <ShieldCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Digital Approvals / <span className="font-normal">Kelulusan Digital</span>
             </h2>
           </div>
@@ -338,9 +347,10 @@ const GatePassForm = () => {
 
         {/* Security & HR Log */}
         <div className="card-elevated p-6">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
             <Shield className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               Security & HR Log / <span className="font-normal">Log Keselamatan</span>
             </h2>
           </div>
@@ -388,7 +398,7 @@ const GatePassForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit Gate Pass"}

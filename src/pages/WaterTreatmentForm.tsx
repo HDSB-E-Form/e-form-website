@@ -3,9 +3,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Send, Calendar, Clock, Layers, Droplet, UserCheck, MessageSquare } from "lucide-react";
+import { ArrowLeft, Send, Calendar, Layers, Droplet, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 const DailyOperationMonitoringForm = () => {
@@ -23,7 +24,7 @@ const DailyOperationMonitoringForm = () => {
     name: user?.name || "",
     staffNo: user?.employeeId || "",
     department: user?.department || "",
-    position: (user as any)?.position || "",
+    position: user?.position || "",
   });
 
   useEffect(() => {
@@ -32,7 +33,7 @@ const DailyOperationMonitoringForm = () => {
         name: user.name || "",
         staffNo: user.employeeId || "",
         department: user.department || "",
-        position: (user as any)?.position || "",
+        position: user.position || "",
       });
     }
   }, [user]);
@@ -97,7 +98,7 @@ const DailyOperationMonitoringForm = () => {
     { id: 'silver', label: 'Silver (Ag)' },
     { id: 'sulphide', label: 'Sulphide (S²⁻)' },
     { id: 'rawEq', label: 'Raw EQ' },
-  ];
+  ] as const;
 
   const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +140,7 @@ const DailyOperationMonitoringForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Back Button */}
       <button
         onClick={() => navigate("/safety")} 
@@ -149,12 +150,12 @@ const DailyOperationMonitoringForm = () => {
       </button>
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl lg:text-3xl font-bold text-foreground uppercase tracking-wide">
+      <div className="mb-5">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
           {activeFormType === "mixing" ? "Mixing & Chemical Stages" : "Final Discharge"}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">
-          HICOM Diecastings Sdn Bhd
+        <p className="mt-1 text-base font-medium text-primary">
+          {activeFormType === "mixing" ? "Tahap Campuran Kimia" : "Pelepasan Akhir"}
         </p>
       </div>
 
@@ -162,9 +163,10 @@ const DailyOperationMonitoringForm = () => {
 
         {/* SECTION 1: Meta Information (Unified for both forms) */}
         <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <Calendar className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+            <h2 className="font-bold text-foreground text-base">
               Record Details / <span className="font-normal text-muted-foreground">Butiran Rekod</span>
             </h2>
           </div>
@@ -202,15 +204,16 @@ const DailyOperationMonitoringForm = () => {
         <>
           {/* SECTION 2: Mixing & Treatment Stages */}
           <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
                 <Layers className="h-5 w-5 text-primary" />
-                <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+                <h2 className="font-bold text-foreground text-base">
                   Mixing & Chemical Stages / <span className="font-normal text-muted-foreground">Tahap Campuran Kimia</span>
                 </h2>
               </div>
               {processInfo.mixingTankBatchNo && (
-                <div className="text-right">
+                <div className="text-left sm:text-right rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
                   <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Batch Number</div>
                   <div className="text-sm font-bold text-foreground tracking-widest">{processInfo.mixingTankBatchNo}</div>
                 </div>
@@ -238,7 +241,10 @@ const DailyOperationMonitoringForm = () => {
 
             {/* Caustic Soda Stage */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Neutralization (Caustic Soda)</div>
+              <div className="mb-1 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">1</span>
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Neutralization (Caustic Soda)</div>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter)</Label>
                 <Input
@@ -266,7 +272,10 @@ const DailyOperationMonitoringForm = () => {
 
             {/* Coagulation Stage */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Coagulation (Gullifloc)</div>
+              <div className="mb-1 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">2</span>
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Coagulation (Gullifloc)</div>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter)</Label>
                 <Input
@@ -294,7 +303,10 @@ const DailyOperationMonitoringForm = () => {
 
             {/* Flocculation Stage */}
             <div className="p-4 rounded-xl border border-border/60 bg-muted/5 space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Flocculation (Polymer)</div>
+              <div className="mb-1 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">3</span>
+                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Flocculation (Polymer)</div>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Volume (liter)</Label>
                 <Input
@@ -328,9 +340,10 @@ const DailyOperationMonitoringForm = () => {
         <>
           {/* SECTION 3: Final Discharge Metrics (Spreadsheet Layout Matching) */}
           <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 mb-6 border-b pb-4">
+          <div className="flex items-center gap-3 mb-6 border-b pb-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <Droplet className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+            <h2 className="font-bold text-foreground text-base">
               Final Discharge / <span className="font-normal text-muted-foreground">Pelepasan Akhir</span>
             </h2>
           </div>
@@ -344,7 +357,7 @@ const DailyOperationMonitoringForm = () => {
 
           {/* Parameters Stack */}
           <div className="space-y-3">
-            {[
+            {([
               { id: "ph4", label: "pH Value", hint: "5.5 ~ 9.0", step: "0.01" },
               { id: "cod", label: "Chemical Oxygen Demand (COD)", hint: "<200" },
               { id: "bod", label: "Biochemical Oxygen Demand (BOD)", hint: "<50" },
@@ -360,7 +373,7 @@ const DailyOperationMonitoringForm = () => {
               { id: "silver", label: "Silver (Ag)", hint: "<1.0", step: "0.01" },
               { id: "sulphide", label: "Sulphide (S²⁻)", hint: "<0.50", step: "0.01" },
               { id: "rawEq", label: "Raw EQ", hint: "<2000", step: "0.01" },
-            ].map((param) => (
+            ] as const).map((param) => (
               <div
                 key={param.id}
                 className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center p-2 rounded-lg border border-border/40 hover:bg-muted/5 transition-colors"
@@ -377,7 +390,7 @@ const DailyOperationMonitoringForm = () => {
                     type="number"
                     step={param.step || "1"}
                     placeholder={`Enter value for ${param.label}`}
-                    value={(finalDischarge as any)[param.id]}
+                    value={finalDischarge[param.id]}
                     onChange={e => setFinalDischarge(p => ({ ...p, [param.id]: e.target.value }))}
                     className="h-10 text-center font-medium shadow-sm no-spinner"
                     onWheel={(e) => (e.target as HTMLElement).blur()}
@@ -403,17 +416,18 @@ const DailyOperationMonitoringForm = () => {
 
         {/* SECTION: Optional Remarks */}
         <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <MessageSquare className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm uppercase tracking-wide">
+            <h2 className="font-bold text-foreground text-base">
               Remarks / <span className="font-normal text-muted-foreground">Ulasan</span>
             </h2>
           </div>
-          <Input
+          <Textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
-            className="h-11 bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors"
+            className="min-h-28 resize-y bg-muted/20 hover:bg-muted/50 focus:bg-background transition-colors"
           />
         </div>
 
@@ -422,7 +436,7 @@ const DailyOperationMonitoringForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
           {isSubmitting ? "Submitting Records..." : activeFormType === "mixing" ? "Submit Mixing Log" : "Submit Discharge Log"}
@@ -439,8 +453,11 @@ const DailyOperationMonitoringForm = () => {
 
       {showConfirm && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
-          <div className="bg-card max-w-2xl w-full rounded-lg p-4 sm:p-6 shadow-lg max-h-[80vh] overflow-auto text-sm">
-            <h3 className="text-base font-semibold">Confirm Submission</h3>
+          <div className="bg-card max-w-2xl w-full rounded-2xl border border-border p-5 sm:p-6 shadow-2xl max-h-[80vh] overflow-auto text-sm animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Layers className="h-4 w-4" /></div>
+              <h3 className="text-lg font-bold text-foreground">Confirm Submission</h3>
+            </div>
             <p className="mt-2 text-sm text-muted-foreground">Please review the summary below, then confirm to submit.</p>
 
             <div className="mt-4 grid grid-cols-1 gap-3">
@@ -468,7 +485,7 @@ const DailyOperationMonitoringForm = () => {
                       {dischargeParams.map(p => (
                         <div key={p.id} className="grid items-center py-2" style={{ gridTemplateColumns: '220px 1fr' }}>
                           <div className="text-muted-foreground pr-2">{p.label}:</div>
-                          <div className="font-medium">{(finalDischarge as any)[p.id] || '—'}</div>
+                          <div className="font-medium">{finalDischarge[p.id] || '—'}</div>
                         </div>
                       ))}
                     </div>
@@ -477,9 +494,9 @@ const DailyOperationMonitoringForm = () => {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => setShowConfirm(false)} className="px-4 py-2 rounded-lg bg-muted/20 font-semibold">Cancel</button>
-              <button onClick={confirmSubmit} disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">Confirm</button>
+            <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-border pt-4">
+              <button onClick={() => setShowConfirm(false)} className="px-5 py-2.5 rounded-lg border border-border hover:bg-muted font-semibold transition-colors">Cancel</button>
+              <button onClick={confirmSubmit} disabled={isSubmitting} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 font-semibold transition-colors">Confirm Submission</button>
             </div>
           </div>
         </div>

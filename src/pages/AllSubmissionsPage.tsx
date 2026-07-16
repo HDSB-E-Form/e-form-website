@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Clock, ArrowLeft, Printer, FileText, Search, Calendar, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import logo from "@/assets/logo.png";
 import { renderValue } from "@/components/DataRenderer";
@@ -14,9 +15,10 @@ const formTypeLabels: Record<string, string> = {
   leave: "Gate Pass",
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
+  cctv_access_request: "CCTV Access Request",
 };
 
-const statusBadge = (status: string) => {
+const statusBadge = (status: string, formType?: string) => {
   switch (status) {
     case "approved":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
@@ -33,17 +35,26 @@ const statusBadge = (status: string) => {
     case "approved_hop":
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOP APPROVED</Badge>;
     case "approved_hod":
+      if (formType === 'claim') {
+        return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING HOP</Badge>;
+      }
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOD APPROVED</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOS APPROVED</Badge>;
+      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental') {
+        return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING HOD</Badge>;
+      }
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOS APPROVED</Badge>;
     case "pending":
     default:
+      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental') {
+        return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING HOS</Badge>;
+      }
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING</Badge>;
   }
 };
 
 const AllSubmissionsPage = () => {
-  const { submissions: allSubmissions, refNoMap } = useSubmissions();
+  const { submissions: allSubmissions, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -52,7 +63,61 @@ const AllSubmissionsPage = () => {
   const [isViewAll, setIsViewAll] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'car_rental' | 'claim' | 'leave'>('all');
 
+  useEffect(() => {
+    refreshSubmissions();
+  }, [refreshSubmissions]);
+
   const isDateFiltered = startDate !== "" || endDate !== "";
+
+  if (isLoading) {
+    return (
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 duration-300" aria-busy="true" aria-live="polite">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileText className="h-5 w-5" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 animate-ping rounded-full bg-primary/60" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Loading all submissions…</p>
+            <p className="text-sm text-muted-foreground">Retrieving the latest organization records.</p>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex flex-wrap gap-4">
+            <Skeleton className="h-9 w-full sm:w-60" />
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+
+        <div className="card-elevated overflow-hidden">
+          <div className="border-b border-border p-5">
+            <Skeleton className="h-6 w-32" />
+            <div className="mt-3 flex gap-2 overflow-hidden">
+              {[88, 120, 126, 96].map((width, index) => (
+                <Skeleton key={index} className="h-8 flex-shrink-0 rounded-md" style={{ width }} />
+              ))}
+            </div>
+          </div>
+          <div className="p-5 space-y-5">
+            {[0, 1, 2, 3, 4, 5].map((row) => (
+              <div key={row} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 items-center">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="hidden sm:block h-4 w-24" />
+                <Skeleton className="hidden lg:block h-4 w-28" />
+                <Skeleton className="hidden lg:block h-5 w-20 rounded-full" />
+                <Skeleton className="hidden lg:block h-4 w-20 justify-self-end" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const submissions = allSubmissions
     .filter(s => !excludedForms.includes(s.formType))
@@ -138,7 +203,7 @@ const AllSubmissionsPage = () => {
               <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
             </div>
             <div className="print:hidden">
-              {statusBadge(selectedSubmission.status)}
+              {statusBadge(selectedSubmission.status, selectedSubmission.formType)}
             </div>
           </div>
 
@@ -478,15 +543,15 @@ const AllSubmissionsPage = () => {
         <div className="p-5 flex items-center justify-between border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-foreground">Submissions</h2>
-            <div className="flex bg-muted p-1 rounded-lg w-fit mt-2">
+            <div className="flex w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-black/25 bg-white/70 p-1.5 mt-3 shadow-sm backdrop-blur-xl dark:border-white/25 dark:bg-white/10">
               {(['all', 'car_rental', 'claim', 'leave'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => { setActiveTab(tab); setIsViewAll(false); }}
-                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${
                     activeTab === tab
-                      ? "bg-background shadow-sm text-primary"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30"
+                      : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"
                   }`}
                 >
                   {tab === 'all' ? 'All Forms' : formTypeLabels[tab] || tab}
@@ -515,7 +580,7 @@ const AllSubmissionsPage = () => {
                 <TableCell className="font-medium text-foreground">{sub.employeeName}</TableCell>
                 <TableCell className="uppercase text-xs font-bold text-foreground">{formTypeLabels[sub.formType] || sub.formType.replace(/_/g, " ")}</TableCell>
                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</TableCell>
-                <TableCell>{statusBadge(sub.status)}</TableCell>
+                <TableCell>{statusBadge(sub.status, sub.formType)}</TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-3">
                     <button onClick={() => setSelectedSubmission(sub)} className="text-xs sm:text-sm font-bold text-foreground hover:text-primary transition-colors">

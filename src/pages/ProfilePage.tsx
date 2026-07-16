@@ -4,12 +4,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner"; 
-import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera, CreditCard } from "lucide-react";
+import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera, CreditCard, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
+
+const maskIcNumber = (value?: string) => {
+  if (!value) return null;
+  const visible = value.slice(-4);
+  return `${"•".repeat(Math.max(value.length - 4, 4))}${visible}`;
+};
 
 const roleLabels: Record<string, string> = {
   employee: "Employee",
@@ -17,6 +23,7 @@ const roleLabels: Record<string, string> = {
   hos: "Head of Section",
   hr_admin: "HR Admin",
   finance_admin: "Finance Admin",
+  it_admin: "IT Admin",
   super_admin: "Super Admin",
 };
 
@@ -34,6 +41,7 @@ const ProfilePage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({ current: false, next: false, confirm: false });
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
 
   const [profile, setProfile] = useState({
@@ -261,28 +269,31 @@ const ProfilePage = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
-      <div className="mb-8">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your personal information and security settings.</p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left side: Profile form */}
         <div className="lg:col-span-2">
           {!isEditing ? (
             <div className="card-elevated p-6 relative overflow-hidden">
-              <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 hidden sm:flex p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors" title="Edit Profile">
+              <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-semibold text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit Profile">
                 <Pencil className="h-4 w-4" />
+                <span>Edit Profile</span>
               </button>
               
               <div className="flex items-start sm:items-center justify-between gap-4 mb-8">
                 <div className="flex items-center gap-5">
-                <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold shadow-sm overflow-hidden flex-shrink-0 border border-border">
+                <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-amber-400 p-1 shadow-lg shadow-primary/20">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-background text-2xl font-bold text-primary dark:border-background">
                   {user?.avatar ? (
                     <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     getInitials(user?.name)
                   )}
+                </div>
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-foreground leading-tight">{user?.name}</h2>
@@ -296,13 +307,15 @@ const ProfilePage = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
+                <div className="md:col-span-2 border-b border-border/60 pb-2">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Account & Contact</p>
+                </div>
                 <div className="md:col-span-2">
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Email Address</p>
                   <p className="text-sm font-medium text-foreground flex items-start gap-2"><Mail className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-all">{user?.email}</span></p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Phone Number</p>
-                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><Phone className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.phone || <span className="text-muted-foreground italic">Not set</span>}</p>
+                <div className="md:col-span-2 border-b border-border/60 pb-2 pt-1">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Employment & Contact</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Staff ID</p>
@@ -312,13 +325,22 @@ const ProfilePage = () => {
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Department</p>
                   <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{user?.department}</span></p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Position</p>
-                  <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{(user as any)?.position || <span className="text-muted-foreground italic">Not set</span>}</span></p>
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Position</p>
+                    <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{(user as any)?.position || <span className="text-muted-foreground italic">Not set</span>}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Phone Number</p>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2"><Phone className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.phone || <span className="text-muted-foreground italic">Not set</span>}</p>
+                  </div>
+                </div>
+                <div className="md:col-span-2 border-b border-border/60 pb-2 pt-1">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Identification</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">IC Number</p>
-                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.icNo || <span className="text-muted-foreground italic">Not set</span>}</p>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {maskIcNumber(user?.icNo) || <span className="text-muted-foreground italic">Not set</span>}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">License Number</p>
@@ -340,7 +362,7 @@ const ProfilePage = () => {
                 </div>
                 
                 <div className="flex items-center gap-5 mb-6">
-                  <div className="relative group w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold shadow-sm overflow-hidden flex-shrink-0 border border-border">
+                  <div className="relative group w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xl font-bold shadow-md overflow-hidden flex-shrink-0 border-[3px] border-primary/20">
                     {previewUrl ? (
                       <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
@@ -392,15 +414,17 @@ const ProfilePage = () => {
                       </Select>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Phone Number</Label>
-                    <Input value={profile.phone} onChange={e => handleProfileChange("phone", e.target.value)} placeholder="e.g. +60123456789" />
-                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Phone Number</Label>
+                      <Input value={profile.phone} onChange={e => handleProfileChange("phone", e.target.value)} placeholder="e.g. +60123456789" />
+                    </div>
                     <div className="space-y-1.5">
                       <Label>IC Number</Label>
                       <Input value={profile.icNo} onChange={e => handleProfileChange("icNo", e.target.value)} placeholder="e.g. 900101-01-1111" />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Driving License No.</Label>
                       <Input value={profile.drivingLicenseNo} onChange={e => handleProfileChange("drivingLicenseNo", e.target.value)} placeholder="Enter License No." />
@@ -422,7 +446,7 @@ const ProfilePage = () => {
         </div>
 
         {/* Right side: Password form */}
-        <div>
+        <div className="xl:sticky xl:top-6 xl:self-start">
           <form onSubmit={handlePasswordSubmit}>
             <div className="card-elevated p-6">
               <div className="flex items-center gap-3 mb-5">
@@ -440,17 +464,33 @@ const ProfilePage = () => {
                   ) : (
                     <>
                       <Label>Current Password <span className="text-destructive">*</span></Label>
-                      <Input type="password" value={password.currentPassword} onChange={e => handlePasswordChange("currentPassword", e.target.value)} required={!isPasswordRecovery} />
+                      <div className="relative">
+                        <Input type={visiblePasswords.current ? "text" : "password"} value={password.currentPassword} onChange={e => handlePasswordChange("currentPassword", e.target.value)} className="pr-10" required={!isPasswordRecovery} />
+                        <button type="button" onClick={() => setVisiblePasswords(p => ({ ...p, current: !p.current }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={visiblePasswords.current ? "Hide current password" : "Show current password"}>
+                          {visiblePasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>New Password <span className="text-destructive">*</span></Label>
-                  <Input type="password" value={password.newPassword} onChange={e => handlePasswordChange("newPassword", e.target.value)} required />
+                  <div className="relative">
+                    <Input type={visiblePasswords.next ? "text" : "password"} value={password.newPassword} onChange={e => handlePasswordChange("newPassword", e.target.value)} className="pr-10" required />
+                    <button type="button" onClick={() => setVisiblePasswords(p => ({ ...p, next: !p.next }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={visiblePasswords.next ? "Hide new password" : "Show new password"}>
+                      {visiblePasswords.next ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Use at least 6 characters.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Confirm New Password <span className="text-destructive">*</span></Label>
-                  <Input type="password" value={password.confirmPassword} onChange={e => handlePasswordChange("confirmPassword", e.target.value)} required />
+                  <div className="relative">
+                    <Input type={visiblePasswords.confirm ? "text" : "password"} value={password.confirmPassword} onChange={e => handlePasswordChange("confirmPassword", e.target.value)} className="pr-10" required />
+                    <button type="button" onClick={() => setVisiblePasswords(p => ({ ...p, confirm: !p.confirm }))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={visiblePasswords.confirm ? "Hide confirmation password" : "Show confirmation password"}>
+                      {visiblePasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="mt-6 border-t border-border pt-4 flex justify-end">

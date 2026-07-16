@@ -345,6 +345,9 @@ const SafetyAdminDashboard = () => {
         const success = await addSubmission({
             formType: formTypeForRemark,
             status: "approved",
+            submittedBy: user?.id || "system",
+            employeeName: user?.name || "Safety",
+            department: user?.department || "Safety",
             data: {
                 remarks: newRemark,
                 // Add minimal meta info to make it a valid-looking submission

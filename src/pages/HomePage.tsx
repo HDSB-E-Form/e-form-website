@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
-import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X } from "lucide-react";
+import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog } from "lucide-react";
 
 const HomePage = () => {
   const { user } = useAuth();
@@ -56,13 +56,24 @@ const HomePage = () => {
       iconColor: "text-white",
       path: "/safety",
     },
+    {
+      id: "it",
+      title: "IT Department",
+      description: "Submit CCTV access requests and other IT service forms.",
+      icon: MonitorCog,
+      color: "from-violet-500 to-violet-600",
+      iconColor: "text-white",
+      path: "/it",
+    },
   ];
 
   const departments = useMemo(() => {
     let depts = [...allDepartments];
+    const effectiveRoles = [user?.role, ...(user?.secondary_roles || [])];
+    const hasSafetyAccess = effectiveRoles.includes("safety_admin") || effectiveRoles.includes("super_admin");
 
-    // If the user is a safety admin, move the safety department to the front.
-    if (user?.role === 'safety_admin') {
+    // Prioritize Safety for both primary and additional Safety Admin roles.
+    if (hasSafetyAccess) {
       const safetyIndex = depts.findIndex(d => d.id === 'safety');
       if (safetyIndex > 0) {
         const [safetyDept] = depts.splice(safetyIndex, 1);
@@ -72,23 +83,29 @@ const HomePage = () => {
 
     // Filter out departments the user shouldn't see.
     return depts.filter(dept => {
-      if (dept.id === 'safety') return user?.role === 'safety_admin' || user?.role === 'super_admin';
+      if (dept.id === 'safety') return hasSafetyAccess;
       return true;
     });
-  }, [user?.role]);
+  }, [user?.role, user?.secondary_roles]);
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       {/* Global Announcement Banner */}
       {activeAnnouncement && isAnnouncementVisible && (
-        <div className="relative bg-primary/10 border border-primary/20 text-primary rounded-xl p-4 pl-12 mb-6 shadow-sm">
-          <div className="absolute left-4 top-4">
-            <Megaphone className="h-5 w-5" />
+        <div className="relative mb-6 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 pr-12 shadow-sm dark:bg-blue-500/10">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
+              <Megaphone className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400">Announcement</p>
+              <p className="text-sm font-medium leading-relaxed text-foreground">{activeAnnouncement.content}</p>
+            </div>
           </div>
-          <p className="text-sm font-medium pr-6">{activeAnnouncement.content}</p>
           <button 
             onClick={() => setIsAnnouncementVisible(false)}
-            className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-primary/20 transition-colors"
+            className="absolute right-3 top-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-blue-500/15 hover:text-foreground"
             title="Dismiss announcement"
+            aria-label="Dismiss announcement"
           >
             <X className="h-4 w-4" />
           </button>
@@ -102,16 +119,19 @@ const HomePage = () => {
 
         {/* Main content, positioned above the decorative elements */}
         <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
-          <div className="relative shrink-0">
-            <div className="w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center text-3xl font-bold shadow-xl shadow-primary/20 overflow-hidden border-2 border-primary/20">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                getInitials(user?.name)
-              )}
+          <div className="relative shrink-0 pb-3">
+            <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-amber-400 p-1 shadow-xl shadow-primary/20">
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-background text-3xl font-bold text-primary dark:border-background">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={`${user?.name || "User"} profile`} className="h-full w-full object-cover" />
+                ) : (
+                  getInitials(user?.name)
+                )}
+              </div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-background rounded-full flex items-center justify-center border border-border">
-              <div className="w-5 h-5 bg-emerald-500 rounded-full ring-2 ring-background" title="Online"></div>
+            <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary shadow-md">
+              <ShieldCheck className="h-3 w-3" />
+              <span>{user?.role ? user.role.replace(/_/g, " ") : "Staff"}</span>
             </div>
           </div>
           <div className="text-center sm:text-left">

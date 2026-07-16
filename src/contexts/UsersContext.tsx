@@ -9,6 +9,7 @@ export interface AppUser {
   staffId: string;
   role: string;
   department: string;
+  position?: string;
   supervisor?: string;
   is_head_of_finance?: boolean;
   is_head_of_purchasing?: boolean;
@@ -43,6 +44,7 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
           staffId: doc.employeeId || "",
           role: doc.role || "employee",
           department: doc.department || "",
+          position: doc.position || "",
           supervisor: doc.supervisor || "",
           is_head_of_finance: doc.is_head_of_finance || false,
           is_head_of_purchasing: doc.is_head_of_purchasing || false,
@@ -89,6 +91,7 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
       staffId: data.employeeId || "",
       role: data.role || "employee",
       department: data.department || "",
+      position: data.position || "",
       supervisor: data.supervisor || "",
       is_head_of_finance: data.is_head_of_finance || false,
       is_head_of_purchasing: data.is_head_of_purchasing || false,

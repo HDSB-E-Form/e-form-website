@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useAuth, type UserRole } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import type { UserRole } from "@/contexts/types";
 import { supabase } from "@/supabase";
 import { useUsers } from "@/contexts/UsersContext"; 
 import { useSubmissions, type Announcement } from "@/contexts/SubmissionsContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface FirestoreUser {
   id: string;
@@ -23,6 +25,7 @@ interface FirestoreUser {
   createdAt?: Date;
   avatar?: string;
   secondary_roles?: UserRole[];
+  status?: string;
 }
 
 const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string; icon: any }> = [
@@ -32,6 +35,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "hod", label: "Head of Department", description: "Approve department submissions", icon: Users },
   { value: "hr_admin", label: "HR Admin", description: "Manage HR forms & fleet", icon: UserCheck },
   { value: "finance_admin", label: "Finance Admin", description: "Manage finance & claims", icon: UserCheck },
+  { value: "it_admin", label: "IT Admin", description: "Manage CCTV access requests", icon: UserCheck },
   { value: "safety_admin", label: "Safety Admin", description: "View safety dashboards & reports", icon: SafetyIcon },
   { value: "super_admin", label: "Super Admin", description: "Full system access & user management", icon: Shield },
 ];
@@ -40,6 +44,7 @@ const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
   { value: "head_of_purchasing", label: "Head of Purchasing" },
   { value: "head_of_finance", label: "Head of Finance" },
   { value: "safety_admin", label: "Safety Admin" },
+  { value: "it_admin", label: "IT Admin" },
 ];
 
 const roleBadge = (role: UserRole) => {
@@ -50,6 +55,8 @@ const roleBadge = (role: UserRole) => {
       return <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-bold">HR ADMIN</Badge>;
     case "finance_admin":
       return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[10px] font-bold">FINANCE ADMIN</Badge>;
+    case "it_admin":
+      return <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-400 border-0 text-[10px] font-bold">IT ADMIN</Badge>;
     case "head_of_purchasing":
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[10px] font-bold">HEAD OF PURCHASING</Badge>;
     case "head_of_finance":
@@ -126,8 +133,8 @@ const AnimatedCount = ({ value, duration = 800 }: { value: number; duration?: nu
 };
 
 const SuperAdminDashboard = () => {
-  const { updateUserRole } = useAuth();
-  const { updateUser } = useUsers();
+  const { user: currentUser } = useAuth();
+  const { updateUser, deleteUser } = useUsers();
   const { submissions, announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -139,6 +146,8 @@ const SuperAdminDashboard = () => {
   const [editRole, setEditRole] = useState<UserRole>("employee");
   const [editDepartment, setEditDepartment] = useState("");
   const [editSecondaryRoles, setEditSecondaryRoles] = useState<UserRole[]>([]);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
   const [isViewAll, setIsViewAll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -150,6 +159,10 @@ const SuperAdminDashboard = () => {
 
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
+  const [editingDepartment, setEditingDepartment] = useState<string | null>(null);
+  const [editingDepartmentName, setEditingDepartmentName] = useState("");
+  const [isSavingDepartment, setIsSavingDepartment] = useState(false);
+  const [deletingDepartment, setDeletingDepartment] = useState<string | null>(null);
 
   // Fetch users from Firestore
   useEffect(() => {
@@ -162,7 +175,7 @@ const SuperAdminDashboard = () => {
           setDepartmentsList(deptData.map((d: any) => d.name));
         }
 
-        const { data, error } = await supabase.from("users").select("*").order("name");
+        const { data, error } = await supabase.from("users").select("*").eq("status", "active").order("name");
         if (error) throw error;
 
         const fetchedUsers: FirestoreUser[] = (data || []).map((doc: any) => ({
@@ -177,6 +190,7 @@ const SuperAdminDashboard = () => {
           is_head_of_finance: doc.is_head_of_finance || false,
           avatar: doc.avatar,
           secondary_roles: doc.secondary_roles || [],
+          status: doc.status || "active",
         }));
 
         setUsers(fetchedUsers);
@@ -192,10 +206,11 @@ const SuperAdminDashboard = () => {
   }, []);
 
   const filtered = users.filter(u => {
+    const effectiveRoles = [u.role, ...(u.secondary_roles || [])];
     if (roleFilter === "employee" && u.role !== "employee") return false;
     if (roleFilter === "hos" && u.role !== "hos") return false;
     if (roleFilter === "hod" && u.role !== "hod") return false;
-    if (roleFilter === "admin" && !["hr_admin", "finance_admin", "head_of_purchasing", "head_of_finance", "safety_admin", "super_admin"].includes(u.role as string)) return false;
+    if (roleFilter === "admin" && !effectiveRoles.some(role => ["hr_admin", "finance_admin", "it_admin", "head_of_purchasing", "head_of_finance", "safety_admin", "super_admin"].includes(role))) return false;
 
     if (departmentFilter !== "all" && u.department !== departmentFilter) return false;
 
@@ -205,8 +220,9 @@ const SuperAdminDashboard = () => {
       const emailMatch = (u.email || '').toLowerCase().includes(q);
       const idMatch = (u.employeeId || '').toLowerCase().includes(q);
       const roleMatch = (u.role || '').toLowerCase().includes(q);
+      const secondaryRoleMatch = (u.secondary_roles || []).some(role => role.toLowerCase().includes(q));
 
-      if (!(nameMatch || emailMatch || idMatch || roleMatch)) {
+      if (!(nameMatch || emailMatch || idMatch || roleMatch || secondaryRoleMatch)) {
         return false;
       }
     }
@@ -217,7 +233,7 @@ const SuperAdminDashboard = () => {
     totalPersonnel: users.length,
     activeHOS: users.filter(u => u.role === 'hos').length,
     activeHOD: users.filter(u => u.role === 'hod').length,
-    otherAdmins: users.filter(u => ["super_admin", "safety_admin", "finance_admin", "hr_admin", "security_guard"].includes(u.role)).length,
+    otherAdmins: users.filter(u => [u.role, ...(u.secondary_roles || [])].some(role => ["super_admin", "safety_admin", "finance_admin", "it_admin", "hr_admin", "security_guard"].includes(role))).length,
     totalCarBookings: submissions.filter(s => s.formType === 'car_rental').length,
     totalGatePass: submissions.filter(s => s.formType === 'leave').length,
     totalClaims: submissions.filter(s => s.formType === 'claim').length,
@@ -233,46 +249,71 @@ const SuperAdminDashboard = () => {
 
   const handleSave = async () => {
     if (!selectedUser) return;
-    
+
+    setIsSavingUser(true);
     try {
       const updates = { 
         role: editRole, 
         department: editDepartment,
-        secondary_roles: editSecondaryRoles,
+        secondary_roles: editSecondaryRoles.filter(role => role !== editRole),
       };
       
       const success = await updateUser(selectedUser.id, updates);
 
-      // Securely update the user's role via the new database function
-      const { error: rpcError } = await supabase.rpc('set_user_role', {
-        target_role: editRole,
-        target_user_id: selectedUser.id
-      });
-      
-      if (rpcError) throw rpcError;
+      if (!success) {
+        throw new Error("The user record could not be updated.");
+      }
 
-    setSheetOpen(false);
-    toast.success(`${selectedUser.name}'s role updated successfully`);
+      const { error: auditError } = await supabase.from("permission_audit_logs").insert([{
+        actor_user_id: currentUser?.id || null,
+        actor_name: currentUser?.name || "Super Admin",
+        target_user_id: selectedUser.id,
+        target_user_name: selectedUser.name,
+        action: "permissions_updated",
+        previous_values: { role: selectedUser.role, department: selectedUser.department, secondary_roles: selectedUser.secondary_roles || [] },
+        new_values: updates,
+      }]);
+      if (auditError) console.error("Permission audit log could not be written:", auditError);
+
+      setUsers(current => current.map(person => person.id === selectedUser.id ? { ...person, ...updates, secondary_roles: updates.secondary_roles.filter(role => role !== editRole) } : person));
+      setSheetOpen(false);
+      toast.success(`${selectedUser.name}'s role updated successfully`);
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(`Failed to update permissions: ${error.message || "An unknown error occurred."}`);
+    } finally {
+      setIsSavingUser(false);
     }
   };
 
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-    if (!window.confirm(`Are you sure you want to completely remove ${selectedUser.name} from the system?`)) return;
+    if (!window.confirm(`Deactivate ${selectedUser.name}? They will be removed from the active directory and will no longer have application access.`)) return;
 
+    setIsDeactivatingUser(true);
     try {
-      const { error } = await supabase.from("users").delete().eq("id", selectedUser.id);
-      if (error) throw error;
+      const success = await deleteUser(selectedUser.id);
+      if (!success) throw new Error("The user could not be deactivated.");
+
+      const { error: auditError } = await supabase.from("permission_audit_logs").insert([{
+        actor_user_id: currentUser?.id || null,
+        actor_name: currentUser?.name || "Super Admin",
+        target_user_id: selectedUser.id,
+        target_user_name: selectedUser.name,
+        action: "user_deactivated",
+        previous_values: { status: selectedUser.status || "active", role: selectedUser.role, secondary_roles: selectedUser.secondary_roles || [] },
+        new_values: { status: "inactive" },
+      }]);
+      if (auditError) console.error("Deactivation audit log could not be written:", auditError);
 
       setUsers(users.filter(u => u.id !== selectedUser.id));
       setSheetOpen(false);
-      toast.success("User deleted successfully");
+      toast.success("User deactivated successfully");
     } catch (error) {
-      console.error("Error deleting user:", error);
-      toast.error("Failed to delete user");
+      console.error("Error deactivating user:", error);
+      toast.error("Failed to deactivate user");
+    } finally {
+      setIsDeactivatingUser(false);
     }
   };
 
@@ -287,28 +328,33 @@ const SuperAdminDashboard = () => {
       return;
     }
     
-    setIsLoading(true);
+    setIsSavingDepartment(true);
     try {
       const { error } = await supabase.from("departments").insert([{ name: cleanName }]);
       if (error) throw error;
       
       setDepartmentsList([...departmentsList, cleanName].sort());
       toast.success(`Department "${cleanName}" added successfully`);
-      setAddDeptOpen(false);
       setNewDeptName("");
     } catch (err: any) {
       console.error("Error adding department:", err);
       toast.error("Failed to add department: " + err.message);
     } finally {
-      setIsLoading(false);
+      setIsSavingDepartment(false);
     }
   };
 
   const handleDeleteDepartment = async (deptName: string) => {
-    if (!window.confirm(`Are you sure you want to delete the department "${deptName}"?`)) return;
-    
-    setIsLoading(true);
+    setDeletingDepartment(deptName);
     try {
+      const { count, error: assignmentError } = await supabase.from("users").select("id", { count: "exact", head: true }).eq("department", deptName);
+      if (assignmentError) throw assignmentError;
+      if ((count || 0) > 0) {
+        toast.error(`Cannot delete "${deptName}" because ${count} user${count === 1 ? " is" : "s are"} still assigned to it. Reassign them first.`);
+        return;
+      }
+      if (!window.confirm(`Are you sure you want to delete the department "${deptName}"?`)) return;
+
       const { error } = await supabase.from("departments").delete().eq("name", deptName);
       if (error) throw error;
       
@@ -318,7 +364,42 @@ const SuperAdminDashboard = () => {
       console.error("Error deleting department:", err);
       toast.error("Failed to delete department: " + err.message);
     } finally {
-      setIsLoading(false);
+      setDeletingDepartment(null);
+    }
+  };
+
+  const handleRenameDepartment = async (currentName: string) => {
+    const cleanName = editingDepartmentName.trim();
+    if (!cleanName) return toast.error("Department name cannot be empty");
+    if (cleanName === currentName) {
+      setEditingDepartment(null);
+      return;
+    }
+    if (departmentsList.some(name => name !== currentName && name.toLowerCase() === cleanName.toLowerCase())) {
+      return toast.error("Department already exists");
+    }
+
+    setIsSavingDepartment(true);
+    try {
+      const { error: departmentError } = await supabase.from("departments").update({ name: cleanName }).eq("name", currentName);
+      if (departmentError) throw departmentError;
+
+      const { error: usersError } = await supabase.from("users").update({ department: cleanName }).eq("department", currentName);
+      if (usersError) {
+        await supabase.from("departments").update({ name: currentName }).eq("name", cleanName);
+        throw usersError;
+      }
+
+      setDepartmentsList(current => current.map(name => name === currentName ? cleanName : name).sort());
+      setUsers(current => current.map(user => user.department === currentName ? { ...user, department: cleanName } : user));
+      setEditingDepartment(null);
+      setEditingDepartmentName("");
+      toast.success(`Department renamed to "${cleanName}"`);
+    } catch (error: any) {
+      console.error("Error renaming department:", error);
+      toast.error("Failed to rename department: " + error.message);
+    } finally {
+      setIsSavingDepartment(false);
     }
   };
 
@@ -407,10 +488,51 @@ const SuperAdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading dashboard layout...</p>
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 duration-300" aria-busy="true" aria-live="polite">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Users className="h-5 w-5" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 animate-ping rounded-full bg-primary/60" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Loading user directory…</p>
+            <p className="text-sm text-muted-foreground">Retrieving the latest staff and access records.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {[0, 1, 2, 3, 4, 5].map((card) => (
+            <div key={card} className="card-elevated p-4 border-l-4 border-l-muted">
+              <Skeleton className="mb-2 h-3 w-20" />
+              <Skeleton className="h-8 w-12" />
+            </div>
+          ))}
+        </div>
+
+        <div className="card-elevated overflow-hidden">
+          <div className="p-5 flex flex-col sm:flex-row gap-4 justify-between">
+            <Skeleton className="h-9 w-full sm:w-72" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-32" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </div>
+          <div className="border-t border-border p-5 space-y-5">
+            {[0, 1, 2, 3, 4, 5].map((row) => (
+              <div key={row} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 items-center">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 flex-shrink-0 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="hidden sm:block h-4 w-24" />
+                <Skeleton className="hidden lg:block h-4 w-24" />
+                <Skeleton className="hidden lg:block h-5 w-20 rounded-full" />
+                <Skeleton className="hidden lg:block h-8 w-16 justify-self-end" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -434,21 +556,24 @@ const SuperAdminDashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage all user accounts and permissions.</p>
         </div>
-        <div className="relative w-full sm:w-[180px]">
+        <div className="relative w-full sm:w-[220px]">
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)} 
-            className="w-full h-10 px-4 flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold whitespace-nowrap shadow-sm"
+            className="w-full h-11 px-5 flex items-center justify-center gap-2.5 bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold whitespace-nowrap shadow-sm"
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
           >
-            <Settings className="h-4 w-4" />
+            <Settings className="h-[18px] w-[18px]" />
             Settings
           </button>
 
           {isMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-              <div className="absolute right-0 left-0 top-full mt-2 w-full bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
-                <button onClick={() => { setAddDeptOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
-                  <FolderPlus className="h-4 w-4 text-muted-foreground" /> Edit Department
+              <div role="menu" className="absolute right-0 top-full mt-2 w-full min-w-[220px] bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
+                <button onClick={() => { setAddDeptOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-3 px-3.5 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
+                  <FolderPlus className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
+                  <span>Manage Departments</span>
                 </button>
                 <button onClick={() => { setIsAnnouncementsOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
                   <Megaphone className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Announcements
@@ -569,7 +694,16 @@ const SuperAdminDashboard = () => {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-foreground">{u.email}</TableCell>
-                <TableCell>{roleBadge(u.role)}</TableCell>
+                <TableCell>
+                  <div className="flex min-w-[150px] flex-wrap gap-1.5">
+                    {roleBadge(u.role)}
+                    {(u.secondary_roles || []).map(role => (
+                      <Badge key={role} className="border border-primary/20 bg-primary/5 text-[9px] font-bold text-primary">
+                        + {SECONDARY_ROLE_OPTIONS.find(option => option.value === role)?.label || role.replace(/_/g, " ").toUpperCase()}
+                      </Badge>
+                    ))}
+                  </div>
+                </TableCell>
                 <TableCell className="text-sm text-foreground">{u.department}</TableCell>
                 <TableCell className="text-center">
                   <button onClick={() => openManage(u)} className="px-4 py-1.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50 transition-colors">
@@ -681,7 +815,7 @@ const SuperAdminDashboard = () => {
                   <SelectValue placeholder="Add a secondary role..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {SECONDARY_ROLE_OPTIONS.filter(opt => !editSecondaryRoles.includes(opt.value)).map(opt => (
+                  {SECONDARY_ROLE_OPTIONS.filter(opt => opt.value !== editRole && !editSecondaryRoles.includes(opt.value)).map(opt => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -702,22 +836,25 @@ const SuperAdminDashboard = () => {
             <div className="flex gap-3 pt-4">
               <button
                 onClick={handleDeleteUser}
-                className="px-3 py-2.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center"
-                title="Delete User"
+                disabled={isSavingUser || isDeactivatingUser}
+                className="px-3 py-2.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-50"
+                title="Deactivate User"
               >
                 <Trash2 className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setSheetOpen(false)}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50"
+                disabled={isSavingUser || isDeactivatingUser}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+                disabled={isSavingUser || isDeactivatingUser}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Save Changes
+                {isSavingUser ? "Saving..." : isDeactivatingUser ? "Deactivating..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -735,15 +872,15 @@ const SuperAdminDashboard = () => {
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">
-            <div className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
+            <form onSubmit={event => { event.preventDefault(); if (!isSavingDepartment) handleAddDepartmentSubmit(); }} className="p-4 rounded-xl border border-border bg-muted/10 space-y-3">
               <p className="text-xs font-bold text-primary tracking-wider uppercase">Add New Department</p>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Input placeholder="e.g. Research & Development" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="bg-background flex-1" />
+                <Input placeholder="e.g. Research & Development" value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="bg-background flex-1" disabled={isSavingDepartment} />
               </div>
-              <button onClick={handleAddDepartmentSubmit} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
-                <Plus className="h-4 w-4" /> Add Department
+              <button type="submit" disabled={isSavingDepartment || !newDeptName.trim()} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+                <Plus className="h-4 w-4" /> {isSavingDepartment ? "Adding..." : "Add Department"}
               </button>
-            </div>
+            </form>
 
             <div>
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Existing Departments</p>
@@ -751,11 +888,24 @@ const SuperAdminDashboard = () => {
                 {departmentsList.length === 0 ? (
                   <p className="p-3 text-xs text-muted-foreground text-center bg-muted/5">No departments found.</p>
                 ) : departmentsList.map(dept => (
-                  <div key={dept} className="p-3 flex items-center justify-between hover:bg-muted/10 transition-colors group bg-background">
-                    <span className="text-sm font-medium text-foreground truncate pr-4">{dept}</span>
-                    <button onClick={() => handleDeleteDepartment(dept)} className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors opacity-100 sm:opacity-0 group-hover:opacity-100" title="Delete Department">
-                      <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                    </button>
+                  <div key={dept} className="p-3 flex items-center justify-between gap-2 hover:bg-muted/10 transition-colors group bg-background">
+                    {editingDepartment === dept ? (
+                      <form onSubmit={event => { event.preventDefault(); handleRenameDepartment(dept); }} className="flex min-w-0 flex-1 items-center gap-2">
+                        <Input value={editingDepartmentName} onChange={event => setEditingDepartmentName(event.target.value)} className="h-9 min-w-0 flex-1" autoFocus disabled={isSavingDepartment} />
+                        <button type="submit" disabled={isSavingDepartment || !editingDepartmentName.trim()} className="rounded-md p-2 text-primary hover:bg-primary/10 disabled:opacity-50" title="Save department name"><Save className="h-4 w-4" /></button>
+                        <button type="button" disabled={isSavingDepartment} onClick={() => { setEditingDepartment(null); setEditingDepartmentName(""); }} className="rounded-md p-2 text-muted-foreground hover:bg-muted" title="Cancel rename"><X className="h-4 w-4" /></button>
+                      </form>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 truncate pr-2 text-sm font-medium text-foreground">{dept}</span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button onClick={() => { setEditingDepartment(dept); setEditingDepartmentName(dept); }} disabled={isSavingDepartment || deletingDepartment !== null} className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50" title="Rename Department"><Pencil className="h-4 w-4" /></button>
+                          <button onClick={() => handleDeleteDepartment(dept)} disabled={isSavingDepartment || deletingDepartment !== null} className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50" title="Delete Department">
+                            {deletingDepartment === dept ? <span className="block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Trash2 className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

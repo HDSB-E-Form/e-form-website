@@ -40,6 +40,8 @@ export interface CarInfo {
   currentFuelLevel?: string;
   remarksOut?: string;
   photosOut?: Record<string, string | null>;
+  petrolCardOut?: boolean;
+  petrolCardSerialOut?: string | null;
   history?: any[];
   type?: string;
   imageUrl?: string;
@@ -64,16 +66,21 @@ type CarHistoryEntry = {
   remarksIn: string;
   photosOut?: Record<string, string | null>;
   photosIn: Record<string, string | null>;
+  petrolCardOut?: boolean;
+  petrolCardSerialOut?: string | null;
 };
 
 interface SubmissionsContextType {
   submissions: Submission[];
   refNoMap: Map<string, string>;
   cars: CarInfo[];
+  isLoading: boolean;
+  refreshSubmissions: () => Promise<void>;
   addSubmission: (sub: Omit<Submission, "id" | "submittedAt">) => Promise<boolean>;
-  updateSubmissionStatus: (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => Promise<void>;
+  updateSubmissionStatus: (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => Promise<boolean>;
+  updateSubmission: (id: string, dataToMerge?: Record<string, any>, status?: SubmissionStatus) => Promise<boolean>;
   checkInCar: (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => Promise<boolean>;
-  checkOutCar: (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string) => Promise<boolean>;
+  checkOutCar: (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut?: boolean, petrolCardSerialOut?: string) => Promise<boolean>;
   addCar: (car: CarInfo) => Promise<boolean>;
   deleteCar: (carId: string) => void;
   updateCar: (carId: string, updates: Partial<CarInfo>) => Promise<boolean>;
@@ -91,35 +98,36 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [submissionsRes, carsRes, announcementsRes] = await Promise.all([
-          supabase.from("submissions").select("*").order("submittedAt", { ascending: false }),
-          supabase.from("cars").select("*").order("model"),
-          supabase.from("announcements").select("*").order("created_at", { ascending: false }),
-        ]);
+  const refreshSubmissions = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [submissionsRes, carsRes, announcementsRes] = await Promise.all([
+        supabase.from("submissions").select("*").order("submittedAt", { ascending: false }),
+        supabase.from("cars").select("*").order("model"),
+        supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+      ]);
 
-        if (submissionsRes.error) throw submissionsRes.error;
-        if (carsRes.error) throw carsRes.error;
+      if (submissionsRes.error) throw submissionsRes.error;
+      if (carsRes.error) throw carsRes.error;
 
-        setSubmissions(submissionsRes.data as Submission[]);
-        setCars(carsRes.data as CarInfo[]);
-        
-        if (announcementsRes.error) {
-          console.warn("Could not fetch announcements:", announcementsRes.error.message);
-        } else {
-          setAnnouncements(announcementsRes.data as Announcement[]);
-        }
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-      } finally {
-        setIsLoading(false);
+      setSubmissions(submissionsRes.data as Submission[]);
+      setCars(carsRes.data as CarInfo[]);
+      
+      if (announcementsRes.error) {
+        console.warn("Could not fetch announcements:", announcementsRes.error.message);
+      } else {
+        setAnnouncements(announcementsRes.data as Announcement[]);
       }
-    };
-    fetchData();
+    } catch (error) {
+      console.error("Error fetching initial data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshSubmissions();
+  }, [refreshSubmissions]);
 
   const refNoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -188,32 +196,41 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     return false;
   }, [submissions]);
 
-  const updateSubmissionStatus = useCallback(async (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>): Promise<void> => {
+  const updateSubmission = useCallback(async (id: string, dataToMerge?: Record<string, any>, status?: SubmissionStatus): Promise<boolean> => {
     const currentSub = submissions.find(s => s.id === id);
-    let updatedData = currentSub?.data;
+    if (!currentSub) {
+      toast.error("Submission not found.");
+      return false;
+    }
 
+    let updatedData = currentSub.data;
     if (dataToMerge) {
       updatedData = {
-        ...(currentSub?.data || {}),
+        ...(currentSub.data || {}),
         ...dataToMerge,
       };
-      // If merging attachments, ensure we don't duplicate them.
       if (dataToMerge.attachments) updatedData.attachments = dataToMerge.attachments;
     }
-    
-    const updatePayload: any = { status };
-    if (updatedData) {
-      updatePayload.data = updatedData;
-    }
+    updatedData = { ...(updatedData || {}), lastUpdatedAt: new Date().toISOString() };
+
+    const updatePayload: any = {};
+    if (status) updatePayload.status = status;
+    if (updatedData) updatePayload.data = updatedData;
 
     const { error } = await supabase.from('submissions').update(updatePayload).eq('id', id);
     if (error) {
-      console.error("Error updating status:", error);
+      console.error("Error updating submission:", error);
       toast.error("Database error: " + error.message);
-    } else {
-      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status, data: updatedData || s.data } : s));
+      return false;
     }
+
+    setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: status ?? s.status, data: updatedData } : s));
+    return true;
   }, [submissions]);
+
+  const updateSubmissionStatus = useCallback(async (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>): Promise<boolean> => {
+    return await updateSubmission(id, dataToMerge, status);
+  }, [updateSubmission]);
 
 const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => {
     const carToCheckIn = cars.find(c => c.id === carId);
@@ -234,6 +251,8 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
         remarksIn: remarks,
       photosOut: carToCheckIn.photosOut,
       photosIn: photosIn,
+      petrolCardOut: carToCheckIn.petrolCardOut,
+      petrolCardSerialOut: carToCheckIn.petrolCardSerialOut,
     };
 
     const updatedHistory = [newHistoryEntry, ...(carToCheckIn.history || [])];
@@ -246,6 +265,8 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       fuelLevelOut: null,
       remarksOut: null,
       photosOut: null,
+      petrolCardOut: null,
+      petrolCardSerialOut: null,
       history: updatedHistory,
     };
 
@@ -261,8 +282,8 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
     }
   }, [cars]); // Added `cars` here so the function always has the latest list!
 
-  const checkOutCar = useCallback(async (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string) => {
-    const updates = { status: "checked_out" as const, lastCheckedOutBy: employeeName, lastCheckedOutAt: dateTimeOut || new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut };
+  const checkOutCar = useCallback(async (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut = false, petrolCardSerialOut?: string) => {
+    const updates = { status: "checked_out" as const, lastCheckedOutBy: employeeName, lastCheckedOutAt: dateTimeOut || new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut, petrolCardOut, petrolCardSerialOut: petrolCardOut ? petrolCardSerialOut : null };
     const { error } = await supabase.from('cars').update(updates).eq('id', carId);
     if (error) {
       console.error("Error checking out car:", error);
@@ -346,7 +367,7 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
 
   return (
     <SubmissionsContext.Provider value={{ 
-      submissions, refNoMap, cars, addSubmission, updateSubmissionStatus, 
+      submissions, refNoMap, cars, isLoading, refreshSubmissions, addSubmission, updateSubmissionStatus, updateSubmission,
       checkInCar, checkOutCar, addCar, deleteCar, updateCar,
       announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement
     }}>
