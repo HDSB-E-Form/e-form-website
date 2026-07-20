@@ -40,23 +40,27 @@ export function useRealtimeNotifications() {
     // Only run if user is logged in
     if (!user) return;
 
-    const supportedRoles = ["hod", "hos", "hr_admin", "finance_admin", "super_admin", "security_guard", "head_of_purchasing", "head_of_finance"];
-    const isApprover = supportedRoles.includes(user.role) || (user as any)?.secondary_roles?.some((role: string) => supportedRoles.includes(role));
-    if (!isApprover) return;
-
     const handleSubmissionChange = (payload: any) => {
       const newSubmission = payload.new;
       const { formType, employeeName, data, submittedBy } = newSubmission;
 
-      if (submittedBy === user.id) return;
+      // Ignore metadata-only updates so opening/reviewing a request does not
+      // repeatedly alert the same recipient at an unchanged approval stage.
+      if (payload.eventType === "UPDATE" && payload.old?.status === newSubmission.status) return;
 
-      const excludedForms = ['inventory_addition', 'ppe_request', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
+      const isOwnSubmission = submittedBy === user.id;
+      const isHelpDeskConfirmation = formType === 'it_help_desk' && newSubmission.status === 'awaiting_confirmation';
+      const isFinalUserUpdate = ['approved', 'rejected', 'paid', 'completed'].includes(newSubmission.status) || isHelpDeskConfirmation;
+
+      const excludedForms = ['inventory_addition', 'ppe_request', 'ppe_purchase', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
       if (excludedForms.includes(formType)) return;
 
-      const notificationTarget = getNotificationTarget(
-        { id: user.id, role: user.role, secondary_roles: (user as any)?.secondary_roles || [], name: user.name },
-        { formType, status: newSubmission.status, data }
-      );
+      const notificationTarget = isOwnSubmission
+        ? (isFinalUserUpdate ? { path: '/submissions', recipientType: 'submitter' as const } : null)
+        : getNotificationTarget(
+            { id: user.id, role: user.role, secondary_roles: (user as any)?.secondary_roles || [], name: user.name },
+            { formType, status: newSubmission.status, data }
+          );
 
       const shouldNotify = Boolean(notificationTarget);
       const redirectUrl = notificationTarget?.path || "/home";
@@ -64,7 +68,7 @@ export function useRealtimeNotifications() {
       if (!shouldNotify) return;
 
       const newNotif: AppNotification = {
-        id: newSubmission.id || Date.now().toString(),
+        id: newSubmission.id ? `${newSubmission.id}-${newSubmission.status}` : Date.now().toString(),
         formType,
         employeeName,
         createdAt: new Date().toISOString(),
@@ -82,13 +86,21 @@ export function useRealtimeNotifications() {
       const audio = new Audio(notificationSound);
       audio.play().catch(error => console.log("Audio playback blocked by browser:", error));
 
-      const formLabel = formType === "leave" ? "PASS EXIT" : formType.replace("_", " ").toUpperCase();
+      const formLabel = formType === "leave" ? "PASS EXIT" : formType === "it_help_desk" ? "IT HELP DESK" : formType.replace(/_/g, " ").toUpperCase();
       const description = notificationTarget?.recipientType === "security_guard"
         ? `${employeeName}'s gate pass is ready for security action.`
+        : notificationTarget?.recipientType === "it_admin"
+          ? formType === "it_help_desk"
+            ? `${employeeName}'s IT Help Desk ticket requires action.`
+            : `${employeeName}'s CCTV access request is ready for IT review.`
         : notificationTarget?.recipientType === "hr_admin"
           ? `${employeeName}'s form requires HR action.`
-          : notificationTarget?.recipientType === "finance_admin"
-            ? `${employeeName}'s petty cash claim is ready for finance review.`
+        : notificationTarget?.recipientType === "finance_admin"
+          ? `${employeeName}'s petty cash claim is ready for finance review.`
+          : notificationTarget?.recipientType === "submitter"
+            ? isHelpDeskConfirmation
+              ? "IT has provided a resolution. Please confirm whether the issue is resolved."
+              : `Your request status is now ${newSubmission.status.replace(/_/g, ' ')}.`
             : `${employeeName} has just submitted a new form.`;
 
       toast(`New ${formLabel} Request`, {
@@ -132,7 +144,7 @@ export function useRealtimeNotifications() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, user?.role, user?.name]);
+  }, [user?.id, user?.role, user?.name, user?.secondary_roles]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications(prev => {

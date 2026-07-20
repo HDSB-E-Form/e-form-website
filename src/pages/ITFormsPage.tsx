@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Cctv } from "lucide-react";
+import { ArrowLeft, Cctv, Headphones } from "lucide-react";
 
 const ITFormsPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <button onClick={() => navigate("/home")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <button type="button" onClick={() => navigate("/home")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Home
       </button>
 
@@ -22,6 +22,17 @@ const ITFormsPage = () => {
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">CCTV Access Request</h2>
           <p className="text-muted-foreground text-sm">Request access to review CCTV footage</p>
+          <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
+            Open Form →
+          </div>
+        </div>
+
+        <div onClick={() => navigate("/it/help-desk")} className="dept-card group">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-5">
+            <Headphones className="h-7 w-7 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-2">IT Help Desk</h2>
+          <p className="text-muted-foreground text-sm">Submit an IT issue or service request</p>
           <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
             Open Form →
           </div>

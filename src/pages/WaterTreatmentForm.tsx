@@ -143,6 +143,7 @@ const DailyOperationMonitoringForm = () => {
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Back Button */}
       <button
+        type="button"
         onClick={() => navigate("/safety")} 
         className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group"
       >

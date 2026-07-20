@@ -16,42 +16,68 @@ const formTypeLabels: Record<string, string> = {
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
+  it_help_desk: "IT Help Desk",
 };
+
+const statusBadgeBase = "border-0 whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-wider px-2 sm:px-3 py-0.5 sm:py-1";
+const makeStatusBadge = (label: string, colors: string) => (
+  <Badge className={`${colors} ${statusBadgeBase}`}>{label}</Badge>
+);
 
 const statusBadge = (status: string, formType?: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+      return makeStatusBadge("APPROVED", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400");
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REJECTED</Badge>;
+      return makeStatusBadge("REJECTED", "bg-destructive/15 text-destructive dark:text-red-400");
     case "paid":
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PAID</Badge>;
+      return makeStatusBadge("PAID", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
     case "completed":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">COMPLETED</Badge>;
+      return makeStatusBadge("COMPLETED", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400");
+    case "awaiting_confirmation":
+      return makeStatusBadge("AWAITING EMPLOYEE CONFIRMATION", "bg-sky-500/15 text-sky-700 dark:text-sky-400");
+    case "reopened":
+      return makeStatusBadge("REOPENED", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
     case "pending_finance_review":
-      return <Badge className="bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">FINANCE REVIEW</Badge>;
+      return makeStatusBadge("PENDING FINANCE REVIEW", "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400");
     case "approved_hof":
-      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOF APPROVED</Badge>;
+      return makeStatusBadge("PENDING PAYMENT", "bg-green-500/15 text-green-700 dark:text-green-400");
     case "approved_hop":
-      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOP APPROVED</Badge>;
+      return makeStatusBadge("PENDING HOF", "bg-teal-500/15 text-teal-700 dark:text-teal-400");
     case "approved_hod":
       if (formType === 'claim') {
-        return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING HOP</Badge>;
+        return makeStatusBadge("PENDING HOP", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
       }
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOD APPROVED</Badge>;
+      if (formType === 'cctv_access_request') {
+        return makeStatusBadge("PENDING IT ADMIN", "bg-violet-500/15 text-violet-700 dark:text-violet-400");
+      }
+      if (formType === 'car_rental') {
+        return makeStatusBadge("PENDING HR ADMIN", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
+      }
+      if (formType === 'leave') {
+        return makeStatusBadge("PENDING SECURITY", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
+      }
+      return makeStatusBadge("HOD APPROVED", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
     case "approved_hos":
-      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental') {
-        return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING HOD</Badge>;
+      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request') {
+        return makeStatusBadge("PENDING HOD", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
       }
-      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">HOS APPROVED</Badge>;
+      return makeStatusBadge("HOS APPROVED", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
     case "pending":
     default:
-      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental') {
-        return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING HOS</Badge>;
+      if (formType === 'it_help_desk') {
+        return makeStatusBadge("ACTION REQUIRED", "bg-violet-500/15 text-violet-700 dark:text-violet-400");
       }
-      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING</Badge>;
+      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request') {
+        return makeStatusBadge("PENDING HOS", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
+      }
+      return makeStatusBadge("PENDING", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
   }
 };
+
+const naStatus = () => (
+  makeStatusBadge("N/A", "bg-muted text-muted-foreground")
+);
 
 const AllSubmissionsPage = () => {
   const { submissions: allSubmissions, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
@@ -147,9 +173,15 @@ const AllSubmissionsPage = () => {
 
   if (selectedSubmission) {
     const rejectedStage = selectedSubmission.data.rejectedStage || (selectedSubmission.status === "rejected" ? "hos" : null);
+    const rejectedFromStatus = selectedSubmission.data.rejectedFromStatus;
+    const financeRejectionReached = (statuses: string[]) => rejectedStage === "finance_review" &&
+      (rejectedFromStatus ? statuses.includes(rejectedFromStatus) : true);
 
-    const isApprovedHOS = ["approved_hos", "approved_hod", "approved"].includes(selectedSubmission.status) || rejectedStage === "hod" || rejectedStage === "admin";
-    const isApprovedHOD = ["approved_hod", "approved"].includes(selectedSubmission.status) || rejectedStage === "admin";
+    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]);
+    const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]);
+    const isApprovedHOP = selectedSubmission.data.hopName === 'N/A' || ["pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["pending_finance_review", "approved_hop", "approved_hof"]);
+    const isApprovedFinanceReview = ["approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["approved_hop", "approved_hof"]);
+    const isApprovedHOF = selectedSubmission.data.hofName === 'N/A' || ["approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || rejectedStage === "admin";
     const isRejected = selectedSubmission.status === "rejected";
 
     return (
@@ -208,6 +240,9 @@ const AllSubmissionsPage = () => {
           </div>
 
           <div className="mb-8">
+            {['cctv_access_request', 'it_help_desk', 'car_rental', 'claim', 'leave'].includes(selectedSubmission.formType) && (
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Employee Information</p>
+            )}
             <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
               <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
               <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
@@ -215,7 +250,84 @@ const AllSubmissionsPage = () => {
               </div>
             </div>
             
-            {selectedSubmission.formType === 'car_rental' ? (
+            {selectedSubmission.formType === 'cctv_access_request' ? (
+              <>
+                {[
+                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || 'â€”'],
+                  ['Department', selectedSubmission.department || 'â€”'],
+                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || 'â€”'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
+                  </div>
+                ))}
+
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Request Details</p>
+                {[
+                  ['Type of Request', renderValue(selectedSubmission.data.requestTypes)],
+                  ['Camera Location', selectedSubmission.data.cameraLocation || 'â€”'],
+                  ['Purpose of Access', selectedSubmission.data.purpose || 'â€”'],
+                  ['From Date & Time', selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
+                  ['To Date & Time', selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
+                  ['Head of Section', selectedSubmission.data.hosName || selectedSubmission.data.hos || 'â€”'],
+                  ['Head of Department', selectedSubmission.data.hodName || selectedSubmission.data.hod || 'â€”'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
+                  </div>
+                ))}
+              </>
+            ) : selectedSubmission.formType === 'it_help_desk' ? (
+              <>
+                {[
+                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || '—'],
+                  ['Department', selectedSubmission.department || '—'],
+                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || '—'],
+                  ['Contact Email', selectedSubmission.data.contactEmail || '—'],
+                  ['Superior Email', selectedSubmission.data.superiorEmail || '—'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
+                  </div>
+                ))}
+
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Ticket Details</p>
+                {[
+                  ['Urgency', selectedSubmission.data.urgency || '—'],
+                  ['Report For', selectedSubmission.data.reportFor || '—'],
+                  ['Type of Issue / Request', selectedSubmission.data.issueType || '—'],
+                  ['Issue Explained / Request', selectedSubmission.data.issueExplanation || '—'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left whitespace-pre-wrap break-words sm:col-span-2 print:col-span-2">{value}</div>
+                  </div>
+                ))}
+
+                {(selectedSubmission.data.resolutionSummary || selectedSubmission.data.reopenReason) && (
+                  <>
+                    <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Resolution Record</p>
+                    {[
+                      ['Resolution Summary', selectedSubmission.data.resolutionSummary || '—'],
+                      ['Resolved By', selectedSubmission.data.resolvedBy || '—'],
+                      ['Resolved At', selectedSubmission.data.resolvedAt ? new Date(selectedSubmission.data.resolvedAt).toLocaleString('en-GB') : '—'],
+                      ['Reopen Reason', selectedSubmission.data.reopenReason],
+                      ['Employee Confirmation', selectedSubmission.data.resolutionAcknowledgement],
+                      ['Confirmed By', selectedSubmission.data.employeeConfirmedBy],
+                      ['Confirmed At', selectedSubmission.data.employeeConfirmedAt ? new Date(selectedSubmission.data.employeeConfirmedAt).toLocaleString('en-GB') : undefined],
+                    ].filter(([, value]) => Boolean(value)).map(([label, value]) => (
+                      <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
+                        <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                        <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left whitespace-pre-wrap break-words sm:col-span-2 print:col-span-2">{value}</div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            ) : selectedSubmission.formType === 'car_rental' ? (
               <>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
@@ -241,6 +353,7 @@ const AllSubmissionsPage = () => {
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.drivingLicenseNo || "—"}</div>
                 </div>
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Booking Details</p>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Destination</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.destination || "—"}</div>
@@ -259,6 +372,7 @@ const AllSubmissionsPage = () => {
                     {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                   </div>
                 </div>
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hos || selectedSubmission.data.hosName || "—"}</div>
@@ -291,6 +405,7 @@ const AllSubmissionsPage = () => {
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.position || "—"}</div>
                 </div>
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Pass Details</p>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
@@ -317,6 +432,7 @@ const AllSubmissionsPage = () => {
                     </div>
                   </div>
                 )}
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}</div>
@@ -340,8 +456,9 @@ const AllSubmissionsPage = () => {
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department Code</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
                 </div>
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Claim Details</p>
                 <div className="py-2 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Claim Details</span>
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Expense Items</span>
                   <div className="w-full text-xs sm:text-sm font-medium text-foreground print:text-black">
                     {renderValue(selectedSubmission.data.claimRows)}
                   </div>
@@ -350,6 +467,7 @@ const AllSubmissionsPage = () => {
                     <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount?.toFixed(2) || "0.00"}</p>
                   </div>
                 </div>
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
@@ -434,13 +552,45 @@ const AllSubmissionsPage = () => {
 
           </div>
 
-          {selectedSubmission.data.remarks && (
+          {selectedSubmission.data.remarks && selectedSubmission.formType !== 'it_help_desk' && (
             <div className={`p-3 sm:p-4 rounded-xl border mb-8 print:border-gray-300 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
               <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Remarks / Ulasan</p>
               <p className="text-xs sm:text-sm font-medium print:text-black">"{selectedSubmission.data.remarks}"</p>
             </div>
           )}
 
+          {selectedSubmission.formType === 'it_help_desk' ? (
+            <div className="grid grid-cols-1 gap-2 rounded-lg bg-muted/30 p-3 sm:grid-cols-3 sm:p-4 print:hidden">
+              {[
+                { name: "Submitted to IT", done: true, label: "RECEIVED" },
+                { name: "IT Resolution", done: ["awaiting_confirmation", "completed"].includes(selectedSubmission.status), label: selectedSubmission.status === "reopened" ? "REOPENED" : "RESOLVED" },
+                { name: "Employee Confirmation", done: selectedSubmission.status === "completed", label: "CONFIRMED" },
+              ].map(stage => (
+                <div key={stage.name} className="flex min-h-20 flex-col items-center justify-between rounded-lg border border-border/70 bg-background/60 p-3 text-center">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{stage.name}</p>
+                  <Badge className={`border-0 text-[10px] font-bold ${stage.done ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>{stage.done ? stage.label : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "REOPENED" : "PENDING"}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : selectedSubmission.formType === 'claim' ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
+              {[
+                { name: "HOS", isApproved: isApprovedHOS, isRejected: isRejected && rejectedStage === "hos" },
+                { name: "HOD", isApproved: isApprovedHOD, isRejected: isRejected && rejectedStage === "hod" },
+                { name: "HOP", isApproved: isApprovedHOP, isRejected: isRejected && rejectedStage === "hop" },
+                { name: "Finance Review", isApproved: isApprovedFinanceReview, isRejected: isRejected && rejectedStage === "finance_review" },
+                { name: "HOF", isApproved: isApprovedHOF, isRejected: isRejected && rejectedStage === "hof" },
+                { name: "Payment", isApproved: ["paid", "completed"].includes(selectedSubmission.status), isRejected: isRejected && rejectedStage === "admin" },
+              ].map(stage => (
+                <div key={stage.name} className="flex min-h-20 flex-col items-center justify-between rounded-lg border border-border/70 bg-background/60 p-2 text-center">
+                  <p className="mb-2 text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider font-bold leading-tight">{stage.name}</p>
+                  <div className="flex w-full justify-center">
+                    {stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="grid grid-cols-3 gap-1 sm:gap-4 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
             <div className="text-center border-r border-border last:border-0 flex flex-col items-center justify-between">
               <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Section Head</p>
@@ -461,7 +611,9 @@ const AllSubmissionsPage = () => {
               </div>
             </div>
             <div className="text-center flex flex-col items-center justify-between">
-              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">Admin</p>
+              <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">
+                {selectedSubmission.formType === 'car_rental' ? 'HR Admin' : selectedSubmission.formType === 'cctv_access_request' ? 'IT Admin' : selectedSubmission.formType === 'leave' ? 'Security' : 'Admin'}
+              </p>
               <div className="print:hidden w-full flex justify-center">
                 {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? <Badge className="bg-muted text-muted-foreground border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">N/A</Badge> : statusBadge("pending")}
               </div>
@@ -470,6 +622,7 @@ const AllSubmissionsPage = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Print Footer */}
           <div className="hidden print:block mt-12 text-center text-xs text-gray-400">
@@ -543,7 +696,7 @@ const AllSubmissionsPage = () => {
         <div className="p-5 flex items-center justify-between border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-foreground">Submissions</h2>
-            <div className="flex w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-black/25 bg-white/70 p-1.5 mt-3 shadow-sm backdrop-blur-xl dark:border-white/25 dark:bg-white/10">
+            <div className="flex w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-border bg-muted/50 p-1.5 mt-3">
               {(['all', 'car_rental', 'claim', 'leave'] as const).map(tab => (
                 <button
                   key={tab}
@@ -551,7 +704,7 @@ const AllSubmissionsPage = () => {
                   className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${
                     activeTab === tab
                       ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30"
-                      : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"
+                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
                   }`}
                 >
                   {tab === 'all' ? 'All Forms' : formTypeLabels[tab] || tab}

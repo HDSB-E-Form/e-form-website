@@ -14,6 +14,8 @@ export type SubmissionStatus =
   | "rejected"
   | "paid"
   | "completed"
+  | "awaiting_confirmation"
+  | "reopened"
   | "pending_finance_review";
 export type FormType = "car_rental" | "leave" | "claim" | "ppe_request" | "inventory_addition" | "waste_inventory" | "mixing_chemical_stages" | "final_discharge" | string;
 
@@ -129,6 +131,46 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     refreshSubmissions();
   }, [refreshSubmissions]);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-submissions-context")
+      .on("postgres_changes", { event: "*", schema: "public", table: "submissions" }, payload => {
+        if (payload.eventType === "INSERT") {
+          const submission = payload.new as Submission;
+          setSubmissions(prev => [submission, ...prev.filter(item => item.id !== submission.id)]);
+        } else if (payload.eventType === "UPDATE") {
+          const submission = payload.new as Submission;
+          setSubmissions(prev => prev.map(item => item.id === submission.id ? submission : item));
+        } else if (payload.eventType === "DELETE") {
+          const deleted = payload.old as Pick<Submission, "id">;
+          setSubmissions(prev => prev.filter(item => item.id !== deleted.id));
+        }
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-announcements")
+      .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, payload => {
+        if (payload.eventType === "INSERT") {
+          const announcement = payload.new as Announcement;
+          setAnnouncements(prev => [announcement, ...prev.filter(item => item.id !== announcement.id)]);
+        } else if (payload.eventType === "UPDATE") {
+          const announcement = payload.new as Announcement;
+          setAnnouncements(prev => prev.map(item => item.id === announcement.id ? announcement : item));
+        } else if (payload.eventType === "DELETE") {
+          const deleted = payload.old as Pick<Announcement, "id">;
+          setAnnouncements(prev => prev.filter(item => item.id !== deleted.id));
+        }
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
+
   const refNoMap = useMemo(() => {
     const map = new Map<string, string>();
     submissions.forEach(s => {
@@ -238,6 +280,10 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       toast.error("Cannot check-in: Car not found.");
       return false;
     }
+    if (carToCheckIn.status !== "checked_out") {
+      toast.error("This vehicle is no longer checked out. Refresh and try again.");
+      return false;
+    }
 
     const newHistoryEntry: CarHistoryEntry = {
       employeeName: carToCheckIn.lastCheckedOutBy,
@@ -267,30 +313,46 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       photosOut: null,
       petrolCardOut: null,
       petrolCardSerialOut: null,
+      currentFuelLevel: fuelLevelIn,
       history: updatedHistory,
     };
 
-    const { error } = await supabase.from('cars').update(updates).eq('id', carId);
+    let { data, error } = await supabase.from('cars').update(updates).eq('id', carId).eq('status', 'checked_out').select().maybeSingle();
+
+    // Backward-compatible fallback for projects where the latest migration has
+    // not been applied yet. The return fuel level remains preserved in history.
+    if (error?.message?.includes("currentFuelLevel")) {
+      const { currentFuelLevel: _currentFuelLevel, ...legacyUpdates } = updates;
+      const retry = await supabase.from('cars').update(legacyUpdates).eq('id', carId).eq('status', 'checked_out').select().maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error("Error checking in car:", error);
       toast.error("Database error while checking in: " + error.message);
       return false;
+    } else if (!data) {
+      toast.error("Check-in was not completed because the vehicle state changed. Refresh and try again.");
+      return false;
     } else {
-      setCars(prev => prev.map(c => c.id === carId ? { ...c, ...updates, currentFuelLevel: fuelLevelIn } : c));
+      setCars(prev => prev.map(c => c.id === carId ? { ...c, ...(data as CarInfo), currentFuelLevel: fuelLevelIn } : c));
       return true;
     }
   }, [cars]); // Added `cars` here so the function always has the latest list!
 
   const checkOutCar = useCallback(async (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut = false, petrolCardSerialOut?: string) => {
     const updates = { status: "checked_out" as const, lastCheckedOutBy: employeeName, lastCheckedOutAt: dateTimeOut || new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut, petrolCardOut, petrolCardSerialOut: petrolCardOut ? petrolCardSerialOut : null };
-    const { error } = await supabase.from('cars').update(updates).eq('id', carId);
+    const { data, error } = await supabase.from('cars').update(updates).eq('id', carId).eq('status', 'available').select().maybeSingle();
     if (error) {
       console.error("Error checking out car:", error);
       toast.error("Database error while checking out: " + error.message);
       return false;
+    } else if (!data) {
+      toast.error("Checkout was not completed because this vehicle is no longer available. Refresh and try again.");
+      return false;
     } else {
-      setCars(prev => prev.map(c => c.id === carId ? { ...c, ...updates } : c));
+      setCars(prev => prev.map(c => c.id === carId ? { ...c, ...(data as CarInfo) } : c));
       return true;
     }
   }, []);
@@ -330,37 +392,42 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
   }, []);
 
   const addAnnouncement = useCallback(async (content: string, isActive: boolean) => {
-    const { data, error } = await supabase.from('announcements').insert([{ content, is_active: isActive }]).select();
+    const { data, error } = await supabase.from('announcements').insert([{ content: content.trim(), is_active: isActive }]).select().single();
     if (error) {
       console.error("Error adding announcement:", error);
       toast.error("Database error: " + error.message);
       return false;
     }
     if (data) {
-      setAnnouncements(prev => [data[0] as Announcement, ...prev]);
+      const announcement = data as Announcement;
+      setAnnouncements(prev => [announcement, ...prev.filter(item => item.id !== announcement.id).map(item => isActive ? { ...item, is_active: false } : item)]);
       return true;
     }
     return false;
   }, []);
 
   const updateAnnouncement = useCallback(async (id: string, updates: Partial<Omit<Announcement, 'id' | 'created_at'>>) => {
-    const { error } = await supabase.from('announcements').update(updates).eq('id', id as any);
+    const cleanedUpdates = { ...updates, ...(typeof updates.content === "string" ? { content: updates.content.trim() } : {}) };
+    const { data, error } = await supabase.from('announcements').update(cleanedUpdates).eq('id', id as any).select().single();
     if (error) {
       console.error("Error updating announcement:", error);
       toast.error("Database error: " + error.message);
       return false;
     }
-    setAnnouncements(prev => prev.map(ann => (ann.id === id ? { ...ann, ...updates } : ann)));
+    if (!data) return false;
+    const updated = data as Announcement;
+    setAnnouncements(prev => prev.map(ann => ann.id === id ? updated : (updated.is_active ? { ...ann, is_active: false } : ann)));
     return true;
   }, []);
 
   const deleteAnnouncement = useCallback(async (id: string) => {
-    const { error } = await supabase.from('announcements').delete().eq('id', id as any);
+    const { data, error } = await supabase.from('announcements').delete().eq('id', id as any).select('id').single();
     if (error) {
       console.error("Error deleting announcement:", error);
       toast.error("Database error: " + error.message);
       return false;
     }
+    if (!data) return false;
     setAnnouncements(prev => prev.filter(ann => ann.id !== id));
     return true;
   }, []);

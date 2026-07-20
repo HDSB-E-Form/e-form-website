@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import logo from "@/assets/logo.png";
 import bgImage from "@/assets/digital.jpg";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
+import ITHelpDeskWidget from "@/components/ITHelpDeskWidget";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -282,19 +283,23 @@ const LoginPage = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow"
-                  />
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <Input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-10 pl-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
+                    <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -302,7 +307,7 @@ const LoginPage = () => {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="h-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow"
+                      className="h-10 pl-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow"
                     />
                     <button
                       type="button"
@@ -314,29 +319,28 @@ const LoginPage = () => {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Checkbox 
-                    id="remember" 
-                    checked={rememberMe} 
-                    onCheckedChange={(checked) => setRememberMe(checked === true)} 
-                    className="h-4 w-4 rounded-sm data-[state=checked]:rounded-sm"
-                  />
-                  <Label htmlFor="remember" className="text-sm font-normal cursor-pointer text-muted-foreground">
-                    Remember me on this device
-                  </Label>
+                <div className="flex min-h-10 items-center justify-between gap-3 mt-1">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <Checkbox 
+                      id="remember" 
+                      checked={rememberMe} 
+                      onCheckedChange={(checked) => setRememberMe(checked === true)} 
+                      className="h-5 w-5 rounded-[3px] border-2 border-muted-foreground/60 data-[state=checked]:rounded-[3px] data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                    />
+                    <Label htmlFor="remember" className="cursor-pointer select-none py-2 text-sm font-normal text-muted-foreground">
+                      Remember me
+                    </Label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setIsResetMode(true); setResetEmail(email); setError(""); }}
+                    disabled={isResetting}
+                    className="shrink-0 text-sm font-semibold text-blue-500 hover:underline disabled:opacity-60"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
                 {error && <p className="text-destructive text-sm">{error}</p>}
-                
-                  <div className="text-center mt-1">
-                    <button
-                      type="button"
-                      onClick={() => { setIsResetMode(true); setResetEmail(email); setError(""); }}
-                      disabled={isResetting}
-                      className="text-sm text-blue-500 font-semibold hover:underline"
-                    >
-                      Forgot your password? Click here to reset
-                    </button>
-                  </div>
                 
                 <button 
                   type="submit" 
@@ -355,12 +359,12 @@ const LoginPage = () => {
             </>
           )}
           <div className="mt-6 text-xs text-muted-foreground text-center">
-            <p className="font-medium text-foreground/80 mb-1">Management System v2.4</p>
             <p>© 2026 HICOM Diecastings Sdn Bhd. All rights reserved.</p>
             
           </div>
         </div>
       </div>
+      <ITHelpDeskWidget />
     </div>
   );
 };

@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Check, Trash2, HandCoins, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import notificationSound from "@/assets/notification.mp3";
 import { getNotificationTarget } from "@/lib/notifications";
+import { supabase } from "@/supabase";
 
 interface AppNotification {
   id: string;
@@ -25,17 +25,74 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [isStateReady, setIsStateReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load read/hidden memory from local storage
-  useEffect(() => {
-    if (user) {
-      const storedRead = localStorage.getItem(`hdsb_read_notifs_${user.id}`);
-      const storedHidden = localStorage.getItem(`hdsb_hidden_notifs_${user.id}`);
-      if (storedRead) setReadIds(JSON.parse(storedRead));
-      if (storedHidden) setHiddenIds(JSON.parse(storedHidden));
+  const loadNotificationStates = useCallback(async () => {
+    if (!user?.id) return;
+
+    // One-time migration of the previous browser-only state into Supabase.
+    const readStorageKey = `hdsb_read_notifs_${user.id}`;
+    const hiddenStorageKey = `hdsb_hidden_notifs_${user.id}`;
+    try {
+      const legacyRead = JSON.parse(localStorage.getItem(readStorageKey) || "[]") as string[];
+      const legacyHidden = JSON.parse(localStorage.getItem(hiddenStorageKey) || "[]") as string[];
+      const legacyIds = Array.from(new Set([...legacyRead, ...legacyHidden]));
+      if (legacyIds.length > 0) {
+        const now = new Date().toISOString();
+        const { error: migrationError } = await supabase.from("notification_user_states").upsert(
+          legacyIds.map(notificationId => ({
+            user_id: user.id,
+            notification_id: notificationId,
+            read_at: now,
+            ...(legacyHidden.includes(notificationId) ? { hidden_at: now } : {}),
+            updated_at: now,
+          })),
+          { onConflict: "user_id,notification_id", ignoreDuplicates: true },
+        );
+        if (!migrationError) {
+          localStorage.removeItem(readStorageKey);
+          localStorage.removeItem(hiddenStorageKey);
+        }
+      }
+    } catch (error) {
+      console.warn("Could not migrate legacy notification state:", error);
     }
-  }, [user]);
+
+    const { data, error } = await supabase
+      .from("notification_user_states")
+      .select("notification_id, read_at, hidden_at")
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Could not load notification states:", error);
+    } else {
+      setReadIds((data || []).filter(item => item.read_at).map(item => item.notification_id));
+      setHiddenIds((data || []).filter(item => item.hidden_at).map(item => item.notification_id));
+    }
+    setIsStateReady(true);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setReadIds([]);
+      setHiddenIds([]);
+      setIsStateReady(false);
+      return;
+    }
+
+    void loadNotificationStates();
+    const channel = supabase
+      .channel(`notification-states-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notification_user_states", filter: `user_id=eq.${user.id}` },
+        () => { void loadNotificationStates(); },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [user?.id, loadNotificationStates]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -60,7 +117,7 @@ export function NotificationBell() {
 
     recentSubmissions.forEach(s => {
       // Exclude inventory and safety log actions from notifications entirely
-      const excludedForms = ['inventory_addition', 'ppe_request', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
+      const excludedForms = ['inventory_addition', 'ppe_request', 'ppe_purchase', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
       if (excludedForms.includes(s.formType)) return;
 
       let isRelevant = false;
@@ -83,7 +140,7 @@ export function NotificationBell() {
             id: `${s.id}-${s.status}`, 
             formType: s.formType, 
             employeeName: "You", 
-            createdAt: (s as any).updatedAt || s.submittedAt, 
+            createdAt: s.data?.lastUpdatedAt || s.submittedAt,
             read: readIds.includes(`${s.id}-${s.status}`), 
             url: "/submissions", type: 'self', status: s.status 
           });
@@ -91,39 +148,35 @@ export function NotificationBell() {
       }
 
       // Add action notification
-      if (isRelevant) {
-        notifs.push({ id: `${s.id}-${s.status}`, formType: s.formType, employeeName: s.employeeName, createdAt: s.submittedAt, read: readIds.includes(`${s.id}-${s.status}`), url: path, type: 'action' });
+      if (isRelevant && s.submittedBy !== user.id) {
+        notifs.push({ id: `${s.id}-${s.status}`, formType: s.formType, employeeName: s.employeeName, createdAt: s.data?.lastUpdatedAt || s.submittedAt, read: readIds.includes(`${s.id}-${s.status}`), url: path, type: 'action' });
       }
     });
     
     return notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [submissions, user, readIds, hiddenIds]);
+  }, [submissions, user, readIds]);
 
   // Filter out the ones the user manually cleared
   const notifications = allNotifications.filter(n => !hiddenIds.includes(n.id));
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const prevUnreadCountRef = useRef(unreadCount);
+  const unreadCount = isStateReady ? notifications.filter(n => !n.read).length : 0;
 
-  // Play sound when new unread notifications arrive
-  useEffect(() => {
-    // Only play sound if the count of unread notifications has increased
-    if (unreadCount > prevUnreadCountRef.current) {
-      const audio = new Audio(notificationSound);
-      audio.play().catch(error => {
-        // Autoplay is often blocked by browsers until the user interacts with the page.
-        // This is expected and we don't need to log it as an error.
-        console.log("Notification sound playback blocked by browser:", error.message);
-      });
-    }
-    prevUnreadCountRef.current = unreadCount;
-  }, [unreadCount]);
+  const saveNotificationStates = async (ids: string[], hidden = false) => {
+    if (!user?.id || ids.length === 0) return;
+    const now = new Date().toISOString();
+    const rows = ids.map(notificationId => ({
+      user_id: user.id,
+      notification_id: notificationId,
+      read_at: now,
+      ...(hidden ? { hidden_at: now } : {}),
+      updated_at: now,
+    }));
+    const { error } = await supabase.from("notification_user_states").upsert(rows, { onConflict: "user_id,notification_id" });
+    if (error) console.error("Could not save notification state:", error);
+  };
 
   const handleNotificationClick = (notif: AppNotification) => {
-    if (!hiddenIds.includes(notif.id)) {
-      const newHiddenIds = [...hiddenIds, notif.id];
-      setHiddenIds(newHiddenIds);
-      if (user) localStorage.setItem(`hdsb_hidden_notifs_${user.id}`, JSON.stringify(newHiddenIds));
-    }
+    setReadIds(current => current.includes(notif.id) ? current : [...current, notif.id]);
+    void saveNotificationStates([notif.id]);
     setIsOpen(false);
     navigate(notif.url);
   };
@@ -132,14 +185,15 @@ export function NotificationBell() {
     const allIds = notifications.map(n => n.id);
     const newReadIds = Array.from(new Set([...readIds, ...allIds]));
     setReadIds(newReadIds);
-    if (user) localStorage.setItem(`hdsb_read_notifs_${user.id}`, JSON.stringify(newReadIds));
+    void saveNotificationStates(allIds);
   };
 
   const clearNotifications = () => {
     const allIds = notifications.map(n => n.id);
     const newHiddenIds = Array.from(new Set([...hiddenIds, ...allIds]));
     setHiddenIds(newHiddenIds);
-    if (user) localStorage.setItem(`hdsb_hidden_notifs_${user.id}`, JSON.stringify(newHiddenIds));
+    setReadIds(current => Array.from(new Set([...current, ...allIds])));
+    void saveNotificationStates(allIds, true);
   };
 
   const formatTime = (isoString: string) => {
@@ -198,7 +252,7 @@ export function NotificationBell() {
                         className={`w-full text-left px-4 py-3 transition-all duration-200 hover:bg-muted/50 ${!notif.read ? 'bg-primary/5' : 'bg-transparent opacity-80 hover:opacity-100'}`}
                       >
                         <div className="flex justify-between items-start mb-1">
-                          <span className={`text-sm font-medium capitalize ${!notif.read ? 'text-foreground' : 'text-muted-foreground'}`}>New {label} Request</span>
+                          <span className={`text-sm font-medium capitalize ${!notif.read ? 'text-foreground' : 'text-muted-foreground'}`}>{notif.type === 'self' ? `${label} Update` : `New ${label} Request`}</span>
                           <span className="text-xs text-muted-foreground/70 whitespace-nowrap ml-2">{formatTime(notif.createdAt)}</span>
                         </div>
                         <p className={`text-sm ${!notif.read ? 'text-foreground/90' : 'text-muted-foreground'}`}>

@@ -110,7 +110,7 @@ const CCTVAccessRequestForm = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-500">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-500">
       <button type="button" onClick={() => navigate("/it")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to IT Forms
       </button>
@@ -138,7 +138,7 @@ const CCTVAccessRequestForm = () => {
         <section className="card-elevated p-5 sm:p-6">
           <div className="flex items-center gap-3 mb-5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span><MapPin className="h-5 w-5 text-primary" /><h2 className="font-bold text-foreground">Camera and Incident Details</h2></div>
           <div className="space-y-5">
-            <div className="space-y-1.5"><Label htmlFor="camera-location">Camera Location <span className="text-destructive">*</span></Label><Input id="camera-location" value={cameraLocation} onChange={e => setCameraLocation(e.target.value)} placeholder="e.g. Main entrance, Block A lobby, Camera 03" className="h-11" /></div>
+            <div className="space-y-1.5"><Label htmlFor="camera-location">Camera Location <span className="text-destructive">*</span></Label><Input id="camera-location" value={cameraLocation} onChange={e => setCameraLocation(e.target.value)} placeholder="e.g. Plant 1, Camera 03" className="h-11" /></div>
             <div>
               <div className="flex items-center gap-2 mb-2"><CalendarClock className="h-4 w-4 text-primary" /><Label>Incident Date and Time <span className="text-destructive">*</span></Label></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

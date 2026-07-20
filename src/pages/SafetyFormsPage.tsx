@@ -4,6 +4,8 @@ import { ArrowLeft, Scale, Droplet, Layers, XCircle } from "lucide-react";
 import safetyPoster from "@/assets/safety_poster.png";
 import { supabase } from "@/supabase";
 
+const SAFETY_POSTER_SEEN_KEY = "hdsb_safety_poster_seen";
+
 const SafetyFormsPage = () => {
   const navigate = useNavigate();
   const [posterConfig, setPosterConfig] = useState<{ enabled: boolean; url: string | null }>({ enabled: true, url: null });
@@ -14,9 +16,19 @@ const SafetyFormsPage = () => {
       .then(({ data }) => {
         const config = (data?.value || { enabled: true, url: null }) as { enabled: boolean; url: string | null };
         setPosterConfig(config);
-        setShowPoster(config.enabled);
+        const hasSeenPoster = sessionStorage.getItem(SAFETY_POSTER_SEEN_KEY) === "true";
+
+        if (config.enabled && !hasSeenPoster) {
+          setShowPoster(true);
+          sessionStorage.setItem(SAFETY_POSTER_SEEN_KEY, "true");
+        }
       });
   }, []);
+
+  const returnToHome = () => {
+    sessionStorage.removeItem(SAFETY_POSTER_SEEN_KEY);
+    navigate("/home");
+  };
 
   return (
     <>
@@ -36,8 +48,8 @@ const SafetyFormsPage = () => {
         </div>
       )}
 
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <button onClick={() => navigate("/home")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <button type="button" onClick={returnToHome} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Home
       </button>
 

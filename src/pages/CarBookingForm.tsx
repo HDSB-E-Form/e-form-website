@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Users, UserCheck, MapPin, ShieldCheck, FileText, Send, PlusCircle, CalendarClock, CalendarDays, XCircle, ChevronLeft, ChevronRight, Upload, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, UserCheck, MapPin, ShieldCheck, FileText, Send, PlusCircle, CalendarClock, CalendarDays, XCircle, Upload, Trash2, CarFront } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
@@ -25,11 +25,6 @@ const CarBookingForm = () => {
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [timelineStart, setTimelineStart] = useState(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
 
   const [form, setForm] = useState({
     journeyType: "business",
@@ -152,30 +147,18 @@ const CarBookingForm = () => {
     .filter(b => b.toDate >= new Date(Date.now() - 24 * 60 * 60 * 1000)) // Keep active and future bookings (hide old past ones)
     .sort((a, b) => a.fromDate.getTime() - b.fromDate.getTime());
 
-  // Setup 7-day timeline logic
-  const shiftTimeline = (days: number) => {
-    setTimelineStart(prev => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() + days);
-      return d;
-    });
-  };
+  const vehicleAvailability = cars.map(car => ({
+    ...car,
+    booking: activeBookings.find(b => b.car === `${car.model} (${car.plateNumber})`) || null,
+  }));
 
-  const timelineDays = Array.from({ length: 4 }, (_, i) => {
-    const d = new Date(timelineStart);
-    d.setDate(d.getDate() + i);
-    return d;
+  const formatBookingDateTime = (date: Date) => date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
-
-  // Combine physical cars into rows for the calendar
-  // const unassignedBookings = activeBookings.filter(b => !b.car);
-
-  const timelineRows = [
-    ...cars.map(car => {
-      const currentBooking = activeBookings.find(b => b.car === `${car.model} (${car.plateNumber})`);
-      return { type: 'car', id: car.id, title: car.model, subtitle: car.plateNumber, isAvailable: car.status === 'available', booking: currentBooking || null };
-    }),
-  ];
 
   const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -309,159 +292,95 @@ const CarBookingForm = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
-      {/* Availability Modal - Calendar Timeline */}
+      {/* Current vehicle availability modal */}
       {isAvailabilityModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsAvailabilityModalOpen(false)}>
-          <div className="card-elevated p-0 w-full max-w-screen-xl relative animate-in fade-in-90 slide-in-from-bottom-10 max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby="vehicle-availability-title" className="card-elevated p-0 w-full max-w-4xl relative animate-in fade-in-90 slide-in-from-bottom-10 max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 md:p-6 border-b border-border shrink-0 bg-muted/10">
+            <div className="flex items-center justify-between gap-4 p-5 md:p-6 border-b border-border shrink-0 bg-muted/10">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <CalendarDays className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-foreground">Vehicle Availability Calendar</h3>
-                  <p className="text-sm text-muted-foreground">View all vehicles and timeline of upcoming bookings</p>
+                  <h3 id="vehicle-availability-title" className="font-bold text-lg text-foreground">Current Vehicle Availability</h3>
+                  <p className="text-sm text-muted-foreground">See which company vehicles are currently available or in use</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => shiftTimeline(-4)} className="p-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors text-foreground">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="text-sm font-bold w-32 text-center text-foreground">
-                  {timelineDays[0].toLocaleDateString("en-GB", {day:'numeric', month:'short'})} - {timelineDays[3].toLocaleDateString("en-GB", {day:'numeric', month:'short'})}
-                </span>
-                <button onClick={() => shiftTimeline(4)} className="p-2 border border-border bg-background rounded-lg hover:bg-muted transition-colors text-foreground">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <button onClick={() => setIsAvailabilityModalOpen(false)} className="ml-2 sm:ml-4 text-muted-foreground hover:text-destructive p-2 border border-transparent hover:border-destructive/30 hover:bg-destructive/10 rounded-xl transition-colors">
-                  <XCircle className="h-5 w-5" />
-                </button>
-              </div>
+              <button type="button" aria-label="Close vehicle availability" onClick={() => setIsAvailabilityModalOpen(false)} className="text-muted-foreground hover:text-destructive p-2 border border-transparent hover:border-destructive/30 hover:bg-destructive/10 rounded-xl transition-colors shrink-0">
+                <XCircle className="h-5 w-5" />
+              </button>
             </div>
 
-            {/* Timeline Grid */}
-            <div className="overflow-x-auto overflow-y-auto flex-1 bg-background relative">
-              <div className="min-w-[700px]">
-                {/* Days Header */}
-                <div className="flex border-b border-border bg-muted/40 sticky top-0 z-20 shadow-sm">
-                  <div className="w-[180px] shrink-0 p-3 text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center border-r border-border">
-                    Vehicle / Status
-                  </div>
-                  <div className="flex-1 flex">
-                  {timelineDays.map((day, i) => (
-                    <div key={i} className={`flex-1 flex flex-col border-r border-border last:border-r-0 ${day.toDateString() === new Date().toDateString() ? 'bg-primary/5' : ''}`}>
-                      <div className="text-center p-2 border-b border-border">
-                        <div className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider">{day.toLocaleDateString("en-GB", { weekday: 'short' })}</div>
-                        <div className={`text-sm font-bold mt-0.5 ${day.toDateString() === new Date().toDateString() ? 'text-primary' : 'text-foreground'}`}>
-                          {day.getDate()} {day.toLocaleDateString("en-GB", { month: 'short' })}
-                        </div>
-                      </div>
-                      <div className="flex text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                        <div className="flex-1 text-center py-1 border-r border-border/50">AM</div>
-                        <div className="flex-1 text-center py-1">PM</div>
-                      </div>
-                      <div className="flex text-[9px] text-muted-foreground/90 -mt-0.5">
-                        <div className="flex-1 grid grid-cols-6 text-center border-r border-border/50">
-                          <span>12A</span>
-                          <span>2A</span>
-                          <span>4A</span>
-                          <span>6A</span>
-                          <span>8A</span>
-                          <span>10A</span>
-                        </div>
-                        <div className="flex-1 grid grid-cols-6 text-center">
-                          <span>12P</span>
-                          <span>2P</span>
-                          <span>4P</span>
-                          <span>6P</span>
-                          <span>8P</span>
-                          <span>10P</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  </div>
-                </div>
+            <div className="overflow-y-auto flex-1 bg-background p-4 md:p-6">
+              {vehicleAvailability.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-10">No company vehicles found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {vehicleAvailability.map(vehicle => {
+                    const isAvailable = vehicle.status === "available";
+                    const isMaintenance = vehicle.status === "maintenance";
+                    const statusLabel = isAvailable ? "Available" : isMaintenance ? "Maintenance" : "In Use";
+                    const statusStyle = isAvailable
+                      ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
+                      : isMaintenance
+                        ? "bg-slate-500/10 text-slate-700 border-slate-500/20"
+                        : "bg-amber-500/10 text-amber-700 border-amber-500/20";
 
-                {/* Rows */}
-                <div className="flex flex-col pb-4">
-                  {timelineRows.length === 0 ? (
-                     <p className="text-center text-sm text-muted-foreground py-8">No vehicles or bookings found.</p>
-                  ) : (
-                    timelineRows.map((row, idx) => (
-                      <div key={idx} className="flex border-b border-border last:border-0 hover:bg-muted/10 transition-colors group relative">
-                        <div className="w-[180px] shrink-0 p-2.5 border-r border-border bg-background group-hover:bg-muted/5 transition-colors flex flex-col justify-center z-10 relative">
-                          <div className="flex items-center justify-between gap-2">
-                             <span className="font-bold text-sm text-foreground truncate" title={row.title}>{row.title}</span>
-                           {row.type === 'car' ? (
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 shadow-sm ${row.isAvailable ? 'bg-emerald-500' : 'bg-amber-500'}`} title={row.isAvailable ? 'Available' : 'In Use'} />
-                           ) : (
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm bg-blue-500" title="Pending Car Assignment" />
-                             )}
+                    return (
+                      <div key={vehicle.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                          <div className="flex h-20 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/30 sm:h-20 sm:w-28">
+                            {vehicle.imageUrl ? (
+                              <img src={vehicle.imageUrl} alt={`${vehicle.model} ${vehicle.plateNumber}`} className="h-full w-full object-cover" />
+                            ) : (
+                              <CarFront className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground truncate mt-0.5" title={row.subtitle}>{row.subtitle}</div>
-                        </div>
 
-                        <div className="flex-1 flex relative">
-                          {timelineDays.map((day, i) => (
-                             <div key={i} className="flex-1 border-r border-border last:border-r-0 py-1 min-h-[46px] relative pointer-events-none">
-                               {/* 12 PM (Noon) indicator line */}
-                               <div className="absolute top-0 bottom-0 left-1/2 border-l border-primary/20 border-dashed"></div>
-                             </div>
-                          ))}
-                          
-                          {row.booking && (() => {
-                             const timelineStartMs = timelineDays[0].getTime();
-                             const totalMs = 4 * 24 * 60 * 60 * 1000;
-                             const timelineEndMs = timelineStartMs + totalMs;
-                             const bStart = row.booking.fromDate.getTime();
-                             const bEnd = row.booking.toDate.getTime();
+                          <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-bold text-foreground">{vehicle.model}</h4>
+                                <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${statusStyle}`}>{statusLabel}</span>
+                              </div>
+                              <p className="mt-1 text-sm font-medium text-muted-foreground">{vehicle.plateNumber}</p>
+                            </div>
 
-                             if (bEnd < timelineStartMs || bStart > timelineEndMs) return null;
-
-                             const visibleStart = Math.max(bStart, timelineStartMs);
-                             const visibleEnd = Math.min(bEnd, timelineEndMs);
-                             
-                             const startPercent = ((visibleStart - timelineStartMs) / totalMs) * 100;
-                             const widthPercent = Math.max(((visibleEnd - visibleStart) / totalMs) * 100, 0.5);
-
-                             const isStartVisible = bStart >= timelineStartMs;
-                             const isEndVisible = bEnd <= timelineEndMs;
-
-                             return (
-                               <div 
-                                 className={`absolute top-1 bottom-1 flex flex-col justify-center px-2 overflow-hidden shadow-sm z-10
-                                   ${row.type === 'car' ? 'bg-amber-500/10 border-amber-500/30 text-amber-700' : 'bg-primary/10 border-primary/30 text-primary'}
-                                   border-y
-                                   ${isStartVisible ? 'rounded-l-lg border-l-2' : 'border-l-0'}
-                                   ${isEndVisible ? 'rounded-r-lg border-r-2' : 'border-r-0'}
-                                 `}
-                                 style={{ left: `${startPercent}%`, width: `${widthPercent}%` }}
-                                 title={`${row.booking.name} | ${row.booking.fromDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})} - ${row.booking.toDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}`}
-                               >
-                                 <div className="text-[11px] font-bold truncate">
-                                   {row.booking.fromDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})} - {row.booking.toDate.toLocaleTimeString("en-GB", {hour: '2-digit', minute:'2-digit'})}
-                                 </div>
-                                 <div className="text-[10px] font-medium truncate opacity-90 mt-0.5">
-                                   {row.booking.name}
-                                 </div>
-                               </div>
-                             );
-                          })()}
+                            {vehicle.booking ? (
+                              <div className="grid min-w-0 flex-1 gap-3 text-sm sm:max-w-xl sm:grid-cols-3">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Booked by</p>
+                                  <p className="mt-1 font-semibold text-foreground">{vehicle.booking.name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From</p>
+                                  <p className="mt-1 font-semibold text-foreground">{formatBookingDateTime(vehicle.booking.fromDate)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Until</p>
+                                  <p className="mt-1 font-semibold text-foreground">{formatBookingDateTime(vehicle.booking.toDate)}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground sm:self-center">
+                                {isAvailable ? "No active booking" : isMaintenance ? "Vehicle is unavailable for booking" : "Booking details unavailable"}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    ))
-                  )}
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
+      <button type="button" onClick={() => navigate(isEditMode ? "/submissions" : "/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {isEditMode ? "Back to My Submissions" : "Back to HR Forms"}
       </button>
 
       <div className="mb-5">

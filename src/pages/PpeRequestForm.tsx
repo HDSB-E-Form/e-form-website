@@ -4,9 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText, Printer, CheckCircle } from "lucide-react";
+import { ArrowLeft, UserCheck, Package, Send, ShoppingCart, Upload, FileText, Printer, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import logo from "@/assets/logo.png";
@@ -17,6 +18,21 @@ const getStoredPrices = () => {
   } catch {
     return {};
   }
+};
+
+const getItemUnitPrice = (item: any): number | null => {
+  const storedPrices = getStoredPrices();
+  const priceForSize = (size: any) => {
+    const storedPrice = storedPrices[`${item.name}::${size.size}`];
+    return storedPrice !== undefined ? Number(storedPrice) : Number(size.price || 0);
+  };
+
+  const selectedSize = item.sizes.find((size: any) => size.size === item.size);
+  if (selectedSize) return priceForSize(selectedSize);
+  if (item.sizes.length === 0) return null;
+
+  const prices = item.sizes.map(priceForSize);
+  return prices.every((price: number) => price === prices[0]) ? prices[0] : null;
 };
 const SHOE_SIZES_UK = [
   { size: "Size 3", price: 62.00 }, { size: "Size 4", price: 62.00 }, { size: "Size 5", price: 62.00 },
@@ -138,23 +154,21 @@ const PpeRequestForm = () => {
   const [remarks, setRemarks] = useState("");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+  const [invoicePath, setInvoicePath] = useState<string | null>(null);
+  const [itemSearch, setItemSearch] = useState("");
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const currentItems = requestCategory === "ppe" ? ppeItems : requestCategory === "uniform" ? uniformItems : officeItems;
+  const visibleItems = useMemo(() => currentItems
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.name.toLowerCase().includes(itemSearch.trim().toLowerCase())), [currentItems, itemSearch]);
   
   const totalCost = useMemo(() => {
     if (requestType !== 'buy') return 0;
     return currentItems.reduce((acc, item) => {
       if (!item.selected) return acc;
-      const sizeInfo = item.sizes.find((s: any) => s.size === item.size);
-      
-      // --- DYNAMIC PRICING ---
-      // 1. Check for admin-set price first.
-      const storedPrices = getStoredPrices();
-      const priceKey = `${item.name}::${item.size}`;
-      // 2. Fallback to hardcoded price if not set.
-      const price = storedPrices[priceKey] !== undefined ? storedPrices[priceKey] : (sizeInfo?.price || 0);
+      const price = getItemUnitPrice(item) || 0;
       const quantity = parseInt(item.quantity) || 0;
       return acc + (price * quantity);
     }, 0);
@@ -178,6 +192,16 @@ const PpeRequestForm = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      e.target.value = "";
+      return toast.error("Upload a PDF, JPG, or PNG invoice only.");
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      e.target.value = "";
+      return toast.error("The invoice file must be 10 MB or smaller.");
+    }
+
     setIsUploadingInvoice(true);
     const fileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const filePath = `ppe-purchase/${user?.id || "unknown"}/${Date.now()}_${fileName}`;
@@ -198,6 +222,8 @@ const PpeRequestForm = () => {
 
     setInvoiceFile(file);
     setInvoiceUrl(urlData.publicUrl);
+    if (invoicePath) await supabase.storage.from("form-attachments").remove([invoicePath]);
+    setInvoicePath(data.path);
     setIsUploadingInvoice(false);
     toast.success("Invoice uploaded successfully.");
   };
@@ -214,6 +240,16 @@ const PpeRequestForm = () => {
 
     if (selectedItems.some(item => !item.quantity || parseInt(item.quantity) < 1)) {
       toast.error("Please provide a valid quantity for all selected items.");
+      return;
+    }
+
+    if (selectedItems.some(item => item.sizes.length > 1 && !item.size)) {
+      toast.error("Please choose a size or option for every selected item.");
+      return;
+    }
+
+    if (selectedItems.some(item => !/^\d+$/.test(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > 999)) {
+      toast.error("Quantity must be a whole number between 1 and 999.");
       return;
     }
 
@@ -241,6 +277,7 @@ const PpeRequestForm = () => {
         totalCost: requestType === 'buy' ? totalCost : undefined,
         remarks,
         ...(requestType === "buy" && { invoiceUrl }),
+        ...(requestType === "buy" && { invoicePath }),
       },
     });
 
@@ -267,17 +304,25 @@ const PpeRequestForm = () => {
       //   console.error("Ignoring failed email notification:", err);
       // }
     } else {
+      if (invoicePath) {
+        await supabase.storage.from("form-attachments").remove([invoicePath]);
+        setInvoicePath(null);
+        setInvoiceUrl(null);
+        setInvoiceFile(null);
+      }
       setIsSubmitting(false);
     }
   };
 
-  const resetForm = () => {
+  const resetForm = async () => {
+    if (invoicePath) await supabase.storage.from("form-attachments").remove([invoicePath]);
     setInvoiceFile(null);
     setInvoiceUrl(null);
+    setInvoicePath(null);
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
+    <div className="px-4 py-6 sm:p-6 lg:p-8 max-w-7xl mx-auto print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
       {/* Print Header */}
       <div className="hidden print:flex items-center mb-8 border-b-2 border-black pb-6">
         <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
@@ -293,7 +338,7 @@ const PpeRequestForm = () => {
         </div>
       </div>
 
-      <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
+      <button type="button" onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
 
@@ -336,21 +381,23 @@ const PpeRequestForm = () => {
 
         {/* Request Category */}
         <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none">
-          <div className="flex items-center justify-between gap-4 mb-5 print:hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-5 print:hidden">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
               <h2 className="font-bold text-foreground text-sm">
                 Request Details / <span className="font-normal">Butiran Permohonan</span>
               </h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full sm:w-auto gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setRequestType("issue");
                   setRequestCategory("ppe");
+                  setItemSearch("");
+                  if (invoicePath) void resetForm();
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
                   requestType === "issue"
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -363,8 +410,9 @@ const PpeRequestForm = () => {
                 onClick={() => {
                   setRequestType("buy");
                   setRequestCategory("ppe");
+                  setItemSearch("");
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                className={`flex-1 sm:flex-none px-4 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                   requestType === "buy"
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -400,7 +448,10 @@ const PpeRequestForm = () => {
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-border hover:border-muted-foreground/30 text-muted-foreground"
                     }`}
-                    onClick={() => setRequestCategory(cat.id as any)}
+                    onClick={() => { setRequestCategory(cat.id as any); setItemSearch(""); }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setRequestCategory(cat.id as any); setItemSearch(""); } }}
                   >
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${requestCategory === cat.id ? "border-primary" : "border-muted-foreground"}`}>
                       {requestCategory === cat.id && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -419,7 +470,12 @@ const PpeRequestForm = () => {
               </div>
             </div>
 
-            <div className="border border-border rounded-lg overflow-x-auto print:border-2 print:border-black">
+            <div className="relative print:hidden">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={itemSearch} onChange={event => setItemSearch(event.target.value)} placeholder={`Search ${requestCategory === "office" ? "office supplies" : requestCategory}...`} className="h-11 pl-9" />
+            </div>
+
+            <div className="hidden sm:block border border-border rounded-lg overflow-x-auto print:block print:border-2 print:border-black">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border print:bg-gray-100">
@@ -433,15 +489,10 @@ const PpeRequestForm = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {currentItems.map((item, i) => (
+                  {visibleItems.map(({ item, index: i }) => (
                     <tr key={i} className={`transition-colors ${item.selected ? 'bg-primary/5' : 'hover:bg-muted/5'} ${!item.selected ? 'print:hidden' : ''} print:bg-transparent`}>
                       <td className="px-4 py-1 text-center print:hidden">
-                        <div 
-                          onClick={() => toggleItemSelection(i)}
-                          className={`w-5 h-5 mx-auto rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${item.selected ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30 hover:border-muted-foreground'}`}
-                        >
-                          {item.selected && <CheckCircle className="h-5 w-5 text-white" />}
-                        </div>
+                        <Checkbox checked={item.selected} onCheckedChange={() => toggleItemSelection(i)} aria-label={`Select ${item.name}`} className="h-5 w-5 rounded-sm border-2" />
                       </td>
                       <td className="px-4 py-1 text-sm font-semibold text-foreground print:py-1 print:text-xs">
                         {item.name}
@@ -471,10 +522,8 @@ const PpeRequestForm = () => {
                       {requestType === 'buy' && (
                         <td className="px-4 py-1 text-sm font-bold text-foreground print:py-1 print:text-xs text-right">
                         {(() => {
-                          const storedPrices = getStoredPrices();
-                          const priceKey = `${item.name}::${item.size}`;
-                          const price = storedPrices[priceKey] !== undefined ? storedPrices[priceKey] : (item.sizes.find((s: any) => s.size === item.size)?.price || 0);
-                          return price.toFixed(2);
+                          const price = getItemUnitPrice(item);
+                          return price === null ? "Select size" : price.toFixed(2);
                         })()}
                         </td>
                       )}
@@ -493,6 +542,41 @@ const PpeRequestForm = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="space-y-3 sm:hidden print:hidden">
+              {visibleItems.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No matching items found.</p>
+              ) : visibleItems.map(({ item, index: i }) => (
+                <div key={item.name} className={`rounded-xl border p-4 transition-colors ${item.selected ? "border-primary bg-primary/5" : "border-border bg-background"}`}>
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <Checkbox checked={item.selected} onCheckedChange={() => toggleItemSelection(i)} aria-label={`Select ${item.name}`} className="mt-0.5 h-5 w-5 rounded-sm border-2" />
+                    <span className="min-w-0 flex-1 text-sm font-bold text-foreground">{item.name}</span>
+                  </label>
+                  {item.selected && (
+                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border/60 pt-4">
+                      <div className="min-w-0 space-y-1.5">
+                        <Label className="text-[11px] font-semibold text-muted-foreground">Size / Option</Label>
+                        <Select value={item.size} onValueChange={value => handleItemChange(i, "size", value)}>
+                          <SelectTrigger className="h-11 min-w-0"><SelectValue placeholder="Choose" /></SelectTrigger>
+                          <SelectContent className="max-h-64">{item.sizes.map((size: any) => <SelectItem key={size.size} value={size.size}>{size.size}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        <Label className="text-[11px] font-semibold text-muted-foreground">Quantity</Label>
+                        <Input type="number" inputMode="numeric" min="1" max="999" step="1" value={item.quantity} onChange={event => handleItemChange(i, "quantity", event.target.value)} onWheel={event => (event.target as HTMLElement).blur()} className="h-11 no-spinner" />
+                      </div>
+                      {requestType === "buy" && (
+                        <p className="col-span-2 text-right text-sm font-bold text-primary">
+                          {getItemUnitPrice(item) === null
+                            ? "Select a size to view the price"
+                            : `RM ${((getItemUnitPrice(item) || 0) * (Number(item.quantity) || 0)).toFixed(2)}`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="space-y-1.5 pt-4 print:pt-6">
@@ -519,9 +603,7 @@ const PpeRequestForm = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          setInvoiceFile(null);
-                          setInvoiceUrl(null);
-                          resetForm();
+                          void resetForm();
                         }}
                         className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                       >
@@ -538,7 +620,7 @@ const PpeRequestForm = () => {
                       <input
                         id="invoice-upload"
                         type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        accept=".pdf,.jpg,.jpeg,.png"
                         className="hidden"
                         onChange={handleInvoiceChange}
                         disabled={isUploadingInvoice}

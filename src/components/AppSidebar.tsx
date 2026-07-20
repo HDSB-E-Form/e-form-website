@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Package, ShoppingCart, Droplet, Layers, Recycle, Database, Hash } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, Hash } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -39,6 +39,7 @@ const financeAdminNav = [
 
 const itAdminNav = [
   { title: "CCTV Requests", url: "/admin/it", icon: ShieldCheck },
+  { title: "IT Help Desk", url: "/admin/it/help-desk", icon: Headphones },
 ];
 
 const safetyAdminNav = [
@@ -110,7 +111,7 @@ export function AppSidebar() {
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
-    if (!user) return { hr: 0, finance: 0, it: 0, approver: 0, security: 0 };
+    if (!user) return { hr: 0, finance: 0, it: 0, helpDesk: 0, approver: 0, security: 0 };
 
     const hrCount = submissions.filter(s => 
       s.status === 'approved_hod' && s.formType === 'car_rental'
@@ -122,6 +123,10 @@ export function AppSidebar() {
 
     const itCount = submissions.filter(s =>
       s.formType === "cctv_access_request" && s.status === "approved_hod"
+    ).length;
+
+    const helpDeskCount = submissions.filter(s =>
+      s.formType === "it_help_desk" && ["pending", "reopened"].includes(s.status)
     ).length;
 
     const securityCount = submissions.filter(s => 
@@ -142,6 +147,7 @@ export function AppSidebar() {
       hr: hrCount,
       finance: financeCount,
       it: itCount,
+      helpDesk: helpDeskCount,
       approver: approverCount,
       security: securityCount,
     };
@@ -195,6 +201,7 @@ export function AppSidebar() {
     if (item.url === "/admin/hr") return pendingCounts.hr;
     if (item.url === "/admin/finance") return pendingCounts.finance;
     if (item.url === "/admin/it") return pendingCounts.it;
+    if (item.url === "/admin/it/help-desk") return pendingCounts.helpDesk;
     if (item.url === "/admin/security") return pendingCounts.security;
     if (item.url === "/admin/approvals") return pendingCounts.approver;
     return 0;
@@ -218,11 +225,11 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title} className="h-10">
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-sm flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
+                  <SidebarMenuButton asChild tooltip={item.title} className="h-9">
+                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-[15px] flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
                       <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
                         {!collapsed && (
                           <div className="flex items-center gap-2">
@@ -241,11 +248,11 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Admin</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-0.5">
                 {adminNav.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title} className="h-10">
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-sm flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
+                    <SidebarMenuButton asChild tooltip={item.title} className="h-9">
+                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-[15px] flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
                         <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
                         {collapsed && getPendingCount(item) > 0 && (
                           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-label={`${getPendingCount(item)} pending items`} />
@@ -267,10 +274,10 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-white/20 p-3">
-        <SidebarMenu>
+        <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign out" className="h-10">
-              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className="hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground text-sm">
+            <SidebarMenuButton asChild tooltip="Sign out" className="h-9">
+              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className="hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground text-[15px]">
                 <LogOut className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
                 {!collapsed && <span>Sign out</span>}
               </button>

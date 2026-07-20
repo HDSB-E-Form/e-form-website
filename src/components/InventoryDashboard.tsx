@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import HRModuleSkeleton from "@/components/HRModuleSkeleton";
 
 const SAFETY_STOCK_LEVELS: Record<string, number> = {
   "default": 5, "Crane Vest": 5, "Earplug": 20, "Forklift Vest": 5, "Safety Goggles": 20, "Safety Helmet": 20, "Safety Insert": 15,
@@ -38,7 +39,9 @@ const ALL_ITEMS = [...ppeList, ...uniformList, ...officeList];
 
 const InventoryDashboard = () => {
   const { user } = useAuth();
-  const { submissions, addSubmission } = useSubmissions();
+  const { submissions, addSubmission, refreshSubmissions, isLoading } = useSubmissions();
+
+  useEffect(() => { void refreshSubmissions(); }, [refreshSubmissions]);
   
   const inventoryStock = useMemo(() => {
     const stock: Record<string, number> = {};
@@ -180,6 +183,8 @@ const InventoryDashboard = () => {
       return `${item.Quantity}x ${name} (${size})`;
     }).join(", ");
   };
+
+  if (isLoading) return <HRModuleSkeleton cards={4} />;
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">

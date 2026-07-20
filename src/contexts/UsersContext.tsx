@@ -18,6 +18,7 @@ export interface AppUser {
 
 interface UsersContextType {
   users: AppUser[];
+  refreshUsers: () => Promise<void>;
   updateUser: (id: string, updates: Partial<AppUser>) => Promise<boolean>;
   deleteUser: (id: string) => Promise<boolean>;
   getUsersByRole: (role: string) => AppUser[];
@@ -30,8 +31,7 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
+  const refreshUsers = useCallback(async () => {
       setIsLoading(true);
       try {
         const { data, error } = await supabase.from("users").select("*").eq("status", "active");
@@ -57,10 +57,11 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
       } finally {
         setIsLoading(false);
       }
-    };
-
-    fetchUsers();
   }, []);
+
+  useEffect(() => {
+    void refreshUsers();
+  }, [refreshUsers]);
 
   const updateUser = useCallback(async (id: string, updates: Partial<AppUser>) => {
     // Prepare the data for Supabase, mapping properties like staffId -> employeeId
@@ -117,10 +118,11 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getUsersByRole = useCallback((role: string) => {
-    return users.filter(u => u.role?.toLowerCase() === role.toLowerCase());
+    const normalizedRole = role.toLowerCase();
+    return users.filter(u => u.role?.toLowerCase() === normalizedRole || u.secondary_roles?.some(item => item.toLowerCase() === normalizedRole));
   }, [users]);
 
-  const value = useMemo(() => ({ users, updateUser, deleteUser, getUsersByRole, isLoading }), [users, updateUser, deleteUser, getUsersByRole, isLoading]);
+  const value = useMemo(() => ({ users, refreshUsers, updateUser, deleteUser, getUsersByRole, isLoading }), [users, refreshUsers, updateUser, deleteUser, getUsersByRole, isLoading]);
 
   return (
     <UsersContext.Provider value={value}>

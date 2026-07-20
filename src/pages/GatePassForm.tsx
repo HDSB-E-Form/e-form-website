@@ -133,7 +133,7 @@ const GatePassForm = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
-      <button onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
+      <button type="button" onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
       </button>
 
@@ -213,7 +213,12 @@ const GatePassForm = () => {
                   : "border-border hover:border-muted-foreground/30"
               }`}
               onClick={() => setPurposeType("company")}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPurposeType("company"); } }}
+              onKeyDown={e => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  setPurposeType("company");
+                }
+              }}
             >
               <div className="flex items-center gap-2 mb-4">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -258,7 +263,12 @@ const GatePassForm = () => {
                   : "border-border hover:border-muted-foreground/30"
               }`}
               onClick={() => setPurposeType("personal")}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPurposeType("personal"); } }}
+              onKeyDown={e => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  setPurposeType("personal");
+                }
+              }}
             >
               <div className="flex items-center gap-2 mb-4">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${

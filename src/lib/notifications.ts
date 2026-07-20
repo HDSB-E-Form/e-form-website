@@ -1,6 +1,6 @@
 export interface NotificationRecipient {
   path: string;
-  recipientType: 'hos' | 'hod' | 'hr_admin' | 'finance_admin' | 'security_guard' | 'head_of_purchasing' | 'head_of_finance';
+  recipientType: 'hos' | 'hod' | 'hr_admin' | 'finance_admin' | 'it_admin' | 'security_guard' | 'head_of_purchasing' | 'head_of_finance';
 }
 
 interface NotificationContext {
@@ -27,6 +27,7 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
   const isHOD = role === 'hod' || secondaryRoles.includes('hod');
   const isHRAdmin = role === 'hr_admin' || secondaryRoles.includes('hr_admin');
   const isFinanceAdmin = role === 'finance_admin' || secondaryRoles.includes('finance_admin');
+  const isITAdmin = role === 'it_admin' || secondaryRoles.includes('it_admin');
   const isSecurityGuard = role === 'security_guard' || secondaryRoles.includes('security_guard');
   const isHOP = role === 'head_of_purchasing' || secondaryRoles.includes('head_of_purchasing');
   const isHOF = role === 'head_of_finance' || secondaryRoles.includes('head_of_finance');
@@ -45,6 +46,14 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
 
   if (isFinanceAdmin && submission.formType === 'claim' && ['pending_finance_review', 'approved_hof'].includes(submission.status)) {
     return { path: '/admin/finance', recipientType: 'finance_admin' };
+  }
+
+  if (isITAdmin && submission.formType === 'cctv_access_request' && submission.status === 'approved_hod') {
+    return { path: '/admin/it', recipientType: 'it_admin' };
+  }
+
+  if (isITAdmin && submission.formType === 'it_help_desk' && ['pending', 'reopened'].includes(submission.status)) {
+    return { path: '/admin/it/help-desk', recipientType: 'it_admin' };
   }
 
   if (isSecurityGuard && submission.formType === 'leave' && submission.status === 'approved_hod') {

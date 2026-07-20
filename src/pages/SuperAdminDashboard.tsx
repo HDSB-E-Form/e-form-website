@@ -156,6 +156,7 @@ const SuperAdminDashboard = () => {
   const [isAnnouncementsOpen, setIsAnnouncementsOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementAction, setAnnouncementAction] = useState<string | null>(null);
 
   const [addDeptOpen, setAddDeptOpen] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
@@ -428,12 +429,14 @@ const SuperAdminDashboard = () => {
   };
 
   const handleAnnouncementSubmit = async () => {
+    if (announcementAction) return;
     if (!announcementContent.trim()) {
       toast.error("Announcement content cannot be empty.");
       return;
     }
   
     try {
+      setAnnouncementAction(editingAnnouncement ? `edit:${editingAnnouncement.id}` : "publish");
       if (editingAnnouncement) {
         const success = await updateAnnouncement(editingAnnouncement.id, {
           content: announcementContent,
@@ -454,35 +457,42 @@ const SuperAdminDashboard = () => {
     } catch (error) {
       console.error("Error handling announcement:", error);
       toast.error("Failed to save announcement.");
+    } finally {
+      setAnnouncementAction(null);
     }
   };
 
   const handleToggleAnnouncementActive = async (announcement: Announcement) => {
+    if (announcementAction) return;
     try {
-      // If we are activating a new announcement, deactivate all others first.
-      if (!announcement.is_active && announcements) {
-        await Promise.all(
-          announcements
-            .filter(ann => ann.is_active)
-            .map(ann => updateAnnouncement(ann.id, { content: ann.content, is_active: false }))
-        );
-      }
-      // Then, toggle the state of the selected announcement.
-      await updateAnnouncement(announcement.id, { content: announcement.content, is_active: !announcement.is_active });
+      setAnnouncementAction(`toggle:${announcement.id}`);
+      const success = await updateAnnouncement(announcement.id, { is_active: !announcement.is_active });
+      if (success) toast.success(announcement.is_active ? "Announcement deactivated." : "Announcement activated.");
     } catch (error) {
       console.error("Error toggling announcement:", error);
       toast.error("Failed to update announcement status.");
+    } finally {
+      setAnnouncementAction(null);
     }
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this notification?")) return;
+    if (announcementAction || !window.confirm("Are you sure you want to permanently delete this announcement?")) return;
     try {
+      setAnnouncementAction(`delete:${id}`);
       const success = await deleteAnnouncement(id);
-      if (success) toast.success("Announcement removed.");
+      if (success) {
+        if (editingAnnouncement?.id === id) {
+          setEditingAnnouncement(null);
+          setAnnouncementContent("");
+        }
+        toast.success("Announcement removed.");
+      }
     } catch (error) {
       console.error("Error deleting announcement:", error);
       toast.error("Failed to delete announcement.");
+    } finally {
+      setAnnouncementAction(null);
     }
   };
 
@@ -938,13 +948,13 @@ const SuperAdminDashboard = () => {
               </div>
               <div className="flex gap-2">
                 {editingAnnouncement && (
-                  <button onClick={() => { setEditingAnnouncement(null); setAnnouncementContent(""); }} className="w-1/3 py-2.5 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/70">
+                  <button onClick={() => { setEditingAnnouncement(null); setAnnouncementContent(""); }} disabled={!!announcementAction} className="w-1/3 py-2.5 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/70 disabled:opacity-60 disabled:cursor-not-allowed">
                     Cancel
                   </button>
                 )}
-                <button onClick={handleAnnouncementSubmit} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                <button onClick={handleAnnouncementSubmit} disabled={!!announcementAction} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
                   {editingAnnouncement ? <Save className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />}
-                  {editingAnnouncement ? "Save Changes" : "Publish"}
+                  {announcementAction === "publish" || announcementAction?.startsWith("edit:") ? "Saving..." : editingAnnouncement ? "Save Changes" : "Publish"}
                 </button>
               </div>
             </div>
@@ -955,16 +965,22 @@ const SuperAdminDashboard = () => {
                 {!announcements || announcements.length === 0 ? (
                   <p className="p-3 text-xs text-muted-foreground text-center bg-muted/5">No announcements found.</p>
                 ) : (announcements || []).map(ann => (
-                  <div key={ann.id} className={`p-3 flex items-center justify-between hover:bg-muted/10 transition-colors group ${ann.is_active ? 'bg-primary/5' : 'bg-background'}`}>
-                    <p className={`text-sm font-medium pr-4 ${ann.is_active ? 'text-foreground' : 'text-muted-foreground italic'}`}>{ann.content}</p>
+                  <div key={ann.id} className={`p-3 flex items-start justify-between gap-3 hover:bg-muted/10 transition-colors group ${ann.is_active ? 'bg-primary/5' : 'bg-background'}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                        <Badge className={ann.is_active ? "border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "border-0 bg-muted text-muted-foreground"}>{ann.is_active ? "Active" : "Inactive"}</Badge>
+                        <span className="text-[11px] text-muted-foreground">{new Date(ann.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
+                      </div>
+                      <p className={`text-sm font-medium break-words ${ann.is_active ? 'text-foreground' : 'text-muted-foreground'}`}>{ann.content}</p>
+                    </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleToggleAnnouncementActive(ann)} className={`p-2 sm:p-1.5 rounded-md transition-colors ${ann.is_active ? 'text-emerald-500 hover:bg-emerald-500/10' : 'text-muted-foreground hover:bg-muted'}`} title={ann.is_active ? "Deactivate" : "Activate"}>
+                      <button onClick={() => handleToggleAnnouncementActive(ann)} disabled={!!announcementAction} aria-label={ann.is_active ? "Deactivate announcement" : "Activate announcement"} className={`p-2 sm:p-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${ann.is_active ? 'text-emerald-500 hover:bg-emerald-500/10' : 'text-muted-foreground hover:bg-muted'}`} title={ann.is_active ? "Deactivate" : "Activate"}>
                         <Megaphone className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                       </button>
-                      <button onClick={() => { setEditingAnnouncement(ann); setAnnouncementContent(ann.content); }} className="p-2 sm:p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors" title="Edit">
+                      <button onClick={() => { setEditingAnnouncement(ann); setAnnouncementContent(ann.content); }} disabled={!!announcementAction} aria-label="Edit announcement" className="p-2 sm:p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Edit">
                         <Pencil className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                       </button>
-                      <button onClick={() => handleDeleteAnnouncement(ann.id)} className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors" title="Delete">
+                      <button onClick={() => handleDeleteAnnouncement(ann.id)} disabled={!!announcementAction} aria-label="Delete announcement" className="p-2 sm:p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Delete">
                         <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                       </button>
                     </div>

@@ -20,7 +20,19 @@ const formTypeLabels: Record<string, string> = {
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
+  it_help_desk: "IT Help Desk",
 };
+
+const hiddenUserDetailFields = new Set([
+  "viewedat",
+  "lastopenedat",
+  "itadminreviewedat",
+  "itadminreviewedbyid",
+  "resolvedbyid",
+]);
+
+const isHiddenUserDetailField = (key: string) =>
+  hiddenUserDetailFields.has(key.replace(/[^a-z0-9]/gi, "").toLowerCase());
 
 type FilterType = "all" | "pending" | "approved" | "rejected" | "action_required";
 
@@ -34,6 +46,10 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PAID</Badge>;
     case "completed":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">COMPLETED</Badge>;
+    case "awaiting_confirmation":
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">AWAITING CONFIRMATION</Badge>;
+    case "reopened":
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REOPENED</Badge>;
     case "pending":
     default:
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING</Badge>;
@@ -67,6 +83,11 @@ const getOverallStatus = (sub: Submission) => {
   } else if (sub.formType === 'cctv_access_request') {
     if (status === "approved_hod") return { label: "Pending IT Admin", color: "bg-violet-500", progress: 75 };
     if (status === "approved_hos") return { label: "Pending HOD", color: "bg-amber-500", progress: 50 };
+  } else if (sub.formType === 'it_help_desk') {
+    if (status === "approved" || status === "completed") return { label: "Resolved", color: "bg-emerald-500", progress: 100 };
+    if (status === "awaiting_confirmation") return { label: "Confirm IT Resolution", color: "bg-sky-500", progress: 85 };
+    if (status === "reopened") return { label: "Reopened with IT", color: "bg-amber-500", progress: 45 };
+    return { label: "Submitted to IT", color: "bg-violet-500", progress: 35 };
   } else {
     // Standard HOD approval for other forms
     if (status === "approved_hod") return { label: "Pending Admin", color: "bg-blue-500", progress: 75 };
@@ -88,11 +109,13 @@ const MySubmissions = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+  const [resolutionResponse, setResolutionResponse] = useState("");
+  const [isRespondingToResolution, setIsRespondingToResolution] = useState(false);
   const { hiddenIds, hideSubmissions } = useHiddenSubmissions();
 
   const assignedCar = cars.find(c => c.status === 'checked_out' && c.lastCheckedOutBy === user?.name);
 
-  const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+  const excludedForms = ["inventory_addition", "ppe_request", "ppe_purchase", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
 
   useEffect(() => {
     refreshSubmissions();
@@ -162,13 +185,13 @@ const MySubmissions = () => {
     total: mySubmissions.length,
     accepted: mySubmissions.filter(s => ["approved", "completed", "paid"].includes(s.status)).length,
     rejected: mySubmissions.filter(s => s.status === "rejected").length,
-    actionRequired: mySubmissions.filter(s => s.status === "paid").length,
+    actionRequired: mySubmissions.filter(s => s.status === "paid" || (s.formType === "it_help_desk" && s.status === "awaiting_confirmation")).length,
   };
 
   const filtered = mySubmissions.filter(s => {
     if (filter === "all") return true;
-    if (filter === "action_required") return s.status === "paid";
-    if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"].includes(s.status);
+    if (filter === "action_required") return s.status === "paid" || (s.formType === "it_help_desk" && s.status === "awaiting_confirmation");
+    if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "reopened"].includes(s.status);
     if (filter === "approved") return ["approved", "completed"].includes(s.status);
     if (filter === "rejected") return s.status === "rejected";
     return true;
@@ -205,6 +228,38 @@ const MySubmissions = () => {
     toast.success(`${selectedIds.size} submission(s) removed from your view. Admin records are unchanged.`);
     setIsSelectionMode(false);
     setSelectedIds(new Set());
+  };
+
+  const handleResolutionResponse = async (confirmed: boolean) => {
+    if (!selectedSubmission || isRespondingToResolution) return;
+    if (!confirmed && !resolutionResponse.trim()) {
+      toast.error("Explain why the issue is not resolved before reopening the ticket.");
+      return;
+    }
+
+    setIsRespondingToResolution(true);
+    const respondedAt = new Date().toISOString();
+    const success = await updateSubmissionStatus(
+      selectedSubmission.id,
+      confirmed ? "completed" : "reopened",
+      confirmed
+        ? {
+            employeeConfirmedAt: respondedAt,
+            employeeConfirmedBy: user?.name || selectedSubmission.employeeName,
+            resolutionAcknowledgement: "I confirm that the reported issue has been resolved satisfactorily.",
+          }
+        : {
+            reopenedAt: respondedAt,
+            reopenedBy: user?.name || selectedSubmission.employeeName,
+            reopenReason: resolutionResponse.trim(),
+          },
+    );
+    setIsRespondingToResolution(false);
+    if (!success) return;
+
+    toast.success(confirmed ? "Resolution confirmed. The ticket is now closed." : "Ticket reopened and returned to IT.");
+    setResolutionResponse("");
+    setSelectedSubmission(null);
   };
 
   const handleEditSubmission = (path: string) => {
@@ -314,6 +369,9 @@ const MySubmissions = () => {
           </div>
 
           <div className="mb-6 sm:mb-8">
+            {selectedSubmission.formType === 'cctv_access_request' && (
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Employee Information</p>
+            )}
             {/* Explicitly place Employee Name at the top */}
             <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
               <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
@@ -322,7 +380,36 @@ const MySubmissions = () => {
               </div>
             </div>
             
-            {selectedSubmission.formType === 'car_rental' ? (
+            {selectedSubmission.formType === 'cctv_access_request' ? (
+              <>
+                {[
+                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || 'â€”'],
+                  ['Department', selectedSubmission.department || 'â€”'],
+                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || 'â€”'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
+                  </div>
+                ))}
+
+                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Request Details</p>
+                {[
+                  ['Type of Request', renderValue(selectedSubmission.data.requestTypes)],
+                  ['Camera Location', selectedSubmission.data.cameraLocation || 'â€”'],
+                  ['Purpose of Access', selectedSubmission.data.purpose || 'â€”'],
+                  ['From Date & Time', selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
+                  ['To Date & Time', selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
+                  ['Head of Section', selectedSubmission.data.hosName || selectedSubmission.data.hos || 'â€”'],
+                  ['Head of Department', selectedSubmission.data.hodName || selectedSubmission.data.hod || 'â€”'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
+                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
+                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
+                  </div>
+                ))}
+              </>
+            ) : selectedSubmission.formType === 'car_rental' ? (
               <>
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
@@ -485,7 +572,7 @@ const MySubmissions = () => {
                 </div>
                 
                 {Object.entries(selectedSubmission.data)
-                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hopName', 'hofName', 'financeCode', 'amountReceived'].includes(key) && !/^\d+$/.test(key))
+                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hopName', 'hofName', 'financeCode', 'amountReceived'].includes(key) && !isHiddenUserDetailField(key) && !/^\d+$/.test(key))
                   .map(([key, value]) => {
                     let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                     if (key === 'hosName') formattedKey = 'Head of Section';
@@ -575,7 +662,35 @@ const MySubmissions = () => {
             </div>
           )}
 
-          {selectedSubmission.formType === 'claim' ? (
+          {selectedSubmission.formType === "it_help_desk" && selectedSubmission.status === "awaiting_confirmation" && (
+            <div className="mb-8 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 sm:p-5 print:hidden">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-foreground">IT has provided a resolution</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Please verify that the solution works before this ticket is closed.</p>
+                  <div className="mt-4 rounded-lg border border-border/60 bg-background/70 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resolution summary</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-foreground">{selectedSubmission.data.resolutionSummary || "No resolution summary provided."}</p>
+                    <p className="mt-3 text-xs text-muted-foreground">Resolved by {selectedSubmission.data.resolvedBy || "IT Admin"}{selectedSubmission.data.resolvedAt ? ` on ${new Date(selectedSubmission.data.resolvedAt).toLocaleString("en-GB")}` : ""}</p>
+                  </div>
+                  <label htmlFor="resolution-response" className="mt-4 block text-sm font-semibold text-foreground">If the issue remains, explain what is still not working</label>
+                  <textarea id="resolution-response" value={resolutionResponse} onChange={event => setResolutionResponse(event.target.value)} rows={3} placeholder="Required only when reopening the ticket..." className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+                  <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(false)} className="rounded-lg border border-amber-500 px-5 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50">Issue Not Resolved</button>
+                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(true)} className="btn-gold rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-50">{isRespondingToResolution ? "Submitting..." : "Confirm Resolution"}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedSubmission.formType === 'it_help_desk' ? (
+            <div className="rounded-lg bg-muted/30 p-4 text-center print:hidden">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Help Desk Status</p>
+              <div className="mt-2">{statusBadge(selectedSubmission.status)}</div>
+            </div>
+          ) : selectedSubmission.formType === 'claim' ? (
             <div className="grid grid-cols-6 gap-1 sm:gap-2 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8 text-center">
               {[
                 { name: "HOS", isApproved: isApprovedHOS, isRejected: isRejected && rejectedStage === "hos" },

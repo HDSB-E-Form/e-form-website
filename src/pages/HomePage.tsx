@@ -2,14 +2,29 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useUsers } from "@/contexts/UsersContext";
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
 import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const HomePageSkeleton = () => (
+  <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 duration-300" aria-busy="true" aria-live="polite">
+    <Skeleton className="mb-8 h-56 w-full rounded-2xl" />
+    <Skeleton className="mb-2 h-7 w-48" />
+    <Skeleton className="mb-5 h-4 w-72 max-w-full" />
+    <div className="grid gap-6 md:grid-cols-2">
+      {[0, 1, 2, 3].map(item => <Skeleton key={item} className="h-56 w-full rounded-2xl" />)}
+    </div>
+  </div>
+);
 
 const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { submissions, announcements } = useSubmissions();
+  const { submissions, announcements, refreshSubmissions, isLoading: areSubmissionsLoading } = useSubmissions();
+  const { refreshUsers, isLoading: areUsersLoading } = useUsers();
   const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
+  const [isPreparingForms, setIsPreparingForms] = useState(false);
   const { hiddenIds } = useHiddenSubmissions();
 
   const activeAnnouncement = useMemo(() => {
@@ -87,6 +102,19 @@ const HomePage = () => {
       return true;
     });
   }, [user?.role, user?.secondary_roles]);
+
+  const handleDepartmentOpen = async (path: string) => {
+    if (isPreparingForms) return;
+    setIsPreparingForms(true);
+    await Promise.all([refreshUsers(), refreshSubmissions()]);
+    if (path === "/safety") {
+      sessionStorage.removeItem("hdsb_safety_poster_seen");
+    }
+    navigate(path);
+  };
+
+  if (areUsersLoading || areSubmissionsLoading || isPreparingForms) return <HomePageSkeleton />;
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       {/* Global Announcement Banner */}
@@ -185,8 +213,11 @@ const HomePage = () => {
         {departments.map((dept) => (
           <div
             key={dept.id}
-            onClick={() => navigate(dept.path)}
+            onClick={() => void handleDepartmentOpen(dept.path)}
             className="dept-card group"
+            role="button"
+            tabIndex={0}
+            onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void handleDepartmentOpen(dept.path); } }}
           >
             <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${dept.color} flex items-center justify-center mb-5`}>
               <dept.icon 

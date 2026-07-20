@@ -40,4 +40,56 @@ describe('getNotificationTarget', () => {
 
     expect(result).toBeNull();
   });
+
+  it('routes approved CCTV requests to an IT admin with a secondary role', () => {
+    const result = getNotificationTarget(
+      { role: 'hod', secondary_roles: ['it_admin'], name: 'IT Reviewer' },
+      {
+        formType: 'cctv_access_request',
+        status: 'approved_hod',
+        data: { hodName: 'Department Head' },
+      }
+    );
+
+    expect(result).toMatchObject({ path: '/admin/it', recipientType: 'it_admin' });
+  });
+
+  it('routes a new Help Desk ticket directly to the IT admin dashboard', () => {
+    const result = getNotificationTarget(
+      { role: 'it_admin', name: 'IT Admin' },
+      {
+        formType: 'it_help_desk',
+        status: 'pending',
+        data: {},
+      }
+    );
+
+    expect(result).toMatchObject({ path: '/admin/it/help-desk', recipientType: 'it_admin' });
+  });
+
+  it('routes a reopened Help Desk ticket back to the IT admin dashboard', () => {
+    const result = getNotificationTarget(
+      { role: 'it_admin', name: 'IT Admin' },
+      {
+        formType: 'it_help_desk',
+        status: 'reopened',
+        data: {},
+      }
+    );
+
+    expect(result).toMatchObject({ path: '/admin/it/help-desk', recipientType: 'it_admin' });
+  });
+
+  it('does not send general submission notifications to a super admin', () => {
+    const result = getNotificationTarget(
+      { role: 'super_admin', name: 'Super Admin' },
+      {
+        formType: 'car_rental',
+        status: 'approved_hod',
+        data: {},
+      }
+    );
+
+    expect(result).toBeNull();
+  });
 });

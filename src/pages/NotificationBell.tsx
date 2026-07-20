@@ -15,6 +15,7 @@ const formTypeLabels: Record<string, string> = {
   final_discharge: "Discharge Log",
   ppe_purchase: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
+  it_help_desk: "IT Help Desk",
 };
 
 interface Notification {
@@ -73,8 +74,14 @@ export const NotificationBell = () => {
       let message = "";
       let path = "";
       
+      // Employees confirm Help Desk resolutions before a ticket is closed
+      if (s.formType === 'it_help_desk' && s.status === 'awaiting_confirmation' && s.submittedBy === user.id) {
+        isRelevant = true;
+        message = `IT has resolved your Help Desk ticket. Please confirm that the solution is working.`;
+        path = "/submissions";
+      }
       // 2. Approvers (HOS)
-      if (user.role === 'hos' && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name)) {
+      else if (user.role === 'hos' && s.status === 'pending' && (s.data.hosName === user.name || s.data.hos === user.name)) {
         isRelevant = true;
         message = `${s.employeeName} submitted a new form for your review.`;
         path = "/admin/approvals";
@@ -98,12 +105,10 @@ export const NotificationBell = () => {
         path = "/admin/approvals";
       }
       // 4. HR Admin
-      else if (user.role === 'hr_admin') {
-        if (s.formType === 'car_rental' && s.status === 'approved_hod') {
-          isRelevant = true;
-          message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
-          path = "/admin/hr";
-        }
+      else if (user.role === 'hr_admin' && s.formType === 'car_rental' && s.status === 'approved_hod') {
+        isRelevant = true;
+        message = `New ${formTypeLabels[s.formType] || s.formType} requires HR action.`;
+        path = "/admin/hr";
       }
       // 5. Finance Admin (Review & Payment)
       else if (user.role === 'finance_admin' && s.formType === 'claim') {
@@ -117,11 +122,18 @@ export const NotificationBell = () => {
         path = "/admin/finance";
         }
       }
-      // IT Admin receives CCTV requests after HOD approval
-      else if ((user.role === 'it_admin' || user.secondary_roles?.includes('it_admin')) && s.formType === 'cctv_access_request' && s.status === 'approved_hod') {
+      // IT Admin receives CCTV requests after HOD approval and Help Desk tickets immediately
+      else if ((user.role === 'it_admin' || user.secondary_roles?.includes('it_admin')) && (
+        (s.formType === 'cctv_access_request' && s.status === 'approved_hod') ||
+        (s.formType === 'it_help_desk' && ['pending', 'reopened'].includes(s.status))
+      )) {
         isRelevant = true;
-        message = `A CCTV Access Request from ${s.employeeName} requires IT review.`;
-        path = "/admin/it";
+        message = s.formType === 'it_help_desk'
+          ? s.status === 'reopened'
+            ? `${s.employeeName} reopened an IT Help Desk ticket.`
+            : `A new IT Help Desk ticket from ${s.employeeName} requires action.`
+          : `A CCTV Access Request from ${s.employeeName} requires IT review.`;
+        path = s.formType === 'it_help_desk' ? "/admin/it/help-desk" : "/admin/it";
       }
       // 6. Security Guard
       else if (user.role === 'security_guard' && s.formType === 'leave' && s.status === 'approved_hod') {

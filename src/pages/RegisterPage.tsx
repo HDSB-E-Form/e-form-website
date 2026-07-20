@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 import bgImage from "@/assets/digital.jpg";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { BellRing, CheckCircle2, Eye, EyeOff, FileCheck2, Loader2, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ITHelpDeskWidget from "@/components/ITHelpDeskWidget";
 
 const RegisterPage = () => {
   const [form, setForm] = useState({ name: "", email: "", employeeId: "", phone: "", department: "", position: "", password: "", confirmPassword: "" });
@@ -64,8 +65,8 @@ const RegisterPage = () => {
       setError("Passwords do not match");
       return;
     }
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -102,25 +103,35 @@ const RegisterPage = () => {
   };
 
   return (
-    <div 
-      className="min-h-screen overflow-y-auto flex items-center justify-center p-4 py-12 relative"
-      style={{ 
-        backgroundImage: `url(${bgImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center"
-      }}
-    >
-      {/* Subtle dark overlay without blur to keep the background crisp */}
-      <div className="absolute inset-0 bg-black/35 z-0"></div>
+    <div className="relative min-h-screen overflow-y-auto bg-gradient-to-br from-[#40358f] via-[#5146a4] to-[#7768c4] p-3 sm:p-5 lg:flex lg:items-center lg:justify-center">
+      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-7xl overflow-hidden rounded-3xl bg-background shadow-2xl shadow-indigo-950/30 sm:min-h-[calc(100vh-2.5rem)] lg:h-[min(920px,calc(100vh-2.5rem))] lg:min-h-0 lg:grid-cols-[42%_58%]">
+        <aside className="relative flex overflow-hidden lg:flex-col lg:justify-start">
+          <img src={bgImage} alt="" className="absolute inset-0 h-full w-full object-cover" aria-hidden="true" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#282063]/95 via-[#40358f]/92 to-[#5b4daf]/88" />
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10" />
+          <div className="absolute -bottom-28 -left-24 h-72 w-72 rounded-full bg-white/10" />
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-6">
-          <img src={logo} alt="HICOM Diecasting" className="h-24 w-auto object-contain mx-auto mb-4 brightness-200" />
-          <h1 className="text-3xl font-bold text-primary-foreground mb-1">Create Account</h1>
-          <p className="text-nav-dark-foreground mt-1 text-sm">Join the HDSB Management System</p>
-        </div>
+          <div className="relative z-10 w-full p-6 sm:p-8 lg:p-10 lg:pt-8 xl:p-12 xl:pt-9">
+            <img src={logo} alt="HICOM Diecasting" className="mx-auto h-16 w-auto object-contain brightness-200 sm:h-20 lg:h-24" />
+            <div className="mx-auto mt-6 max-w-md text-white lg:mx-0 lg:mt-7">
+              <h1 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">Welcome to HDSB Management System</h1>
+              <p className="mt-3 text-sm leading-6 text-white/80 lg:mt-4 lg:leading-7">Create your staff account to submit company forms, follow approval progress, and access your records securely from one place.</p>
+              <div className="mt-5 space-y-3 text-sm font-medium text-white/90 lg:mt-6 lg:space-y-4">
+                <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-white/75" /><span>Submit departmental forms digitally</span></div>
+                <div className="flex items-center gap-3"><FileCheck2 className="h-5 w-5 shrink-0 text-white/75" /><span>Track requests and approval progress</span></div>
+                <div className="flex items-center gap-3"><BellRing className="h-5 w-5 shrink-0 text-white/75" /><span>Receive timely status updates</span></div>
+                <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 shrink-0 text-white/75" /><span>Access company records securely</span></div>
+              </div>
+            </div>
+          </div>
+        </aside>
 
-        <div className="bg-background/60 backdrop-blur-xl border border-border/50 shadow-2xl px-8 py-6 rounded-[2rem]">
+        <main className="min-h-0 min-w-0 overflow-y-auto bg-background px-5 py-7 sm:px-8 sm:py-9 lg:px-10 xl:px-14">
+          <div className="mx-auto max-w-2xl">
+            <div className="mb-7 text-center lg:text-left">
+              <h2 className="text-3xl font-bold tracking-tight text-foreground">Create Your Account</h2>
+            </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
@@ -128,7 +139,7 @@ const RegisterPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-email">Email Address <span className="text-destructive">*</span></Label>
-                  <Input id="reg-email" type="email" autoComplete="email" value={form.email} onChange={e => handleChange("email", e.target.value)} placeholder="name@company.com" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                  <div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="reg-email" type="email" autoComplete="email" value={form.email} onChange={e => handleChange("email", e.target.value)} placeholder="name@company.com" className="h-10 pl-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -136,8 +147,8 @@ const RegisterPage = () => {
                     <Input id="employeeId" autoComplete="off" value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)} placeholder="Enter staff ID" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                   <div className="space-y-2">
-                  <Label htmlFor="phone">Phone No. <span className="text-muted-foreground text-[10px] font-normal ml-1">(Optional)</span></Label>
-                    <Input id="phone" type="tel" autoComplete="tel" value={form.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="01x-xxxxxxx" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
+                  <Label htmlFor="phone">Phone No.</Label>
+                    <Input id="phone" type="tel" autoComplete="tel" value={form.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="Enter phone number" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -155,32 +166,30 @@ const RegisterPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                  <Label htmlFor="position">Position <span className="text-muted-foreground text-[10px] font-normal ml-1">(Optional)</span></Label>
+                  <Label htmlFor="position">Position</Label>
                     <Input id="position" value={form.position} onChange={e => handleChange("position", e.target.value)} placeholder="e.g. Executive" className="h-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="reg-password">Password <span className="text-destructive">*</span></Label>
-                    <div className="relative"><Input id="reg-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={e => handleChange("password", e.target.value)} placeholder="At least 6 characters" className="h-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
+                    <div className="relative"><LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="reg-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={e => handleChange("password", e.target.value)} placeholder="At least 8 characters" className="h-10 pl-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm Password <span className="text-destructive">*</span></Label>
-                    <div className="relative"><Input id="confirm-password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" value={form.confirmPassword} onChange={e => handleChange("confirmPassword", e.target.value)} placeholder="Confirm password" className="h-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"} onClick={() => setShowConfirmPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showConfirmPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
+                    <div className="relative"><LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="confirm-password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" value={form.confirmPassword} onChange={e => handleChange("confirmPassword", e.target.value)} placeholder="Confirm password" className="h-10 pl-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"} onClick={() => setShowConfirmPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showConfirmPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
                   </div>
                 </div>
                 {passwordStrength && (
-                  <div className="rounded-xl border border-border bg-muted/20 p-3" aria-live="polite">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold text-foreground">Password strength</p>
-                      <p className={`text-xs font-bold ${passwordStrength.text}`}>{passwordStrength.label}</p>
+                  <div className="rounded-lg border border-border bg-muted/15 px-3 py-2" aria-live="polite">
+                    <div className="flex items-center gap-3">
+                      <p className="shrink-0 text-[11px] font-semibold text-foreground">Password strength</p>
+                      <div className="grid min-w-16 flex-1 grid-cols-3 gap-1">
+                        {[1, 2, 3].map(bar => <span key={bar} className={`h-1.5 rounded-full ${bar <= passwordStrength.bars ? passwordStrength.color : "bg-muted"}`} />)}
+                      </div>
+                      <p className={`shrink-0 text-[11px] font-bold ${passwordStrength.text}`}>{passwordStrength.label}</p>
                     </div>
-                    <div className="mb-2.5 grid grid-cols-3 gap-1.5">
-                      {[1, 2, 3].map(bar => <span key={bar} className={`h-1.5 rounded-full ${bar <= passwordStrength.bars ? passwordStrength.color : "bg-muted"}`} />)}
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      Use at least 8 characters with uppercase and lowercase letters, a number, and a special character such as @, #, or $.
-                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-muted-foreground">Use 8+ characters with uppercase, lowercase, number, and symbol.</p>
                   </div>
                 )}
                 {error && <p className="text-destructive text-sm">{error}</p>}
@@ -201,11 +210,12 @@ const RegisterPage = () => {
                 <Link to="/login" className="text-blue-500 font-bold hover:underline">Sign in</Link>
               </p>
             <div className="mt-6 text-xs text-muted-foreground text-center">
-                <p className="font-medium text-foreground/80 mb-1">Management System v2.4</p>
                 <p>© 2026 HICOM Diecastings Sdn Bhd. All rights reserved.</p>
               </div>
-        </div>
+          </div>
+        </main>
       </div>
+      <ITHelpDeskWidget />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSubmissions, type CarInfo, type Submission } from "@/contexts/SubmissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Car, CheckCircle, ArrowRightLeft, Info, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera } from "lucide-react";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import HRModuleSkeleton from "@/components/HRModuleSkeleton";
 
 type ViewMode = "overview" | "checkout" | "checkin";
 
@@ -49,7 +50,7 @@ const toLocalDateTimeValue = (date: Date) => {
 };
 
 const CarManagement = () => {
-  const { submissions, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar } = useSubmissions();
+  const { submissions, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar, refreshSubmissions, isLoading } = useSubmissions();
   const { user } = useAuth();
   const [view, setView] = useState<ViewMode>("overview");
   const [selectedCar, setSelectedCar] = useState<CarInfo | null>(null);
@@ -57,6 +58,10 @@ const CarManagement = () => {
   const [isCarModalOpen, setIsCarModalOpen] = useState(false);
   const [carToEdit, setCarToEdit] = useState<CarInfo | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  useEffect(() => { void refreshSubmissions(); }, [refreshSubmissions]);
+
+  if (isLoading) return <HRModuleSkeleton cards={3} />;
 
   const available = cars.filter(c => c.status === "available");
   const checkedOut = cars.filter(c => c.status === "checked_out");
@@ -86,7 +91,7 @@ const CarManagement = () => {
   const approvedCarRequesters = submissions
     .filter((sub: Submission) => {
       // Include submissions that are fully approved or HOD-approved (ready for admin to finalize)
-      if (sub.formType !== 'car_rental' || !["approved", "approved_hod"].includes(sub.status)) return false;
+      if (sub.formType !== 'car_rental' || sub.status !== "approved") return false;
       if (checkedOutEmployees.includes(sub.employeeName)) return false;
       
       // Clean up dummy/past data: Hide malformed, expired, and already fulfilled requests
@@ -111,14 +116,16 @@ const CarManagement = () => {
     .map((sub: Submission) => sub.employeeName);
   
   const uniqueRequesters = [...new Set(approvedCarRequesters)].filter(name => name && name.trim() !== '');
+  const availablePetrolCards = petrolCardOptions.filter(serial => !checkedOut.some(car => car.petrolCardOut && car.petrolCardSerialOut === serial));
 
   if (view === "checkout" && selectedCar) {
-    return <CheckOutForm car={selectedCar} requesters={uniqueRequesters} onCancel={() => setView("overview")} onSubmit={async (car, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut) => {
+    return <CheckOutForm car={selectedCar} requesters={uniqueRequesters} availablePetrolCards={availablePetrolCards} onCancel={() => setView("overview")} onSubmit={async (car, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut) => {
       const success = await checkOutCar(car.id, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut);
       if (success) {
         toast.success(`Vehicle checked out to ${employee}.`);
         setView("overview");
       }
+      return success;
     }} />;
   }
 
@@ -129,6 +136,7 @@ const CarManagement = () => {
         toast.success("Vehicle checked in successfully");
         setView("overview");
       }
+      return success;
     }} />;
   }
   
@@ -184,7 +192,7 @@ const CarManagement = () => {
         </div>
         <button onClick={() => setIsBookingHistoryOpen(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors whitespace-nowrap">
           <History className="h-4 w-4" />
-          Booking History
+          Vehicle Usage History
         </button>
       </div>
 
@@ -386,7 +394,7 @@ const CarManagement = () => {
 };
 
 /* ─── Check-Out Form ─── */
-function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; requesters: string[]; onCancel: () => void; onSubmit: (car: CarInfo, employee: string, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string, petrolCardOut: boolean, petrolCardSerialOut: string) => Promise<void> }) {
+function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmit }: { car: CarInfo; requesters: string[]; availablePetrolCards: string[]; onCancel: () => void; onSubmit: (car: CarInfo, employee: string, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string, petrolCardOut: boolean, petrolCardSerialOut: string) => Promise<boolean> }) {
   const { user } = useAuth();
   const [employee, setEmployee] = useState<string | undefined>(requesters[0] || undefined);
   const [mileage, setMileage] = useState("");
@@ -410,6 +418,11 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
         e.target.value = ""; // Reset input
         return;
       }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        toast.error("Upload JPG, PNG, or WebP photos only.");
+        e.target.value = "";
+        return;
+      }
 
       const url = URL.createObjectURL(file);
       setPhotos(prev => ({ ...prev, [side]: { file, url } }));
@@ -427,7 +440,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
           <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">{label}</span>
         </>
       )}
-      <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
+      <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
       </label>
       {photos[side].url && <button type="button" aria-label={`Remove ${label}`} onClick={() => setPhotos(prev => ({ ...prev, [side]: { file: null, url: null } }))} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-destructive"><XCircle className="h-4 w-4" /></button>}
     </div>
@@ -523,7 +536,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
                 <SelectValue placeholder="Choose a petrol card" />
               </SelectTrigger>
               <SelectContent>
-                {petrolCardOptions.map(card => (
+                {availablePetrolCards.map(card => (
                   <SelectItem key={card} value={card}>{card}</SelectItem>
                 ))}
               </SelectContent>
@@ -573,6 +586,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
             }
             setIsSubmitting(true);
             const uploadedUrls: Record<string, string | null> = { front: null, back: null, left: null, right: null };
+            const uploadedPaths: string[] = [];
             try {
               if (petrolCard && !petrolSerial) {
                 throw new Error("Please select a petrol card.");
@@ -580,8 +594,12 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
               if (!mileage) {
                 throw new Error("Please enter the current mileage.");
               }
-              if (!Number.isFinite(Number(mileage)) || Number(mileage) < 0) {
-                throw new Error("Please enter a valid mileage.");
+              if (!/^\d+$/.test(mileage) || Number(mileage) < 0) {
+                throw new Error("Mileage must be a whole number.");
+              }
+              const lastMileage = car.history?.[0]?.mileageIn;
+              if (lastMileage && Number(mileage) < Number(lastMileage)) {
+                throw new Error(`Current mileage cannot be lower than the last recorded mileage (${lastMileage} km).`);
               }
 
               for (const [side, data] of Object.entries(photos)) {
@@ -590,13 +608,16 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
                   const { data: uploadData, error } = await supabase.storage.from('form-attachments').upload(filePath, data.file);
                   if (error) throw error;
                   if (uploadData) {
+                    uploadedPaths.push(uploadData.path);
                     const { data: urlData } = supabase.storage.from('form-attachments').getPublicUrl(uploadData.path);
                     uploadedUrls[side] = urlData.publicUrl;
                   }
                 }
               }
-              await onSubmit(car, employee, mileage, fuelLevel, remarks, uploadedUrls, new Date(dateTimeOut).toISOString(), petrolCard, petrolSerial);
+              const success = await onSubmit(car, employee, mileage, fuelLevel, remarks, uploadedUrls, new Date(dateTimeOut).toISOString(), petrolCard, petrolSerial);
+              if (!success && uploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(uploadedPaths);
             } catch (error: any) {
+              if (uploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(uploadedPaths);
               console.error("Upload error:", error);
               toast.error(error.message || `Failed to submit check-out.`);
             } finally {
@@ -617,7 +638,7 @@ function CheckOutForm({ car, requesters, onCancel, onSubmit }: { car: CarInfo; r
 }
 
 /* ─── Check-In Form ─── */
-function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () => void; onSubmit: (car: CarInfo, mileageIn: string, fuelLevel: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => void }) {
+function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () => void; onSubmit: (car: CarInfo, mileageIn: string, fuelLevel: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => Promise<boolean> }) {
   const { user } = useAuth();
   const [mileageIn, setMileageIn] = useState("");
   const [fuelLevel, setFuelLevel] = useState("4/7");
@@ -638,6 +659,11 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
         e.target.value = ""; // Reset input
         return;
       }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        toast.error("Upload JPG, PNG, or WebP photos only.");
+        e.target.value = "";
+        return;
+      }
 
       const url = URL.createObjectURL(file);
       setPhotos(prev => ({ ...prev, [side]: { file, url } }));
@@ -655,7 +681,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">{label}</span>
         </>
       )}
-      <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
+      <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={e => handlePhotoUpload(side, e)} />
       </label>
       {photos[side].url && <button type="button" aria-label={`Remove ${label}`} onClick={() => setPhotos(prev => ({ ...prev, [side]: { file: null, url: null } }))} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-destructive"><XCircle className="h-4 w-4" /></button>}
     </div>
@@ -801,12 +827,13 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
           onClick={async () => {
             setIsSubmitting(true);
             const uploadedUrls: Record<string, string | null> = { front: null, back: null, left: null, right: null };
+            const uploadedPaths: string[] = [];
             try {
               if (!mileageIn) {
                 throw new Error("Please enter the return mileage.");
               }
-              if (!Number.isFinite(Number(mileageIn)) || Number(mileageIn) < 0) {
-                throw new Error("Please enter a valid return mileage.");
+              if (!/^\d+$/.test(mileageIn) || Number(mileageIn) < 0) {
+                throw new Error("Return mileage must be a whole number.");
               }
               if (car.mileageOut && Number(mileageIn) < Number(car.mileageOut)) {
                 throw new Error(`Return mileage cannot be lower than the check-out mileage (${car.mileageOut} km).`);
@@ -818,13 +845,16 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
                   const { data: uploadData, error } = await supabase.storage.from('form-attachments').upload(filePath, data.file);
                   if (error) throw error;
                   if (uploadData) {
+                    uploadedPaths.push(uploadData.path);
                     const { data: urlData } = supabase.storage.from('form-attachments').getPublicUrl(uploadData.path);
                     uploadedUrls[side] = urlData.publicUrl;
                   }
                 }
               }
-              await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls, new Date(dateTimeIn).toISOString());
+              const success = await onSubmit(car, mileageIn, fuelLevel, remarks, uploadedUrls, new Date(dateTimeIn).toISOString());
+              if (!success && uploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(uploadedPaths);
             } catch (error: any) {
+              if (uploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(uploadedPaths);
               console.error("Upload error:", error);
               toast.error(error.message || `Failed to submit check-in.`);
             } finally {
@@ -846,11 +876,45 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
 
 /* ─── Booking History Modal ─── */
 function BookingHistoryModal({ history, onClose, onImageClick }: { history: AggregatedHistoryEntry[]; onClose: () => void; onImageClick: (url: string) => void }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  const HistoryDateTime = ({ value }: { value?: string }) => {
+    if (!value) return <span>—</span>;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return <span>—</span>;
+    return <span className="block whitespace-nowrap"><span className="block font-semibold text-foreground">{date.toLocaleDateString()}</span><span className="mt-0.5 block text-muted-foreground">{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></span>;
+  };
+
+  const getDistance = (entry: AggregatedHistoryEntry) => {
+    const out = Number(entry.mileageOut);
+    const incoming = Number(entry.mileageIn);
+    return Number.isFinite(out) && Number.isFinite(incoming) && incoming >= out ? `${incoming - out} km` : "—";
+  };
+
+  const PhotoGroup = ({ photos, label, tone }: { photos?: Record<string, string | null>; label: string; tone: string }) => {
+    const availablePhotos = Object.entries(photos || {}).filter((entry): entry is [string, string] => Boolean(entry[1]));
+    if (availablePhotos.length === 0) return null;
+    return (
+      <div className="mt-2">
+        <p className={`mb-1.5 text-[10px] font-bold uppercase ${tone}`}>{label}</p>
+        <div className="flex flex-wrap gap-2">{availablePhotos.map(([side, url]) => <button type="button" key={`${label}-${side}`} onClick={() => onImageClick(url)} aria-label={`View ${label.toLowerCase()} ${side} photo`} className="overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><img src={url} alt={`${label} ${side}`} className="h-11 w-11 object-cover transition-opacity hover:opacity-80" /></button>)}</div>
+      </div>
+    );
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="card-elevated p-6 w-full max-w-4xl relative animate-in fade-in-90 slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="vehicle-history-title">
+      <div className="card-elevated p-4 sm:p-6 w-full max-w-6xl max-h-[92vh] overflow-hidden relative animate-in fade-in-90 slide-in-from-bottom-10 flex flex-col" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} aria-label="Close vehicle usage history" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted">
           <XCircle className="h-5 w-5" />
         </button>
         <div className="border-b border-border pb-4 mb-5 flex items-center gap-4">
@@ -858,23 +922,46 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
             <CalendarClock className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h3 className="font-bold text-lg text-foreground">Booking History</h3>
-            <p className="text-sm text-muted-foreground">Sejarah Tempahan Kenderaan</p>
+            <h3 id="vehicle-history-title" className="font-bold text-lg text-foreground">Vehicle Usage History</h3>
+            <p className="text-sm text-muted-foreground">Completed vehicle trips and return records</p>
           </div>
         </div>
 
         {history.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No booking history found.</p>
         ) : (
-          <div className="max-h-[60vh] overflow-auto border border-border rounded-lg">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="space-y-3 sm:hidden">
+            {history.map((entry, index) => (
+              <article key={index} className="rounded-xl border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
+                  <div><p className="font-bold text-foreground">{entry.employeeName || "Unknown employee"}</p><p className="text-xs text-muted-foreground">{entry.model} · {entry.plateNumber}</p></div>
+                  <Badge className="shrink-0 border-0 bg-primary/10 text-primary">{getDistance(entry)}</Badge>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                  <div><dt className="text-muted-foreground">Date & Time Out</dt><dd className="mt-0.5"><HistoryDateTime value={entry.checkedOutAt} /></dd></div>
+                  <div><dt className="text-muted-foreground">Date & Time In</dt><dd className="mt-0.5"><HistoryDateTime value={entry.checkedInAt} /></dd></div>
+                  <div><dt className="text-muted-foreground">Mileage</dt><dd className="mt-0.5 font-semibold text-foreground">{entry.mileageOut || "—"} → {entry.mileageIn || "—"} km</dd></div>
+                  <div><dt className="text-muted-foreground">Fuel</dt><dd className="mt-0.5 font-semibold text-foreground">{entry.fuelLevelOut || "—"} → {entry.fuelLevelIn || "—"}</dd></div>
+                  <div className="col-span-2"><dt className="text-muted-foreground">Petrol Card</dt><dd className="mt-0.5 font-semibold text-foreground">{entry.petrolCardOut ? entry.petrolCardSerialOut || "Issued" : "Not issued"}</dd></div>
+                </dl>
+                {(entry.remarksOut || entry.remarksIn || entry.remarks) && <div className="mt-3 rounded-lg bg-muted/30 p-3 text-xs"><p>{entry.remarksOut && <><span className="font-bold text-amber-600">Out:</span> {entry.remarksOut}</>}</p><p className={entry.remarksOut ? "mt-1" : ""}>{(entry.remarksIn || entry.remarks) && <><span className="font-bold text-emerald-600">In:</span> {entry.remarksIn || entry.remarks}</>}</p></div>}
+                <PhotoGroup photos={entry.photosOut} label="Photos Out" tone="text-amber-600" />
+                <PhotoGroup photos={entry.photosIn} label="Photos In" tone="text-emerald-600" />
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden sm:block max-h-[60vh] overflow-auto border border-border rounded-lg">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Car</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date & Time Out</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date & Time In</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Fuel Return</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Mileage / Distance</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Fuel Out → In</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Remarks</TableHead>
                 </TableRow>
               </TableHeader>
@@ -882,16 +969,17 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
                 {history.map((entry, index) => (
                   <TableRow key={index} className="hover:bg-muted/20">
                     <TableCell className="font-medium text-foreground">{entry.employeeName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{entry.model} ({entry.plateNumber})</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(entry.checkedOutAt).toLocaleString()}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{new Date(entry.checkedInAt).toLocaleString()}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground"><p>{entry.model} ({entry.plateNumber})</p><p className="mt-1 text-[10px]">Card: {entry.petrolCardOut ? entry.petrolCardSerialOut || "Issued" : "Not issued"}</p></TableCell>
+                    <TableCell className="text-sm"><HistoryDateTime value={entry.checkedOutAt} /></TableCell>
+                    <TableCell className="text-sm"><HistoryDateTime value={entry.checkedInAt} /></TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap"><p className="font-semibold text-foreground">{entry.mileageOut || "—"} → {entry.mileageIn || "—"} km</p><p className="mt-1">Distance: {getDistance(entry)}</p></TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {entry.fuelLevelIn ? (
+                      {(entry.fuelLevelOut || entry.fuelLevelIn) ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-semibold">{entry.fuelLevelIn}</span>
+                          <span className="font-semibold whitespace-nowrap">{entry.fuelLevelOut || "—"} → {entry.fuelLevelIn || "—"}</span>
                           <div className="flex gap-0.5 h-2.5">
                             {[1, 2, 3, 4, 5, 6, 7].map(bar => {
-                              const activeBars = fuelBars[entry.fuelLevelIn!] || 0;
+                              const activeBars = fuelBars[entry.fuelLevelIn || ""] || 0;
                               return <div key={bar} className={`w-1 h-full ${bar <= activeBars ? (activeBars === 1 ? 'bg-destructive' : 'bg-primary') : 'bg-muted-foreground/20'}`} />
                             })}
                           </div>
@@ -900,29 +988,16 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground align-top min-w-[200px]">
                   {entry.remarksOut && <div className="text-xs mb-1"><span className="font-bold text-amber-600">Out:</span> {entry.remarksOut}</div>}
-                    {entry.photosOut && Object.values(entry.photosOut).some(v => v) && (
-                      <div className="mt-1.5 flex gap-1.5 flex-wrap mb-2">
-                        <span className="text-[10px] font-bold text-amber-600 block w-full">Photos (Out):</span>
-                        {Object.entries(entry.photosOut).map(([side, url]) => url && (
-                          <img key={`out-${side}`} src={url} alt={`Out ${side}`} className="w-8 h-8 rounded border border-border object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onImageClick(url)} title={`View ${side} photo`} />
-                        ))}
-                      </div>
-                    )}
                   {(entry.remarksIn || entry.remarks) && <div className="text-xs"><span className="font-bold text-emerald-600">In:</span> {entry.remarksIn || entry.remarks}</div>}
-                    {entry.photosIn && Object.values(entry.photosIn).some(v => v) && (
-                      <div className="mt-1.5 flex gap-1.5 flex-wrap">
-                        <span className="text-[10px] font-bold text-emerald-600 block w-full">Photos (In):</span>
-                        {Object.entries(entry.photosIn).map(([side, url]) => url && (
-                          <img key={`in-${side}`} src={url} alt={`In ${side}`} className="w-8 h-8 rounded border border-border object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => onImageClick(url)} title={`View ${side} photo`} />
-                        ))}
-                      </div>
-                    )}
+                  <PhotoGroup photos={entry.photosOut} label="Photos Out" tone="text-amber-600" />
+                  <PhotoGroup photos={entry.photosIn} label="Photos In" tone="text-emerald-600" />
                   {!entry.remarksOut && !entry.remarksIn && !entry.remarks && !(entry.photosOut && Object.values(entry.photosOut).some(v => v)) && !(entry.photosIn && Object.values(entry.photosIn).some(v => v)) && "—"}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </div>
           </div>
         )}
         

@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Printer } from "lucide-react";
 import logo from "@/assets/logo.png";
+import HRModuleSkeleton from "@/components/HRModuleSkeleton";
 
 const getInitials = (name?: string) => (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
 const getInitialColor = (name: string) => {
@@ -16,8 +17,10 @@ const getInitialColor = (name: string) => {
 };
 
 const PurchasesDashboard = () => {
-  const { submissions } = useSubmissions();
+  const { submissions, refreshSubmissions, isLoading } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+
+  useEffect(() => { void refreshSubmissions(); }, [refreshSubmissions]);
 
   const purchaseSubmissions = submissions.filter(s => s.formType === "ppe_purchase");
 
@@ -59,6 +62,8 @@ const PurchasesDashboard = () => {
       setTimeout(() => { document.title = originalTitle; setSelectedSubmission(null); }, 2000);
     }, 100);
   };
+
+  if (isLoading) return <HRModuleSkeleton cards={3} />;
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
