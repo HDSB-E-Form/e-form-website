@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import logo from "@/assets/logo.png";
 import { renderValue } from "@/components/DataRenderer";
+import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
+import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -16,7 +18,8 @@ const formTypeLabels: Record<string, string> = {
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
-  it_help_desk: "IT Help Desk",
+  it_help_desk: "IT Help Desk Ticket",
+  it_application_request: "IT Request Form (Application)",
 };
 
 const statusBadgeBase = "border-0 whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-wider px-2 sm:px-3 py-0.5 sm:py-1";
@@ -44,22 +47,24 @@ const statusBadge = (status: string, formType?: string) => {
       return makeStatusBadge("PENDING PAYMENT", "bg-green-500/15 text-green-700 dark:text-green-400");
     case "approved_hop":
       return makeStatusBadge("PENDING HOF", "bg-teal-500/15 text-teal-700 dark:text-teal-400");
+    case "approved_manco":
+      return makeStatusBadge("PENDING SECURITY", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
     case "approved_hod":
       if (formType === 'claim') {
         return makeStatusBadge("PENDING HOP", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
       }
-      if (formType === 'cctv_access_request') {
+      if (formType === 'cctv_access_request' || formType === 'it_application_request') {
         return makeStatusBadge("PENDING IT ADMIN", "bg-violet-500/15 text-violet-700 dark:text-violet-400");
       }
       if (formType === 'car_rental') {
         return makeStatusBadge("PENDING HR ADMIN", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
       }
       if (formType === 'leave') {
-        return makeStatusBadge("PENDING SECURITY", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
+        return makeStatusBadge("PENDING MANCO MEMBER", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
       }
       return makeStatusBadge("HOD APPROVED", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
     case "approved_hos":
-      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request') {
+      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request' || formType === 'it_application_request') {
         return makeStatusBadge("PENDING HOD", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
       }
       return makeStatusBadge("HOS APPROVED", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
@@ -68,7 +73,7 @@ const statusBadge = (status: string, formType?: string) => {
       if (formType === 'it_help_desk') {
         return makeStatusBadge("ACTION REQUIRED", "bg-violet-500/15 text-violet-700 dark:text-violet-400");
       }
-      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request') {
+      if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request' || formType === 'it_application_request') {
         return makeStatusBadge("PENDING HOS", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
       }
       return makeStatusBadge("PENDING", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
@@ -79,6 +84,16 @@ const naStatus = () => (
   makeStatusBadge("N/A", "bg-muted text-muted-foreground")
 );
 
+const toLocalDateString = (value: string | Date) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const AllSubmissionsPage = () => {
   const { submissions: allSubmissions, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
@@ -87,13 +102,14 @@ const AllSubmissionsPage = () => {
   const [endDate, setEndDate] = useState("");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'car_rental' | 'claim' | 'leave'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'car_rental' | 'claim' | 'leave' | 'it_application_request'>('all');
 
   useEffect(() => {
     refreshSubmissions();
   }, [refreshSubmissions]);
 
   const isDateFiltered = startDate !== "" || endDate !== "";
+  const hasInvalidDateRange = Boolean(startDate && endDate && startDate > endDate);
 
   if (isLoading) {
     return (
@@ -151,7 +167,7 @@ const AllSubmissionsPage = () => {
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();
-      const dateStr = new Date(s.submittedAt).toLocaleDateString("en-CA");
+      const dateStr = toLocalDateString(s.submittedAt) || "";
       const typeStr = (formTypeLabels[s.formType] || s.formType).toLowerCase();
       return s.employeeName.toLowerCase().includes(q) ||
              s.id.toLowerCase().includes(q) ||
@@ -160,7 +176,9 @@ const AllSubmissionsPage = () => {
     })
     .filter(s => {
       if (!startDate && !endDate) return true;
-      const subDate = new Date(s.submittedAt).toISOString().split('T')[0];
+      if (hasInvalidDateRange) return false;
+      const subDate = toLocalDateString(s.submittedAt);
+      if (!subDate) return false;
       const start = startDate || "0000-00-00";
       const end = endDate || "9999-12-31";
       return subDate >= start && subDate <= end;
@@ -168,7 +186,7 @@ const AllSubmissionsPage = () => {
 
   const generateRefNo = (sub: Submission) => {
     if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
+    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
   };
 
   if (selectedSubmission) {
@@ -177,8 +195,8 @@ const AllSubmissionsPage = () => {
     const financeRejectionReached = (statuses: string[]) => rejectedStage === "finance_review" &&
       (rejectedFromStatus ? statuses.includes(rejectedFromStatus) : true);
 
-    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]);
-    const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]);
+    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "awaiting_confirmation", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]);
+    const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "awaiting_confirmation", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]);
     const isApprovedHOP = selectedSubmission.data.hopName === 'N/A' || ["pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["pending_finance_review", "approved_hop", "approved_hof"]);
     const isApprovedFinanceReview = ["approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["approved_hop", "approved_hof"]);
     const isApprovedHOF = selectedSubmission.data.hofName === 'N/A' || ["approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || rejectedStage === "admin";
@@ -243,12 +261,14 @@ const AllSubmissionsPage = () => {
             {['cctv_access_request', 'it_help_desk', 'car_rental', 'claim', 'leave'].includes(selectedSubmission.formType) && (
               <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Employee Information</p>
             )}
-            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                {selectedSubmission.employeeName}
+            {!['it_admin_request', 'it_application_request'].includes(selectedSubmission.formType) && (
+              <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  {selectedSubmission.employeeName}
+                </div>
               </div>
-            </div>
+            )}
             
             {selectedSubmission.formType === 'cctv_access_request' ? (
               <>
@@ -279,6 +299,10 @@ const AllSubmissionsPage = () => {
                   </div>
                 ))}
               </>
+            ) : selectedSubmission.formType === 'it_admin_request' ? (
+              <ITAdminRequestDetails submission={selectedSubmission} />
+            ) : selectedSubmission.formType === 'it_application_request' ? (
+              <ITApplicationRequestDetails submission={selectedSubmission} />
             ) : selectedSubmission.formType === 'it_help_desk' ? (
               <>
                 {[
@@ -440,6 +464,10 @@ const AllSubmissionsPage = () => {
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
+                </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.mancoMemberName || "—"}</div>
                 </div>
               </>
             ) : selectedSubmission.formType === 'claim' ? (
@@ -612,13 +640,13 @@ const AllSubmissionsPage = () => {
             </div>
             <div className="text-center flex flex-col items-center justify-between">
               <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">
-                {selectedSubmission.formType === 'car_rental' ? 'HR Admin' : selectedSubmission.formType === 'cctv_access_request' ? 'IT Admin' : selectedSubmission.formType === 'leave' ? 'Security' : 'Admin'}
+                {selectedSubmission.formType === 'car_rental' ? 'HR Admin' : ['cctv_access_request', 'it_application_request'].includes(selectedSubmission.formType) ? 'IT Admin' : selectedSubmission.formType === 'leave' ? 'Security' : 'Admin'}
               </p>
               <div className="print:hidden w-full flex justify-center">
-                {selectedSubmission.status === "approved" ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? <Badge className="bg-muted text-muted-foreground border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">N/A</Badge> : statusBadge("pending")}
+                {selectedSubmission.status === "approved" || (selectedSubmission.formType === "it_application_request" && ["awaiting_confirmation", "completed"].includes(selectedSubmission.status)) ? statusBadge("approved") : (isRejected && rejectedStage === "admin") ? statusBadge("rejected") : isRejected ? <Badge className="bg-muted text-muted-foreground border-0 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 py-0.5 sm:py-1 tracking-wider">N/A</Badge> : statusBadge("pending")}
               </div>
               <div className="hidden print:block font-bold text-[10px] sm:text-sm">
-                {selectedSubmission.status === "approved" ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
+                {selectedSubmission.status === "approved" || (selectedSubmission.formType === "it_application_request" && ["awaiting_confirmation", "completed"].includes(selectedSubmission.status)) ? "APPROVED" : (isRejected && rejectedStage === "admin") ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
               </div>
             </div>
           </div>
@@ -661,35 +689,42 @@ const AllSubmissionsPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-xs font-medium text-muted-foreground">From:</Label>
-            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
+            <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setIsViewAll(false); }} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-xs font-medium text-muted-foreground">To:</Label>
-            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
+            <Input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setIsViewAll(false); }} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
           </div>
           <div className="flex items-center gap-2 pt-2 sm:col-span-2 lg:col-auto lg:pt-0 lg:border-l lg:border-border lg:pl-3">
-            <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const today = new Date().toISOString().split('T')[0]; setStartDate(today); setEndDate(today); }}>Today</Button>
+            <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const today = toLocalDateString(new Date())!; setStartDate(today); setEndDate(today); setIsViewAll(false); }}>Today</Button>
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
                 const today = new Date();
                 const last7 = new Date(today);
-                last7.setDate(today.getDate() - 7);
-                setStartDate(last7.toISOString().split('T')[0]);
-                setEndDate(today.toISOString().split('T')[0]);
+                last7.setDate(today.getDate() - 6);
+                setStartDate(toLocalDateString(last7)!);
+                setEndDate(toLocalDateString(today)!);
+                setIsViewAll(false);
             }}>Last 7 Days</Button>
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
                 const today = new Date();
                 const last30 = new Date(today);
-                last30.setDate(today.getDate() - 30);
-                setStartDate(last30.toISOString().split('T')[0]);
-                setEndDate(today.toISOString().split('T')[0]);
+                last30.setDate(today.getDate() - 29);
+                setStartDate(toLocalDateString(last30)!);
+                setEndDate(toLocalDateString(today)!);
+                setIsViewAll(false);
             }}>Last 30 Days</Button>
             {isDateFiltered && (
-              <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => { setStartDate(""); setEndDate(""); }}>
+              <Button variant="ghost" size="sm" className="h-9 text-xs text-muted-foreground" onClick={() => { setStartDate(""); setEndDate(""); setIsViewAll(false); }}>
                 <XCircle className="h-4 w-4 mr-1.5" /> Clear Dates
               </Button>
             )}
           </div>
         </div>
+        {hasInvalidDateRange && (
+          <p className="mt-3 text-xs font-medium text-destructive" role="alert">
+            The From date must be earlier than or the same as the To date.
+          </p>
+        )}
       </div>
 
       <div className="card-elevated overflow-hidden">
@@ -697,7 +732,7 @@ const AllSubmissionsPage = () => {
           <div>
             <h2 className="text-lg font-bold text-foreground">Submissions</h2>
             <div className="flex w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-border bg-muted/50 p-1.5 mt-3">
-              {(['all', 'car_rental', 'claim', 'leave'] as const).map(tab => (
+              {(['all', 'car_rental', 'claim', 'leave', 'it_application_request'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => { setActiveTab(tab); setIsViewAll(false); }}

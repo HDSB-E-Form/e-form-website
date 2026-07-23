@@ -227,6 +227,12 @@ const FinanceDashboard = () => {
               <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
             </div>
             <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Phone Number</span>
+              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">
+                {selectedSubmission.data.employeeInfo?.phone || selectedSubmission.data.phone || selectedSubmission.data.mobileNumber || "—"}
+              </div>
+            </div>
+            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
               <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Department</span>
               <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.department || "—"}</div>
             </div>

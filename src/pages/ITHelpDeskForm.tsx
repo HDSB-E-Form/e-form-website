@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
+import { useFormLanguage } from "@/contexts/FormLanguageContext";
 import { toast } from "sonner";
 
 const urgencyOptions = ["Low", "Medium", "High"];
@@ -22,6 +23,18 @@ const issueTypeOptions = [
   "Cyber Attacks / Spam / Phishing",
   "Data Recovery",
 ];
+const urgencyLabels: Record<string, string> = { Low: "Rendah", Medium: "Sederhana", High: "Tinggi" };
+const reportLabels: Record<string, string> = {
+  "IT Issues / Troubleshooting / Request": "Masalah IT / Penyelesaian Masalah / Permohonan",
+  "IT Request Form": "Borang Permohonan IT",
+};
+const issueTypeLabels: Record<string, string> = {
+  "Administration (e.g. Hardware, Laptop, PC, Printing)": "Pentadbiran (cth. Perkakasan, Komputer Riba, PC, Percetakan)",
+  "ERP LN (BAAN)": "ERP LN (BAAN)", "ERP Monitor": "Pemantau ERP",
+  "Internet Downtime": "Gangguan Internet", "Email Downtime": "Gangguan E-mel",
+  "Cyber Attacks / Spam / Phishing": "Serangan Siber / Spam / Pancingan Data",
+  "Data Recovery": "Pemulihan Data",
+};
 const superiorEmailOptions = [
   "azmi@hidsb.com",
   "Hairulnizam@hidsb.com",
@@ -58,6 +71,9 @@ const ITHelpDeskForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
+  const { language } = useFormLanguage();
+  const isMalay = language === "ms";
+  const text = (english: string, malay: string) => isMalay ? malay : english;
   const [superiorEmail, setSuperiorEmail] = useState("");
   const [urgency, setUrgency] = useState("");
   const [reportFor, setReportFor] = useState("");
@@ -67,13 +83,13 @@ const ITHelpDeskForm = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user?.name || !user?.email) return toast.error("Your profile name and email are required before submitting.");
-    if (!user?.department) return toast.error("Your department is required before submitting. Please update your profile.");
-    if (!superiorEmail.trim()) return toast.error("Enter the superior email.");
-    if (!urgency) return toast.error("Select the urgency level.");
-    if (!reportFor) return toast.error("Select what the ticket is reporting.");
-    if (!issueType) return toast.error("Select the type of issue or request.");
-    if (!issueExplanation.trim()) return toast.error("Explain the issue or request.");
+    if (!user?.name || !user?.email) return toast.error(text("Your profile name and email are required before submitting.", "Nama dan e-mel profil anda diperlukan sebelum menghantar."));
+    if (!user?.department) return toast.error(text("Your department is required before submitting. Please update your profile.", "Jabatan anda diperlukan sebelum menghantar. Sila kemas kini profil anda."));
+    if (!superiorEmail.trim()) return toast.error(text("Enter the superior email.", "Masukkan e-mel pegawai atasan."));
+    if (!urgency) return toast.error(text("Select the urgency level.", "Pilih tahap keutamaan."));
+    if (!reportFor) return toast.error(text("Select what the ticket is reporting.", "Pilih perkara yang dilaporkan oleh tiket."));
+    if (!issueType) return toast.error(text("Select the type of issue or request.", "Pilih jenis masalah atau permohonan."));
+    if (!issueExplanation.trim()) return toast.error(text("Explain the issue or request.", "Terangkan masalah atau permohonan."));
 
     setIsSubmitting(true);
     const success = await addSubmission({
@@ -101,7 +117,7 @@ const ITHelpDeskForm = () => {
     });
 
     if (success) {
-      toast.success("IT Help Desk ticket submitted successfully.");
+      toast.success(text("IT Help Desk ticket submitted successfully.", "Tiket Meja Bantuan IT berjaya dihantar."));
       navigate("/submissions");
     } else {
       setIsSubmitting(false);
@@ -111,7 +127,7 @@ const ITHelpDeskForm = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-500">
       <button type="button" onClick={() => navigate("/it")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to IT Forms
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {text("Back to IT Forms", "Kembali ke Borang IT")}
       </button>
 
       <div className="mb-8 flex items-center gap-4">
@@ -119,8 +135,8 @@ const ITHelpDeskForm = () => {
           <Headphones className="h-7 w-7 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">IT Help Desk Ticket</h1>
-          <p className="mt-1 text-muted-foreground">IT Department</p>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{text("IT Help Desk Ticket", "Tiket Meja Bantuan IT")}</h1>
+          <p className="mt-1 text-muted-foreground">{text("IT Department", "Jabatan IT")}</p>
         </div>
       </div>
 
@@ -129,18 +145,18 @@ const ITHelpDeskForm = () => {
           <div className="mb-5 flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <UserCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-base">Employee Details / <span className="font-normal">Butiran Pekerja</span></h2>
+            <h2 className="font-bold text-foreground text-base">{text("Employee Details", "Butiran Pekerja")}</h2>
           </div>
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
-            <EmployeeDetail label="Name / Nama" value={user?.name} />
-            <EmployeeDetail label="Position / Jawatan" value={user?.position} />
-            <EmployeeDetail label="Staff ID / No. Pekerja" value={user?.employeeId} />
-            <EmployeeDetail label="Department / Jabatan" value={user?.department} last />
+            <EmployeeDetail label={text("Name", "Nama")} value={user?.name} />
+            <EmployeeDetail label={text("Position", "Jawatan")} value={user?.position} />
+            <EmployeeDetail label={text("Staff ID", "No. Pekerja")} value={user?.employeeId} />
+            <EmployeeDetail label={text("Department", "Jabatan")} value={user?.department} last />
           </div>
           <div className="mt-5">
-            <Field label="Superior Email" id="superior-email" required>
+            <Field label={text("Superior Email", "E-mel Pegawai Atasan")} id="superior-email" required>
               <Select value={superiorEmail} onValueChange={setSuperiorEmail}>
-                <SelectTrigger id="superior-email" className="h-11"><SelectValue placeholder="Select superior email" /></SelectTrigger>
+                <SelectTrigger id="superior-email" className="h-11"><SelectValue placeholder={text("Select superior email", "Pilih e-mel pegawai atasan")} /></SelectTrigger>
                 <SelectContent className="max-h-72">{superiorEmailOptions.map(email => <SelectItem key={email} value={email}>{email}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
@@ -151,34 +167,34 @@ const ITHelpDeskForm = () => {
           <div className="mb-5 flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <ShieldAlert className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground">Ticket Classification</h2>
+            <h2 className="font-bold text-foreground">{text("Ticket Classification", "Klasifikasi Tiket")}</h2>
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field label="Urgency" id="ticket-urgency" required>
-              <Select value={urgency} onValueChange={setUrgency}><SelectTrigger id="ticket-urgency" className="h-11"><SelectValue placeholder="Select urgency" /></SelectTrigger><SelectContent>{urgencyOptions.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select>
+            <Field label={text("Urgency", "Keutamaan")} id="ticket-urgency" required>
+              <Select value={urgency} onValueChange={setUrgency}><SelectTrigger id="ticket-urgency" className="h-11"><SelectValue placeholder={text("Select urgency", "Pilih tahap keutamaan")} /></SelectTrigger><SelectContent>{urgencyOptions.map(option => <SelectItem key={option} value={option}>{isMalay ? urgencyLabels[option] : option}</SelectItem>)}</SelectContent></Select>
             </Field>
-            <Field label="Please Choose Report For" id="report-for" required>
-              <Select value={reportFor} onValueChange={setReportFor}><SelectTrigger id="report-for" className="h-11"><SelectValue placeholder="Select report option" /></SelectTrigger><SelectContent>{reportOptions.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent></Select>
-              <p className="mt-2 text-xs text-muted-foreground">Select the option that best matches your IT request.</p>
+            <Field label={text("Please Choose Report For", "Sila Pilih Jenis Laporan")} id="report-for" required>
+              <Select value={reportFor} onValueChange={setReportFor}><SelectTrigger id="report-for" className="h-11"><SelectValue placeholder={text("Select report option", "Pilih pilihan laporan")} /></SelectTrigger><SelectContent>{reportOptions.map(option => <SelectItem key={option} value={option}>{isMalay ? reportLabels[option] : option}</SelectItem>)}</SelectContent></Select>
+              <p className="mt-2 text-xs text-muted-foreground">{text("Select the option that best matches your IT request.", "Pilih pilihan yang paling sepadan dengan permohonan IT anda.")}</p>
             </Field>
           </div>
 
           <div className="mt-5 space-y-5">
-            <Field label="Type of Issue / Request" id="issue-type" required>
+            <Field label={text("Type of Issue / Request", "Jenis Masalah / Permohonan")} id="issue-type" required>
               <Select value={issueType} onValueChange={setIssueType}>
-                <SelectTrigger id="issue-type" className="h-11"><SelectValue placeholder="Select type of issue or request" /></SelectTrigger>
+                <SelectTrigger id="issue-type" className="h-11"><SelectValue placeholder={text("Select type of issue or request", "Pilih jenis masalah atau permohonan")} /></SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {issueTypeOptions.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+                  {issueTypeOptions.map(option => <SelectItem key={option} value={option}>{isMalay ? issueTypeLabels[option] : option}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>
 
-            <Field label="Issue Explained or Request / Nyatakan Permasalahan" id="issue-explanation" required>
+            <Field label={text("Issue Explanation or Request", "Nyatakan Masalah atau Permohonan")} id="issue-explanation" required>
               <Textarea
                 id="issue-explanation"
                 value={issueExplanation}
                 onChange={event => setIssueExplanation(event.target.value)}
-                placeholder="Describe the issue, troubleshooting details, or request..."
+                placeholder={text("Describe the issue, troubleshooting details, or request...", "Terangkan masalah, langkah penyelesaian atau permohonan...")}
                 className="min-h-32 resize-y"
                 required
               />
@@ -187,8 +203,8 @@ const ITHelpDeskForm = () => {
         </section>
 
         <div className="flex flex-col justify-center gap-3 pb-8 pt-4 sm:flex-row-reverse sm:gap-4">
-          <button type="submit" disabled={isSubmitting} className="btn-gold flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto sm:min-w-64 sm:py-4"><Send className="h-4 w-4" />{isSubmitting ? "Submitting..." : "Submit Ticket"}</button>
-          <button type="button" disabled={isSubmitting} onClick={() => navigate("/it")} className="w-full rounded-full border-2 border-border px-6 py-3.5 text-sm font-bold text-foreground transition-colors hover:bg-muted sm:w-auto sm:px-12 sm:py-4">Cancel</button>
+          <button type="submit" disabled={isSubmitting} className="btn-gold flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto sm:min-w-64 sm:py-4"><Send className="h-4 w-4" />{isSubmitting ? text("Submitting...", "Sedang dihantar...") : text("Submit Ticket", "Hantar Tiket")}</button>
+          <button type="button" disabled={isSubmitting} onClick={() => navigate("/it")} className="w-full rounded-full border-2 border-border px-6 py-3.5 text-sm font-bold text-foreground transition-colors hover:bg-muted sm:w-auto sm:px-12 sm:py-4">{text("Cancel", "Batal")}</button>
         </div>
       </form>
     </div>

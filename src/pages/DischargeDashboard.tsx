@@ -10,6 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { Badge } from "@/components/ui/badge";
+import SafetyDashboardSkeleton from "@/components/SafetyDashboardSkeleton";
+import { useSafetyDashboardRefresh } from "@/hooks/useSafetyDashboardRefresh";
 
 const parameterOptions = [
     { id: "ph4", label: "pH Value", unit: "" },
@@ -19,7 +21,8 @@ const parameterOptions = [
 
 const DischargeDashboard = () => {
     const { user } = useAuth();
-    const { submissions } = useSubmissions();
+    const { submissions, isLoading, refreshSubmissions } = useSubmissions();
+    const isDashboardRefreshing = useSafetyDashboardRefresh(refreshSubmissions, isLoading);
     const [selectedParameter, setSelectedParameter] = useState("ph4");
 
     const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -57,7 +60,7 @@ const DischargeDashboard = () => {
             });
             
         safetyForms.forEach((s, idx) => {
-            map.set(s.id, `SFTY-${String(idx + 1).padStart(5, "0")}`);
+            map.set(s.id, s.data?.refNo || `SFTY-${String(idx + 1).padStart(5, "0")}`);
         });
         return map;
     }, [submissions]);
@@ -274,6 +277,8 @@ const DischargeDashboard = () => {
         
         toast.success("Final Discharge spreadsheet exported successfully!");
     };
+
+    if (isDashboardRefreshing) return <SafetyDashboardSkeleton />;
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">

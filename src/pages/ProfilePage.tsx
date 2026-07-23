@@ -24,6 +24,11 @@ const roleLabels: Record<string, string> = {
   hr_admin: "HR Admin",
   finance_admin: "Finance Admin",
   it_admin: "IT Admin",
+  safety_admin: "Safety Admin",
+  security_guard: "Security Guard",
+  head_of_purchasing: "Head of Purchasing",
+  head_of_finance: "Head of Finance",
+  manco_member: "Manco Member",
   super_admin: "Super Admin",
 };
 
@@ -43,6 +48,9 @@ const ProfilePage = () => {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState({ current: false, next: false, confirm: false });
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
+  const displayedRoles = user
+    ? Array.from(new Set([user.role, ...(user.secondary_roles || [])])).map(role => roleLabels[role] || role.replace(/_/g, " "))
+    : [];
 
   const [profile, setProfile] = useState({
     name: user?.name || "",
@@ -297,7 +305,9 @@ const ProfilePage = () => {
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-foreground leading-tight">{user?.name}</h2>
-                    <p className="text-sm font-medium text-muted-foreground mt-1">{user?.role ? roleLabels[user.role] || user.role : ""}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {displayedRoles.map((role, index) => <span key={role} className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">{index > 0 && <span className="mr-1 opacity-60">+</span>}{role}</span>)}
+                    </div>
                   </div>
                 </div>
                 

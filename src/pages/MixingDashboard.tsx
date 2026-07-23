@@ -9,10 +9,13 @@ import { Layers, Plus, Save, Settings, Download, RotateCcw } from "lucide-react"
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/supabase";
+import SafetyDashboardSkeleton from "@/components/SafetyDashboardSkeleton";
+import { useSafetyDashboardRefresh } from "@/hooks/useSafetyDashboardRefresh";
 
 const MixingDashboard = () => {
     const { user } = useAuth();
-    const { submissions } = useSubmissions();
+    const { submissions, isLoading, refreshSubmissions } = useSubmissions();
+    const isDashboardRefreshing = useSafetyDashboardRefresh(refreshSubmissions, isLoading);
 
     const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     const getToday = () => formatLocalDate(new Date());
@@ -188,6 +191,8 @@ const MixingDashboard = () => {
         
         toast.success("Mixing & Chemical spreadsheet exported successfully!");
     };
+
+    if (isDashboardRefreshing) return <SafetyDashboardSkeleton />;
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">

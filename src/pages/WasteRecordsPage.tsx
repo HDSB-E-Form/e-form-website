@@ -7,10 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { renderValue } from "@/components/DataRenderer";
 import logo from "@/assets/logo.png";
+import SafetyDashboardSkeleton from "@/components/SafetyDashboardSkeleton";
+import { useSafetyDashboardRefresh } from "@/hooks/useSafetyDashboardRefresh";
 
 const WasteRecordsPage = () => {
     const navigate = useNavigate();
-    const { submissions } = useSubmissions();
+    const { submissions, isLoading, refreshSubmissions } = useSubmissions();
+    const isDashboardRefreshing = useSafetyDashboardRefresh(refreshSubmissions, isLoading);
     const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
     const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
     const [search, setSearch] = useState("");
@@ -29,7 +32,7 @@ const WasteRecordsPage = () => {
             .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
             
         safetyForms.forEach((s, idx) => {
-            map.set(s.id, `SFTY-${String(idx + 1).padStart(5, "0")}`);
+            map.set(s.id, s.data?.refNo || `SFTY-${String(idx + 1).padStart(5, "0")}`);
         });
         return map;
     }, [submissions]);
@@ -51,6 +54,8 @@ const WasteRecordsPage = () => {
                    generateRefNo(sub.id).toLowerCase().includes(q);
         });
     }, [wasteSubmissions, search]);
+
+    if (isDashboardRefreshing) return <SafetyDashboardSkeleton variant="records" />;
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">

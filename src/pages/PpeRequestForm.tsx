@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers } from "@/contexts/UsersContext";
+import { useFormLanguage } from "@/contexts/FormLanguageContext";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -110,6 +111,9 @@ const OFFICE_ITEMS = [
 
 const PpeRequestForm = () => {
   const navigate = useNavigate();
+  const { language } = useFormLanguage();
+  const isMalay = language === "ms";
+  const text = (english: string, malay: string) => isMalay ? malay : english;
   const { user } = useAuth();
   const { addSubmission } = useSubmissions();
   const { getUsersByRole } = useUsers();
@@ -195,11 +199,11 @@ const PpeRequestForm = () => {
     const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
     if (!allowedTypes.includes(file.type)) {
       e.target.value = "";
-      return toast.error("Upload a PDF, JPG, or PNG invoice only.");
+      return toast.error(text("Upload a PDF, JPG, or PNG invoice only.", "Muat naik invois dalam format PDF, JPG atau PNG sahaja."));
     }
     if (file.size > 10 * 1024 * 1024) {
       e.target.value = "";
-      return toast.error("The invoice file must be 10 MB or smaller.");
+      return toast.error(text("The invoice file must be 10 MB or smaller.", "Saiz fail invois mestilah 10 MB atau kurang."));
     }
 
     setIsUploadingInvoice(true);
@@ -208,14 +212,14 @@ const PpeRequestForm = () => {
 
     const { data, error } = await supabase.storage.from("form-attachments").upload(filePath, file);
     if (error || !data) {
-      toast.error(`Upload failed: ${error?.message || "Unknown error"}`);
+      toast.error(`${text("Upload failed", "Muat naik gagal")}: ${error?.message || text("Unknown error", "Ralat tidak diketahui")}`);
       setIsUploadingInvoice(false);
       return;
     }
 
     const { data: urlData } = supabase.storage.from("form-attachments").getPublicUrl(data.path);
     if (!urlData) {
-      toast.error("Failed to get invoice URL");
+      toast.error(text("Failed to get invoice URL", "Gagal mendapatkan URL invois"));
       setIsUploadingInvoice(false);
       return;
     }
@@ -225,7 +229,7 @@ const PpeRequestForm = () => {
     if (invoicePath) await supabase.storage.from("form-attachments").remove([invoicePath]);
     setInvoicePath(data.path);
     setIsUploadingInvoice(false);
-    toast.success("Invoice uploaded successfully.");
+    toast.success(text("Invoice uploaded successfully.", "Invois berjaya dimuat naik."));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -234,27 +238,27 @@ const PpeRequestForm = () => {
     const selectedItems = currentItems.filter(item => item.selected);
     
     if (selectedItems.length === 0) {
-      toast.error("Please select at least one item to request.");
+      toast.error(text("Please select at least one item to request.", "Sila pilih sekurang-kurangnya satu item untuk dimohon."));
       return;
     }
 
     if (selectedItems.some(item => !item.quantity || parseInt(item.quantity) < 1)) {
-      toast.error("Please provide a valid quantity for all selected items.");
+      toast.error(text("Please provide a valid quantity for all selected items.", "Sila masukkan kuantiti yang sah untuk semua item yang dipilih."));
       return;
     }
 
     if (selectedItems.some(item => item.sizes.length > 1 && !item.size)) {
-      toast.error("Please choose a size or option for every selected item.");
+      toast.error(text("Please choose a size or option for every selected item.", "Sila pilih saiz atau pilihan bagi setiap item yang dipilih."));
       return;
     }
 
     if (selectedItems.some(item => !/^\d+$/.test(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > 999)) {
-      toast.error("Quantity must be a whole number between 1 and 999.");
+      toast.error(text("Quantity must be a whole number between 1 and 999.", "Kuantiti mestilah nombor bulat antara 1 hingga 999."));
       return;
     }
 
     if (requestType === "buy" && !invoiceUrl) {
-      toast.error("Please upload an invoice for purchase requests.");
+      toast.error(text("Please upload an invoice for purchase requests.", "Sila muat naik invois untuk permohonan pembelian."));
       return;
     }
 
@@ -282,7 +286,7 @@ const PpeRequestForm = () => {
     });
 
     if (success) {
-      toast.success("Collection record saved successfully!");
+      toast.success(text("Collection record saved successfully!", "Rekod pengambilan berjaya disimpan!"));
       navigate("/home");
 
       // // Send email notification as background best-effort action (DEACTIVATED)
@@ -329,22 +333,24 @@ const PpeRequestForm = () => {
         <div className="text-left">
           <h1 className="text-2xl font-bold uppercase tracking-widest text-black">HICOM Diecastings Sdn Bhd</h1>
           <p className="text-sm text-gray-600 mt-1 uppercase tracking-wide">
-            {requestType === 'buy' ? 'Purchase Requisition Form' : 'Collection Record'}
+            {requestType === 'buy'
+              ? text('Purchase Requisition Form', 'Borang Permohonan Pembelian')
+              : text('Collection Record', 'Rekod Pengambilan')}
           </p>
         </div>
         <div className="ml-auto text-right">
-          <p className="text-xs text-gray-500">Date Printed:</p>
-          <p className="text-sm font-semibold text-black">{new Date().toLocaleDateString('en-GB')}</p>
+          <p className="text-xs text-gray-500">{text("Date Printed:", "Tarikh Dicetak:")}</p>
+          <p className="text-sm font-semibold text-black">{new Date().toLocaleDateString(isMalay ? 'ms-MY' : 'en-GB')}</p>
         </div>
       </div>
 
       <button type="button" onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group print:hidden">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {text("Back to HR Forms", "Kembali ke Borang HR")}
       </button>
 
       <div className="mb-8 print:hidden">
         <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
-          PPE | Uniform | Office Supplies Request
+          {text("PPE | Uniform | Office Supplies Request", "Permohonan PPE | Uniform | Bekalan Pejabat")}
         </h1>
         <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
       </div>
@@ -355,25 +361,25 @@ const PpeRequestForm = () => {
           <div className="flex items-center gap-2 mb-5">
             <UserCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-sm">
-              Employee Details / <span className="font-normal">Butiran Pekerja</span>
+              {text("Employee Details", "Butiran Pekerja")}
             </h2>
           </div>
 
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50 print:bg-transparent print:p-0 print:border-none print:rounded-none print:mb-4">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Name", "Nama")}</span>
               <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Position", "Jawatan")}</span>
               <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Staff ID", "No. Pekerja")}</span>
               <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Department", "Jabatan")}</span>
               <div className="text-xs font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
@@ -385,7 +391,7 @@ const PpeRequestForm = () => {
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
               <h2 className="font-bold text-foreground text-sm">
-                Request Details / <span className="font-normal">Butiran Permohonan</span>
+                {text("Request Details", "Butiran Permohonan")}
               </h2>
             </div>
             <div className="flex w-full sm:w-auto gap-2">
@@ -403,7 +409,7 @@ const PpeRequestForm = () => {
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
                 }`}
               >
-                Issue
+                {text("Issue", "Pengeluaran")}
               </button>
               <button
                 type="button"
@@ -418,7 +424,7 @@ const PpeRequestForm = () => {
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
                 }`}
               >
-                <ShoppingCart className="h-3.5 w-3.5" /> Buy
+                <ShoppingCart className="h-3.5 w-3.5" /> {text("Buy", "Beli")}
               </button>
             </div>
           </div>
@@ -426,7 +432,7 @@ const PpeRequestForm = () => {
           {requestType === 'buy' && (
             <div className="mt-6 pt-6 border-t border-border flex justify-end">
               <div className="text-right">
-                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Total Estimated Cost</p>
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{text("Total Estimated Cost", "Jumlah Anggaran Kos")}</p>
                 <p className="text-3xl font-bold text-primary mt-1">RM {totalCost.toFixed(2)}</p>
               </div>
             </div>
@@ -434,12 +440,12 @@ const PpeRequestForm = () => {
 
           <div className="space-y-6">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary print:hidden">Category / Kategori <span className="text-destructive">*</span></Label>              
+              <Label className="text-xs font-semibold text-primary print:hidden">{text("Category", "Kategori")} <span className="text-destructive">*</span></Label>
               <div className="flex flex-col sm:flex-row gap-3 mt-1.5 print:hidden">
                 {[
                   { id: "ppe", label: "PPE" },
                   { id: "uniform", label: "Uniform" },
-                  ...(requestType === "issue" ? [{ id: "office", label: "Office Supply" }] : [])
+                  ...(requestType === "issue" ? [{ id: "office", label: text("Office Supply", "Bekalan Pejabat") }] : [])
                 ].map(cat => (
                   <div
                     key={cat.id}
@@ -461,38 +467,52 @@ const PpeRequestForm = () => {
                 ))}
               </div>
               <div className="hidden print:block">
-                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Request Category</p>
-                <p className="text-base font-bold text-black">{requestCategory.toUpperCase()}</p>
+                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{text("Request Category", "Kategori Permohonan")}</p>
+                <p className="text-base font-bold text-black">
+                  {requestCategory === "ppe"
+                    ? "PPE"
+                    : requestCategory === "uniform"
+                      ? "Uniform"
+                      : text("Office Supply", "Bekalan Pejabat")}
+                </p>
               </div>
               <div className="hidden print:block mt-2">
-                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Request Type</p>
-                <p className="text-base font-bold text-black">{requestType === 'buy' ? 'Purchase' : 'Issue'}</p>
+                <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">{text("Request Type", "Jenis Permohonan")}</p>
+                <p className="text-base font-bold text-black">{requestType === 'buy' ? text('Purchase', 'Pembelian') : text('Issue', 'Pengeluaran')}</p>
               </div>
             </div>
 
             <div className="relative print:hidden">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={itemSearch} onChange={event => setItemSearch(event.target.value)} placeholder={`Search ${requestCategory === "office" ? "office supplies" : requestCategory}...`} className="h-11 pl-9" />
+              <Input
+                value={itemSearch}
+                onChange={event => setItemSearch(event.target.value)}
+                placeholder={text(
+                  `Search ${requestCategory === "office" ? "office supplies" : requestCategory}...`,
+                  `Cari ${requestCategory === "office" ? "bekalan pejabat" : requestCategory}...`
+                )}
+                className="h-11 pl-9"
+              />
             </div>
 
             <div className="hidden sm:block border border-border rounded-lg overflow-x-auto print:block print:border-2 print:border-black">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border print:bg-gray-100">
-                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-center w-16 print:hidden">Select</th>
-                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left">Item Name / Nama Barang</th>
-                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-48">Size / Saiz</th>
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-center w-16 print:hidden">{text("Select", "Pilih")}</th>
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left">{text("Item Name", "Nama Barang")}</th>
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-48">{text("Size", "Saiz")}</th>
                     {requestType === 'buy' && (
-                      <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-28">Price (RM)</th>
+                      <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-28">{text("Price (RM)", "Harga (RM)")}</th>
                     )}
-                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">Qty / Kuantiti</th>
+                    <th className="text-[10px] uppercase font-bold text-muted-foreground px-4 py-3 text-left w-24">{text("Qty", "Kuantiti")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {visibleItems.map(({ item, index: i }) => (
                     <tr key={i} className={`transition-colors ${item.selected ? 'bg-primary/5' : 'hover:bg-muted/5'} ${!item.selected ? 'print:hidden' : ''} print:bg-transparent`}>
                       <td className="px-4 py-1 text-center print:hidden">
-                        <Checkbox checked={item.selected} onCheckedChange={() => toggleItemSelection(i)} aria-label={`Select ${item.name}`} className="h-5 w-5 rounded-sm border-2" />
+                        <Checkbox checked={item.selected} onCheckedChange={() => toggleItemSelection(i)} aria-label={`${text("Select", "Pilih")} ${item.name}`} className="h-5 w-5 rounded-sm border-2" />
                       </td>
                       <td className="px-4 py-1 text-sm font-semibold text-foreground print:py-1 print:text-xs">
                         {item.name}
@@ -504,7 +524,7 @@ const PpeRequestForm = () => {
                             disabled={!item.selected || item.sizes.length === 0}
                           >
                             <SelectTrigger className="h-10 border-0 bg-background/50 focus:bg-background print:text-xs print:bg-transparent print:border-none print:shadow-none print:p-0 print:h-auto">
-                              <SelectValue placeholder="Size" />
+                              <SelectValue placeholder={text("Size", "Saiz")} />
                             </SelectTrigger>
                             <SelectContent className="print:hidden max-h-64">
                               {item.sizes.length > 0 ? (
@@ -523,7 +543,7 @@ const PpeRequestForm = () => {
                         <td className="px-4 py-1 text-sm font-bold text-foreground print:py-1 print:text-xs text-right">
                         {(() => {
                           const price = getItemUnitPrice(item);
-                          return price === null ? "Select size" : price.toFixed(2);
+                          return price === null ? text("Select size", "Pilih saiz") : price.toFixed(2);
                         })()}
                         </td>
                       )}
@@ -546,30 +566,30 @@ const PpeRequestForm = () => {
 
             <div className="space-y-3 sm:hidden print:hidden">
               {visibleItems.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No matching items found.</p>
+                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{text("No matching items found.", "Tiada item yang sepadan ditemui.")}</p>
               ) : visibleItems.map(({ item, index: i }) => (
                 <div key={item.name} className={`rounded-xl border p-4 transition-colors ${item.selected ? "border-primary bg-primary/5" : "border-border bg-background"}`}>
                   <label className="flex cursor-pointer items-start gap-3">
-                    <Checkbox checked={item.selected} onCheckedChange={() => toggleItemSelection(i)} aria-label={`Select ${item.name}`} className="mt-0.5 h-5 w-5 rounded-sm border-2" />
+                    <Checkbox checked={item.selected} onCheckedChange={() => toggleItemSelection(i)} aria-label={`${text("Select", "Pilih")} ${item.name}`} className="mt-0.5 h-5 w-5 rounded-sm border-2" />
                     <span className="min-w-0 flex-1 text-sm font-bold text-foreground">{item.name}</span>
                   </label>
                   {item.selected && (
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border/60 pt-4">
                       <div className="min-w-0 space-y-1.5">
-                        <Label className="text-[11px] font-semibold text-muted-foreground">Size / Option</Label>
+                        <Label className="text-[11px] font-semibold text-muted-foreground">{text("Size / Option", "Saiz / Pilihan")}</Label>
                         <Select value={item.size} onValueChange={value => handleItemChange(i, "size", value)}>
-                          <SelectTrigger className="h-11 min-w-0"><SelectValue placeholder="Choose" /></SelectTrigger>
+                          <SelectTrigger className="h-11 min-w-0"><SelectValue placeholder={text("Choose", "Pilih")} /></SelectTrigger>
                           <SelectContent className="max-h-64">{item.sizes.map((size: any) => <SelectItem key={size.size} value={size.size}>{size.size}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="min-w-0 space-y-1.5">
-                        <Label className="text-[11px] font-semibold text-muted-foreground">Quantity</Label>
+                        <Label className="text-[11px] font-semibold text-muted-foreground">{text("Quantity", "Kuantiti")}</Label>
                         <Input type="number" inputMode="numeric" min="1" max="999" step="1" value={item.quantity} onChange={event => handleItemChange(i, "quantity", event.target.value)} onWheel={event => (event.target as HTMLElement).blur()} className="h-11 no-spinner" />
                       </div>
                       {requestType === "buy" && (
                         <p className="col-span-2 text-right text-sm font-bold text-primary">
                           {getItemUnitPrice(item) === null
-                            ? "Select a size to view the price"
+                            ? text("Select a size to view the price", "Pilih saiz untuk melihat harga")
                             : `RM ${((getItemUnitPrice(item) || 0) * (Number(item.quantity) || 0)).toFixed(2)}`}
                         </p>
                       )}
@@ -580,11 +600,11 @@ const PpeRequestForm = () => {
             </div>
 
             <div className="space-y-1.5 pt-4 print:pt-6">
-              <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
+              <Label className="text-xs font-semibold text-primary">{text("Remarks", "Ulasan")}</Label>
               <Input
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
-                placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
+                placeholder={text("Please enter remarks if any...", "Sila masukkan ulasan jika ada...")}
                 className="h-11 print:hidden"
               />
               <p className="hidden print:block text-black border-b-2 border-black min-h-[2rem] pb-2">{remarks || ' '}</p>
@@ -592,7 +612,7 @@ const PpeRequestForm = () => {
 
             {requestType === "buy" && (
               <div className="space-y-1.5 pt-4 border-t border-border print:hidden">
-                <Label className="text-xs font-semibold text-primary">Upload Invoice / Receipt <span className="text-destructive">*</span></Label>
+                <Label className="text-xs font-semibold text-primary">{text("Upload Invoice / Receipt", "Muat Naik Invois / Resit")} <span className="text-destructive">*</span></Label>
                 <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
                   {invoiceUrl && invoiceFile ? (
                     <div className="space-y-2">
@@ -607,15 +627,15 @@ const PpeRequestForm = () => {
                         }}
                         className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                       >
-                        Change File
+                        {text("Change File", "Tukar Fail")}
                       </button>
                     </div>
                   ) : (
                     <label htmlFor="invoice-upload" className="cursor-pointer block">
                       <div className="flex flex-col items-center gap-2">
                         <Upload className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-sm font-semibold text-muted-foreground">Click to upload invoice</span>
-                        <span className="text-xs text-muted-foreground">PDF, Image, or document</span>
+                        <span className="text-sm font-semibold text-muted-foreground">{text("Click to upload invoice", "Klik untuk memuat naik invois")}</span>
+                        <span className="text-xs text-muted-foreground">{text("PDF, Image, or document", "PDF, imej atau dokumen")}</span>
                       </div>
                       <input
                         id="invoice-upload"
@@ -641,7 +661,7 @@ const PpeRequestForm = () => {
             className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit Record"}
+            {isSubmitting ? text("Submitting...", "Sedang dihantar...") : text("Submit Record", "Hantar Rekod")}
           </button>
           {requestType === 'buy' && (
             <button
@@ -664,14 +684,14 @@ const PpeRequestForm = () => {
                 }, 50);
               }}
               className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center flex items-center justify-center gap-2"
-            ><Printer className="h-4 w-4" /> Print Form</button>
+            ><Printer className="h-4 w-4" /> {text("Print Form", "Cetak Borang")}</button>
           )}
           <button
             type="button"
             onClick={() => navigate("/hr")}
             className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
           >
-            Cancel
+            {text("Cancel", "Batal")}
           </button>
         </div>
       </form>
@@ -681,15 +701,15 @@ const PpeRequestForm = () => {
         <div className="grid grid-cols-2 gap-16">
           <div className="text-left">
             <div className="border-b-2 border-black pb-2" />
-            <p className="mt-2 text-xs font-bold">Requester's Signature</p>
-            <p className="mt-4 text-xs text-gray-600">Name:</p>
-            <p className="mt-4 text-xs text-gray-600">Date:</p>
+            <p className="mt-2 text-xs font-bold">{text("Requester's Signature", "Tandatangan Pemohon")}</p>
+            <p className="mt-4 text-xs text-gray-600">{text("Name:", "Nama:")}</p>
+            <p className="mt-4 text-xs text-gray-600">{text("Date:", "Tarikh:")}</p>
           </div>
           <div className="text-left">
             <div className="border-b-2 border-black pb-2" />
-            <p className="mt-2 text-xs font-bold">Finance Department</p>
-            <p className="mt-4 text-xs text-gray-600">Name:</p>
-            <p className="mt-4 text-xs text-gray-600">Date:</p>
+            <p className="mt-2 text-xs font-bold">{text("Finance Department", "Jabatan Kewangan")}</p>
+            <p className="mt-4 text-xs text-gray-600">{text("Name:", "Nama:")}</p>
+            <p className="mt-4 text-xs text-gray-600">{text("Date:", "Tarikh:")}</p>
           </div>
         </div>
       </div>

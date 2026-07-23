@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
@@ -6,6 +6,13 @@ import { useUsers } from "@/contexts/UsersContext";
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
 import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/supabase";
+
+interface HomePosterConfig {
+  enabled: boolean;
+  url: string | null;
+  version?: string;
+}
 
 const HomePageSkeleton = () => (
   <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 duration-300" aria-busy="true" aria-live="polite">
@@ -18,6 +25,14 @@ const HomePageSkeleton = () => (
   </div>
 );
 
+const roleLabels: Record<string, string> = {
+  employee: "Employee", hos: "HOS", hod: "HOD", hr_admin: "HR Admin",
+  finance_admin: "Finance Admin", it_admin: "IT Admin", safety_admin: "Safety Admin",
+  security_guard: "Security Guard", head_of_purchasing: "Head of Purchasing",
+  head_of_finance: "Head of Finance", super_admin: "Super Admin",
+  manco_member: "Manco Member",
+};
+
 const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -25,11 +40,47 @@ const HomePage = () => {
   const { refreshUsers, isLoading: areUsersLoading } = useUsers();
   const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
   const [isPreparingForms, setIsPreparingForms] = useState(false);
+  const [homePoster, setHomePoster] = useState<HomePosterConfig>({ enabled: false, url: null });
+  const [showHomePoster, setShowHomePoster] = useState(false);
   const { hiddenIds } = useHiddenSubmissions();
+  const displayedRole = user
+    ? Array.from(new Set([user.role, ...(user.secondary_roles || [])])).map(role => roleLabels[role] || role.replace(/_/g, " ")).join(" + ")
+    : "Staff";
 
   const activeAnnouncement = useMemo(() => {
     return (announcements || []).find(a => a.is_active);
   }, [announcements]);
+
+  useEffect(() => {
+    let isMounted = true;
+    void supabase
+      .from("safety_dashboard_settings")
+      .select("value")
+      .eq("key", "home_poster")
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error) {
+          console.error("Could not load the Home poster:", error);
+          return;
+        }
+
+        const config = (data?.value || { enabled: false, url: null }) as HomePosterConfig;
+        setHomePoster(config);
+        if (!config.enabled || !config.url) return;
+
+        const posterIdentity = config.version || config.url;
+        const seenKey = `hdsb_home_poster_seen_${posterIdentity}`;
+        if (sessionStorage.getItem(seenKey) !== "true") {
+          setShowHomePoster(true);
+          sessionStorage.setItem(seenKey, "true");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   
   const getInitials = (name?: string) =>
     (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
@@ -116,7 +167,31 @@ const HomePage = () => {
   if (areUsersLoading || areSubmissionsLoading || isPreparingForms) return <HomePageSkeleton />;
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
+    <>
+      {showHomePoster && homePoster.url && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-300 sm:p-6"
+          onClick={() => setShowHomePoster(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Company information poster"
+        >
+          <div className="relative flex max-h-[90vh] w-full max-w-3xl items-center justify-center animate-in zoom-in-95 duration-300" onClick={event => event.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setShowHomePoster(false)}
+              className="absolute -right-2 -top-2 z-10 rounded-full border border-white/20 bg-black/65 p-1.5 text-white/80 shadow-lg transition-colors hover:bg-black/85 hover:text-white sm:-right-4 sm:-top-4"
+              aria-label="Close poster"
+              title="Close poster"
+            >
+              <XCircle className="h-8 w-8" />
+            </button>
+            <img src={homePoster.url} alt="Company information poster" className="max-h-[88vh] w-auto max-w-full rounded-2xl border border-white/15 object-contain shadow-2xl" />
+          </div>
+        </div>
+      )}
+
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       {/* Global Announcement Banner */}
       {activeAnnouncement && isAnnouncementVisible && (
         <div className="relative mb-6 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 pr-12 shadow-sm dark:bg-blue-500/10">
@@ -159,7 +234,7 @@ const HomePage = () => {
             </div>
             <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary shadow-md">
               <ShieldCheck className="h-3 w-3" />
-              <span>{user?.role ? user.role.replace(/_/g, " ") : "Staff"}</span>
+              <span>{displayedRole}</span>
             </div>
           </div>
           <div className="text-center sm:text-left">
@@ -235,7 +310,8 @@ const HomePage = () => {
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

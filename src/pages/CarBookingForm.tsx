@@ -11,10 +11,14 @@ import { ArrowLeft, Users, UserCheck, MapPin, ShieldCheck, FileText, Send, PlusC
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
+import { useFormLanguage } from "@/contexts/FormLanguageContext";
 
 const CarBookingForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useFormLanguage();
+  const isMalay = language === "ms";
+  const text = (english: string, malay: string) => isMalay ? malay : english;
   const { addSubmission, submissions, cars, updateSubmission } = useSubmissions();
   const { getUsersByRole, isLoading: areUsersLoading } = useUsers();
   const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
@@ -152,7 +156,7 @@ const CarBookingForm = () => {
     booking: activeBookings.find(b => b.car === `${car.model} (${car.plateNumber})`) || null,
   }));
 
-  const formatBookingDateTime = (date: Date) => date.toLocaleString("en-GB", {
+  const formatBookingDateTime = (date: Date) => date.toLocaleString(isMalay ? "ms-MY" : "en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -177,11 +181,11 @@ const CarBookingForm = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!policyAgreed) {
-      toast.error("Please agree to the Company Vehicle Policy before submitting.");
+      toast.error(text("Please agree to the Company Vehicle Policy before submitting.", "Sila bersetuju dengan Polisi Kenderaan Syarikat sebelum menghantar."));
       return;
     }
     if (!form.hos || !form.hod) {
-      toast.error("Please select both Head of Section and Head of Department.");
+      toast.error(text("Please select both Head of Section and Head of Department.", "Sila pilih Ketua Seksyen dan Ketua Jabatan."));
       return;
     }
 
@@ -193,9 +197,12 @@ const CarBookingForm = () => {
     }
 
     if (!licenseFile && !existingLicenseUrl) {
-      toast.error("Please upload a copy of your driving license.");
+      toast.error(text("Please upload a copy of your driving license.", "Sila muat naik salinan lesen memandu anda."));
       return;
     }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     let licenseAttachmentUrl = existingLicenseUrl || null;
     if (licenseFile) {
       const filePath = `public/${user?.id || 'unknown_user'}/license_${Date.now()}_${licenseFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
@@ -205,7 +212,7 @@ const CarBookingForm = () => {
         .upload(filePath, licenseFile);
 
       if (error) {
-        toast.error(`License upload failed: ${error.message}`);
+        toast.error(`${text("License upload failed", "Muat naik lesen gagal")}: ${error.message}`);
         setIsSubmitting(false);
         return;
       }
@@ -235,7 +242,7 @@ const CarBookingForm = () => {
     if (isEditMode && editSubmissionId && editSubmission) {
       const success = await updateSubmission(editSubmissionId, submissionData, initialStatus);
       if (success) {
-        toast.success("Company car booking updated. The approval process has restarted.");
+        toast.success(text("Company car booking updated. The approval process has restarted.", "Tempahan kereta syarikat telah dikemas kini. Proses kelulusan telah dimulakan semula."));
         navigate("/submissions");
       } else {
         setIsSubmitting(false);
@@ -283,7 +290,7 @@ const CarBookingForm = () => {
       //   console.error("Failed to prepare email notification", err);
       // }
 
-      toast.success("Company car request submitted successfully!");
+      toast.success(text("Company car request submitted successfully!", "Permohonan kereta syarikat berjaya dihantar!"));
       navigate("/home");
     } else {
       setIsSubmitting(false);
@@ -303,8 +310,8 @@ const CarBookingForm = () => {
                   <CalendarDays className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 id="vehicle-availability-title" className="font-bold text-lg text-foreground">Current Vehicle Availability</h3>
-                  <p className="text-sm text-muted-foreground">See which company vehicles are currently available or in use</p>
+                  <h3 id="vehicle-availability-title" className="font-bold text-lg text-foreground">{text("Current Vehicle Availability", "Ketersediaan Kenderaan Semasa")}</h3>
+                  <p className="text-sm text-muted-foreground">{text("See which company vehicles are currently available or in use", "Lihat kenderaan syarikat yang tersedia atau sedang digunakan")}</p>
                 </div>
               </div>
               <button type="button" aria-label="Close vehicle availability" onClick={() => setIsAvailabilityModalOpen(false)} className="text-muted-foreground hover:text-destructive p-2 border border-transparent hover:border-destructive/30 hover:bg-destructive/10 rounded-xl transition-colors shrink-0">
@@ -314,13 +321,13 @@ const CarBookingForm = () => {
 
             <div className="overflow-y-auto flex-1 bg-background p-4 md:p-6">
               {vehicleAvailability.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-10">No company vehicles found.</p>
+                <p className="text-center text-sm text-muted-foreground py-10">{text("No company vehicles found.", "Tiada kenderaan syarikat ditemui.")}</p>
               ) : (
                 <div className="space-y-3">
                   {vehicleAvailability.map(vehicle => {
                     const isAvailable = vehicle.status === "available";
                     const isMaintenance = vehicle.status === "maintenance";
-                    const statusLabel = isAvailable ? "Available" : isMaintenance ? "Maintenance" : "In Use";
+                    const statusLabel = isAvailable ? text("Available", "Tersedia") : isMaintenance ? text("Maintenance", "Penyelenggaraan") : text("In Use", "Sedang Digunakan");
                     const statusStyle = isAvailable
                       ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
                       : isMaintenance
@@ -350,21 +357,21 @@ const CarBookingForm = () => {
                             {vehicle.booking ? (
                               <div className="grid min-w-0 flex-1 gap-3 text-sm sm:max-w-xl sm:grid-cols-3">
                                 <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Booked by</p>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{text("Booked by", "Ditempah oleh")}</p>
                                   <p className="mt-1 font-semibold text-foreground">{vehicle.booking.name}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From</p>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{text("From", "Dari")}</p>
                                   <p className="mt-1 font-semibold text-foreground">{formatBookingDateTime(vehicle.booking.fromDate)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Until</p>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{text("Until", "Hingga")}</p>
                                   <p className="mt-1 font-semibold text-foreground">{formatBookingDateTime(vehicle.booking.toDate)}</p>
                                 </div>
                               </div>
                             ) : (
                               <p className="text-sm text-muted-foreground sm:self-center">
-                                {isAvailable ? "No active booking" : isMaintenance ? "Vehicle is unavailable for booking" : "Booking details unavailable"}
+                                {isAvailable ? text("No active booking", "Tiada tempahan aktif") : isMaintenance ? text("Vehicle is unavailable for booking", "Kenderaan tidak tersedia untuk tempahan") : text("Booking details unavailable", "Butiran tempahan tidak tersedia")}
                               </p>
                             )}
                           </div>
@@ -380,12 +387,12 @@ const CarBookingForm = () => {
       )}
 
       <button type="button" onClick={() => navigate(isEditMode ? "/submissions" : "/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {isEditMode ? "Back to My Submissions" : "Back to HR Forms"}
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {isEditMode ? text("Back to My Submissions", "Kembali ke Penyerahan Saya") : text("Back to HR Forms", "Kembali ke Borang HR")}
       </button>
 
       <div className="mb-5">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Company Car Request</h1>
-        <p className="mt-1 text-base font-medium text-primary">Permohonan Kereta Syarikat</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{text("Company Car Request", "Permohonan Kereta Syarikat")}</h1>
+        <p className="mt-1 text-base font-medium text-primary">{text("Human Resources Department", "Jabatan Sumber Manusia")}</p>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-6">
@@ -395,35 +402,35 @@ const CarBookingForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <UserCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Requester & Driver Details / <span className="font-normal">Butiran Pemohon & Pemandu</span>
+              {text("Requester & Driver Details", "Butiran Pemohon & Pemandu")}
             </h2>
           </div>
 
           {/* Pre-filled Details (Do not require filling) */}
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Name", "Nama")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{form.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Position", "Jawatan")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{form.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Staff ID", "No. Pekerja")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{form.staffId || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Department", "Jabatan")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{form.department || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">IC Number / No. K/P</span>
-              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.icNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("IC Number", "No. K/P")}</span>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.icNo || <span className="italic text-muted-foreground/80">{text("Please update in My Profile", "Sila kemas kini dalam Profil Saya")}</span>}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Driving License No. / Lesen</span>
-              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.drivingLicenseNo || <span className="italic text-muted-foreground/80">Please update in My Profile</span>}</div>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Driving Licence No.", "No. Lesen Memandu")}</span>
+              <div className="text-sm font-bold text-foreground sm:col-span-2">{form.drivingLicenseNo || <span className="italic text-muted-foreground/80">{text("Please update in My Profile", "Sila kemas kini dalam Profil Saya")}</span>}</div>
             </div>
           </div>
 
@@ -436,7 +443,7 @@ const CarBookingForm = () => {
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
               <MapPin className="h-5 w-5 text-primary" />
               <h2 className="font-bold text-foreground text-base">
-                Journey Details / <span className="font-normal">Butiran Perjalanan</span>
+                {text("Journey Details", "Butiran Perjalanan")}
               </h2>
             </div>
             <button 
@@ -444,13 +451,13 @@ const CarBookingForm = () => {
               onClick={() => setIsAvailabilityModalOpen(true)} 
               className="flex w-full sm:w-auto items-center justify-center gap-2 text-sm font-bold text-primary hover:text-primary/90 transition-colors bg-primary/10 hover:bg-primary/20 px-4 py-2 rounded-lg shadow-sm border border-primary/20"
             >
-              <CalendarDays className="h-4 w-4" /> View Availability
+              <CalendarDays className="h-4 w-4" /> {text("View Availability", "Lihat Ketersediaan")}
             </button>
           </div>
 
           <div className="space-y-6">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Journey Type / Jenis Perjalanan <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary">{text("Journey Type", "Jenis Perjalanan")} <span className="text-destructive">*</span></Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-1.5">
                 <button
                   type="button"
@@ -467,9 +474,9 @@ const CarBookingForm = () => {
                     }`}>
                       {form.journeyType === "business" && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                     </div>
-                    <span className="font-bold text-sm">Business / Perniagaan</span>
+                    <span className="font-bold text-sm">{text("Business", "Urusan Syarikat")}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-7">Official company travel</p>
+                  <p className="text-xs text-muted-foreground pl-7">{text("Official company travel", "Perjalanan rasmi syarikat")}</p>
                 </button>
                 <button
                   type="button"
@@ -486,33 +493,33 @@ const CarBookingForm = () => {
                     }`}>
                       {form.journeyType === "other" && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                     </div>
-                    <span className="font-bold text-sm">Other / Lain-lain</span>
+                    <span className="font-bold text-sm">{text("Other", "Lain-lain")}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-7">Non-business journey</p>
+                  <p className="text-xs text-muted-foreground pl-7">{text("Non-business journey", "Perjalanan bukan urusan syarikat")}</p>
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">From Date & Time / Dari Tarikh & Masa <span className="text-destructive">*</span></Label>
+                <Label className="text-xs font-semibold text-primary">{text("From Date & Time", "Dari Tarikh & Masa")} <span className="text-destructive">*</span></Label>
                 <Input type="datetime-local" value={form.fromDate} onChange={e => handleChange("fromDate", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">To Date & Time / Kepada Tarikh & Masa <span className="text-destructive">*</span></Label>
+                <Label className="text-xs font-semibold text-primary">{text("To Date & Time", "Hingga Tarikh & Masa")} <span className="text-destructive">*</span></Label>
                 <Input type="datetime-local" value={form.toDate} onChange={e => handleChange("toDate", e.target.value)} className="h-11 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]" required />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Purpose of Journey / Tujuan perjalanan <span className="text-destructive">*</span></Label>
-              <Input value={form.purpose} onChange={e => handleChange("purpose", e.target.value)} placeholder="State the reason for your request..." className="h-11" required />
-              <p className="text-xs text-muted-foreground">Be as detailed as possible, include meeting details, client names etc.</p>
+              <Label className="text-xs font-semibold text-primary">{text("Purpose of Journey", "Tujuan Perjalanan")} <span className="text-destructive">*</span></Label>
+              <Input value={form.purpose} onChange={e => handleChange("purpose", e.target.value)} placeholder={text("State the reason for your request...", "Nyatakan sebab permohonan anda...")} className="h-11" required />
+              <p className="text-xs text-muted-foreground">{text("Be as detailed as possible, including meeting details and client names.", "Berikan butiran selengkap mungkin, termasuk maklumat mesyuarat dan nama pelanggan.")}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">Upload Driving Licence <span className="text-destructive">*</span></Label>
+                <Label className="text-xs font-semibold text-primary">{text("Upload Driving Licence", "Muat Naik Lesen Memandu")} <span className="text-destructive">*</span></Label>
                 {licenseFile ? (
                   <div className="flex items-center justify-between h-11 px-3 border border-border rounded-lg bg-muted/10">
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -527,7 +534,7 @@ const CarBookingForm = () => {
                   <div className="flex items-center justify-between h-11 px-3 border border-border rounded-lg bg-muted/10">
                     <div className="flex items-center gap-2 overflow-hidden">
                       <FileText className="h-4 w-4 text-primary shrink-0" />
-                      <a href={existingLicenseUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline truncate">View existing license</a>
+                      <a href={existingLicenseUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline truncate">{text("View existing licence", "Lihat lesen sedia ada")}</a>
                     </div>
                     <button type="button" onClick={() => setExistingLicenseUrl(null)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0">
                       <Trash2 className="h-4 w-4" />
@@ -548,12 +555,12 @@ const CarBookingForm = () => {
                   >
                     <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { if (e.target.files && e.target.files.length > 0) { setLicenseFile(e.target.files[0]); } }} />
                     <Upload className="h-4 w-4" />
-                    <span>Upload License</span>
+                    <span>{text("Upload Licence", "Muat Naik Lesen")}</span>
                   </label>
                 )} 
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-primary">Destination / Destinasi <span className="text-destructive">*</span></Label>
+                <Label className="text-xs font-semibold text-primary">{text("Destination", "Destinasi")} <span className="text-destructive">*</span></Label>
                 <Input value={form.destination} onChange={e => handleChange("destination", e.target.value)} placeholder="e.g., Kuala Lumpur, Selangor" className="h-11" required />
               </div>
             </div>
@@ -566,7 +573,7 @@ const CarBookingForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <Users className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Passenger Details / <span className="font-normal">Butiran Penumpang</span>
+              {text("Passenger Details", "Butiran Penumpang")}
             </h2>
           </div>
           <div className="border border-border rounded-lg overflow-x-auto">
@@ -574,11 +581,11 @@ const CarBookingForm = () => {
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
                     <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left w-12">No.</th>
-                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Name / Nama</th>
-                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Staff ID</th>
-                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Position / Jawatan</th>
-                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">Department / Jabatan</th>
-                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-center w-16">Action</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">{text("Name", "Nama")}</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">{text("Staff ID", "No. Pekerja")}</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">{text("Position", "Jawatan")}</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-left">{text("Department", "Jabatan")}</th>
+                    <th className="text-xs font-semibold text-muted-foreground px-4 py-3 text-center w-16">{text("Action", "Tindakan")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -586,16 +593,16 @@ const CarBookingForm = () => {
                   <tr key={i} className="hover:bg-muted/10">
                     <td className="px-4 py-2 text-sm font-semibold text-foreground">{i + 1}</td>
                     <td className="px-2 py-2">
-                      <Input value={p.name} onChange={e => handlePassengerChange(i, "name", e.target.value)} placeholder="Enter name" className="h-10 border-0 bg-transparent shadow-none text-sm" />
+                      <Input value={p.name} onChange={e => handlePassengerChange(i, "name", e.target.value)} placeholder={text("Enter name", "Masukkan nama")} className="h-10 border-0 bg-transparent shadow-none text-sm" />
                     </td>
                     <td className="px-2 py-2">
                       <Input value={p.staffId} onChange={e => handlePassengerChange(i, "staffId", e.target.value)} placeholder="ID" className="h-10 border-0 bg-transparent shadow-none text-sm" />
                     </td>
                     <td className="px-2 py-2">
-                      <Input value={p.position} onChange={e => handlePassengerChange(i, "position", e.target.value)} placeholder="Title" className="h-10 border-0 bg-transparent shadow-none text-sm" />
+                      <Input value={p.position} onChange={e => handlePassengerChange(i, "position", e.target.value)} placeholder={text("Position", "Jawatan")} className="h-10 border-0 bg-transparent shadow-none text-sm" />
                     </td>
                     <td className="px-2 py-2">
-                      <Input value={p.department} onChange={e => handlePassengerChange(i, "department", e.target.value)} placeholder="Dept" className="h-10 border-0 bg-transparent shadow-none text-sm" />
+                      <Input value={p.department} onChange={e => handlePassengerChange(i, "department", e.target.value)} placeholder={text("Department", "Jabatan")} className="h-10 border-0 bg-transparent shadow-none text-sm" />
                     </td>
                     <td className="px-2 py-2 text-center">
                       {i > 0 && (
@@ -615,7 +622,7 @@ const CarBookingForm = () => {
             className="flex items-center gap-2 text-primary font-semibold text-sm mt-4 hover:text-primary/80 transition-colors"
           >
             <PlusCircle className="h-5 w-5" />
-            Add Passenger / Tambah Penumpang
+            {text("Add Passenger", "Tambah Penumpang")}
           </button>
         </div>
 
@@ -625,16 +632,16 @@ const CarBookingForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
             <ShieldCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Digital Approvals / <span className="font-normal">Kelulusan Digital</span>
+              {text("Digital Approvals", "Kelulusan Digital")}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Head of Section / Ketua Bahagian <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary">{text("Head of Section", "Ketua Seksyen")} <span className="text-destructive">*</span></Label>
               <Select value={form.hos} onValueChange={val => handleChange("hos", val)} disabled={areUsersLoading || hosUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Section", "Pilih Ketua Seksyen")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   <SelectItem value="N/A">N/A</SelectItem>
@@ -642,21 +649,21 @@ const CarBookingForm = () => {
                 </SelectContent>
               </Select>
               {!areUsersLoading && hosUsers.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOS list not available.</p>
+                <p className="text-xs text-muted-foreground mt-1.5">{text("Refresh if the HOS list is unavailable.", "Muat semula jika senarai Ketua Seksyen tidak tersedia.")}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Head of Department / Ketua Jabatan <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary">{text("Head of Department", "Ketua Jabatan")} <span className="text-destructive">*</span></Label>
               <Select value={form.hod} onValueChange={val => handleChange("hod", val)} disabled={areUsersLoading || hodUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Department", "Pilih Ketua Jabatan")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {hodUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               {!areUsersLoading && hodUsers.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOD list not available.</p>
+                <p className="text-xs text-muted-foreground mt-1.5">{text("Refresh if the HOD list is unavailable.", "Muat semula jika senarai Ketua Jabatan tidak tersedia.")}</p>
               )}
             </div>
           </div>
@@ -668,10 +675,25 @@ const CarBookingForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">05</span>
             <FileText className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Company Vehicles Policy / <span className="font-normal">Polisi Kenderaan Syarikat</span>
+              {text("Company Vehicles Policy", "Polisi Kenderaan Syarikat")}
             </h2>
           </div>
 
+          {isMalay ? (
+          <div className="mb-4 h-48 space-y-4 overflow-y-auto rounded-xl border border-border bg-muted/50 p-5 text-sm text-muted-foreground sm:p-6">
+            <p>Pekerja hendaklah melaporkan kehilangan atau kerosakan kenderaan syarikat kepada pihak polis terlebih dahulu dan kemudian kepada Jabatan Modal Insan.</p>
+            <p>Pekerja mesti memandu mengikut undang-undang, mematuhi had laju dan papan tanda jalan, meletakkan kenderaan dengan betul, serta tidak menggunakan telefon bimbit semasa memandu.</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Kenderaan hanya boleh digunakan untuk urusan rasmi syarikat.</li>
+              <li>Semua saman, penalti parkir dan kesalahan trafik menjadi tanggungjawab pekerja.</li>
+              <li>Buku log perjalanan hendaklah dikemas kini dengan tepat.</li>
+              <li>Kenderaan tidak boleh digunakan untuk tujuan peribadi, sewaan, ganjaran atau latihan memandu.</li>
+              <li>Sebarang kerosakan akibat pelanggaran polisi menjadi tanggungjawab pekerja.</li>
+            </ul>
+            <p>Kenderaan syarikat dilengkapi alat penjejak. Penyalahgunaan kenderaan boleh menyebabkan tindakan tatatertib. Kenderaan hendaklah dipulangkan dalam keadaan bersih, selamat dan sesuai digunakan di jalan raya.</p>
+            <p>Pekerja bersetuju bahawa kos saman, penalti, kerosakan, lebihan insurans atau pembersihan yang berkaitan boleh ditolak daripada gaji mengikut terma dan syarat pekerjaan yang berkuat kuasa.</p>
+          </div>
+          ) : (
           <div className="bg-muted/50 rounded-xl p-5 sm:p-6 space-y-4 border border-border h-48 overflow-y-auto mb-4">
             <div className="text-sm text-muted-foreground space-y-4">
               <p>The employee is required to report the loss of or damage to the Company vehicle to the police in the first instance and then to Human Capital Department. The employee must drive within the law, including:-</p>
@@ -704,6 +726,7 @@ const CarBookingForm = () => {
               <p>In the event of the vehicle being return, the vehicle must be returned to the Company in a clean and roadworthy condition. If the vehicle requires valet cleaning the Company will deduct this fee from the employee’s wages.</p>
             </div>
           </div>
+          )}
 
           <div className="flex items-start gap-3 pl-2">
             <Checkbox
@@ -714,9 +737,12 @@ const CarBookingForm = () => {
             />
             <label htmlFor="policy-agree" className="cursor-pointer">
               <p className="font-semibold text-foreground text-sm">
-                I hereby acknowledge that: <span className="text-destructive">*</span>
+                {text("I hereby acknowledge that:", "Saya dengan ini mengakui bahawa:")} <span className="text-destructive">*</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-2">I have read & understand the use of company vehicles & the service & repair policies and agree to be bound by the rules & procedures therein. I will be responsible for all fines, penalties and costs imposed for parking or traffic violations with respect to the Company vehicle assigned to me for the period stated herein, and I will indemnify and hold the Company harmless from all claims and costs arising out of such violations, including expenses in connection with handling of such matters. In the case of HICOM Diecastings Sdn. Bhd. Employees, I agree that all fines, penalties, and costs arising from parking or traffic violations will be deducted from my salary for the month where payment is made for settlement of the associated fines.</p>
+              <p className="text-xs text-muted-foreground mt-2">{text(
+                "I have read and understood the company vehicle, service and repair policies and agree to follow all applicable rules and procedures. I accept responsibility for fines, penalties and costs arising from parking or traffic violations involving the vehicle assigned to me, including any permitted salary deductions.",
+                "Saya telah membaca dan memahami polisi penggunaan, servis dan pembaikan kenderaan syarikat serta bersetuju mematuhi semua peraturan dan prosedur yang berkenaan. Saya menerima tanggungjawab terhadap saman, penalti dan kos yang timbul daripada kesalahan parkir atau trafik melibatkan kenderaan yang diberikan kepada saya, termasuk potongan gaji yang dibenarkan."
+              )}</p>
             </label>
           </div>
         </div>
@@ -729,14 +755,14 @@ const CarBookingForm = () => {
             className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit Request"}
+            {isSubmitting ? text("Submitting...", "Sedang dihantar...") : text("Submit Request", "Hantar Permohonan")}
           </button>
           <button
             type="button"
             onClick={() => navigate("/hr")}
             className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
           >
-            Cancel
+            {text("Cancel", "Batal")}
           </button>
         </div>
       </form>

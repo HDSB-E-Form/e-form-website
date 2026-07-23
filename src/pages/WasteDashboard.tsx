@@ -11,6 +11,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import SafetyDashboardSkeleton from "@/components/SafetyDashboardSkeleton";
+import { useSafetyDashboardRefresh } from "@/hooks/useSafetyDashboardRefresh";
 
 const formatYAxis = (tick: number) => {
     if (tick === 0) return '0';
@@ -21,7 +23,8 @@ const formatYAxis = (tick: number) => {
 const WasteDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { submissions } = useSubmissions();
+    const { submissions, isLoading, refreshSubmissions } = useSubmissions();
+    const isDashboardRefreshing = useSafetyDashboardRefresh(refreshSubmissions, isLoading);
     const [wasteStartDate, setWasteStartDate] = useState("");
     const [wasteEndDate, setWasteEndDate] = useState("");
     const [wastePlantFilter, setWastePlantFilter] = useState<"All" | "Plant 1" | "Plant 2">("All");
@@ -253,6 +256,8 @@ const WasteDashboard = () => {
         
         toast.success("Scheduled Waste Inventory spreadsheet exported successfully!");
     };
+
+    if (isDashboardRefreshing) return <SafetyDashboardSkeleton />;
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">

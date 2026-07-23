@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle, Clock, Cctv, Headphones, Printer, Search, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, Cctv, Headphones, MonitorCog, Printer, Search, ShieldCheck, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
+import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
 import { useUsers } from "@/contexts/UsersContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 
 type Tab = "action_required" | "in_progress" | "history";
+const facilitiesFormTypes = ["it_admin_request", "it_application_request", "it_facilities_requisition"];
 
 const requestStatus = (status: string, formType?: string) => {
   if (status === "pending" && formType === "it_help_desk") return { label: "ACTION REQUIRED", className: "bg-violet-500/15 text-violet-700 dark:text-violet-400" };
@@ -23,7 +25,7 @@ const requestStatus = (status: string, formType?: string) => {
   return { label: "REJECTED", className: "bg-destructive/15 text-destructive dark:text-red-400" };
 };
 
-type ITDashboardMode = "cctv" | "helpdesk";
+type ITDashboardMode = "cctv" | "helpdesk" | "facilities";
 
 const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
   const { submissions, updateSubmissionStatus, refreshSubmissions, isLoading } = useSubmissions();
@@ -38,27 +40,29 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
   useEffect(() => { refreshSubmissions(); }, [refreshSubmissions]);
 
   const targetFormType = mode === "helpdesk" ? "it_help_desk" : "cctv_access_request";
-  const itRequests = useMemo(() => submissions.filter(item => item.formType === targetFormType), [submissions, targetFormType]);
+  const itRequests = useMemo(() => submissions.filter(item => mode === "facilities" ? facilitiesFormTypes.includes(item.formType) : item.formType === targetFormType), [submissions, targetFormType, mode]);
   const isActionRequired = (item: Submission) =>
     (item.formType === "cctv_access_request" && item.status === "approved_hod") ||
+    (facilitiesFormTypes.includes(item.formType) && ["approved_hod", "reopened"].includes(item.status)) ||
     (item.formType === "it_help_desk" && ["pending", "reopened"].includes(item.status));
   const tabRequests = itRequests.filter(item => {
     if (activeTab === "action_required") return isActionRequired(item);
-    if (activeTab === "in_progress") return (item.formType === "cctv_access_request" && ["pending", "approved_hos"].includes(item.status)) || (item.formType === "it_help_desk" && item.status === "awaiting_confirmation");
+    if (activeTab === "in_progress") return ((item.formType === "cctv_access_request" || facilitiesFormTypes.includes(item.formType)) && ["pending", "approved_hos"].includes(item.status)) || ((item.formType === "it_help_desk" || facilitiesFormTypes.includes(item.formType)) && item.status === "awaiting_confirmation");
     return ["approved", "rejected", "completed"].includes(item.status);
   });
   const visibleRequests = tabRequests.filter(item => {
     const query = search.trim().toLowerCase();
     if (!query) return true;
-    return item.employeeName.toLowerCase().includes(query) || item.department.toLowerCase().includes(query) || item.data.cameraLocation?.toLowerCase().includes(query) || item.data.issueType?.toLowerCase().includes(query) || item.data.refNo?.toLowerCase().includes(query);
+    return item.employeeName.toLowerCase().includes(query) || item.department.toLowerCase().includes(query) || item.data.cameraLocation?.toLowerCase().includes(query) || item.data.issueType?.toLowerCase().includes(query) || item.data.facilities?.some((facility: string) => facility.toLowerCase().includes(query)) || item.data.refNo?.toLowerCase().includes(query);
   });
 
   const handleAction = async (status: "approved" | "rejected" | "awaiting_confirmation") => {
     if (!selectedSubmission) return;
     const isHelpDeskTicket = selectedSubmission.formType === "it_help_desk";
-    if (!isHelpDeskTicket && selectedSubmission.submittedBy === user?.id) return toast.error("You cannot review your own CCTV access request.");
+    const requiresEmployeeConfirmation = selectedSubmission.formType === "it_help_desk" || facilitiesFormTypes.includes(selectedSubmission.formType);
+    if (!isHelpDeskTicket && selectedSubmission.submittedBy === user?.id) return toast.error("You cannot review your own IT request.");
     if (status === "rejected" && !remarks.trim()) return toast.error("Enter a reason before rejecting this request.");
-    if (status === "awaiting_confirmation" && !remarks.trim()) return toast.error("Enter a resolution summary before resolving this ticket.");
+    if (status === "awaiting_confirmation" && !remarks.trim()) return toast.error("Enter a response or completion remark before sending this request to the employee.");
     setIsSubmitting(true);
     const success = await updateSubmissionStatus(selectedSubmission.id, status, {
       remarks: remarks.trim(),
@@ -75,7 +79,7 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
     });
     setIsSubmitting(false);
     if (success) {
-      toast.success(status === "awaiting_confirmation" ? "Resolution sent to the employee for confirmation." : status === "approved" ? "CCTV access request approved." : "Request rejected.");
+      toast.success(status === "awaiting_confirmation" ? "IT response sent to the employee for confirmation." : status === "approved" ? "IT request approved." : "Request rejected.");
       setSelectedSubmission(null);
       setRemarks("");
     }
@@ -104,8 +108,8 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
   if (isLoading) {
     return (
       <ApprovalDashboardSkeleton
-        title={mode === "helpdesk" ? "Loading Help Desk tickets…" : "Loading CCTV requests…"}
-        description={mode === "helpdesk" ? "Retrieving the latest Help Desk tickets assigned to IT." : "Retrieving the latest CCTV access requests assigned to IT."}
+        title={mode === "helpdesk" ? "Loading Help Desk tickets…" : mode === "facilities" ? "Loading facilities requests…" : "Loading CCTV requests…"}
+        description={mode === "helpdesk" ? "Retrieving the latest Help Desk tickets assigned to IT." : mode === "facilities" ? "Retrieving the latest IT facilities requisitions assigned to IT." : "Retrieving the latest CCTV access requests assigned to IT."}
         statsCount={4}
       />
     );
@@ -113,6 +117,8 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
 
   if (selectedSubmission) {
     const isHelpDeskTicket = selectedSubmission.formType === "it_help_desk";
+    const isFacilitiesRequest = facilitiesFormTypes.includes(selectedSubmission.formType);
+    const requiresEmployeeConfirmation = isHelpDeskTicket || isFacilitiesRequest;
     const submittingUser = users.find(candidate => candidate.id === selectedSubmission.submittedBy);
     const employeeStaffId = selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || submittingUser?.staffId || "—";
     const employeePosition = selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || submittingUser?.position || "—";
@@ -139,7 +145,7 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
 
         <div className="card-elevated p-5 sm:p-6 print:border-none print:shadow-none print:p-0">
           <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/15">{isHelpDeskTicket ? <Headphones className="h-6 w-6 text-violet-600 dark:text-violet-400" /> : <Cctv className="h-6 w-6 text-violet-600 dark:text-violet-400" />}</div><div><h1 className="text-xl font-bold text-foreground">{isHelpDeskTicket ? "IT Help Desk Ticket" : "CCTV Access Request"}</h1><p className="text-sm text-muted-foreground">{selectedSubmission.data.refNo || `HDSB-${selectedSubmission.id.slice(-4)}`}</p></div></div>
+            <div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/15">{isHelpDeskTicket ? <Headphones className="h-6 w-6 text-violet-600 dark:text-violet-400" /> : isFacilitiesRequest ? <MonitorCog className="h-6 w-6 text-violet-600 dark:text-violet-400" /> : <Cctv className="h-6 w-6 text-violet-600 dark:text-violet-400" />}</div><div><h1 className="text-xl font-bold text-foreground">{isHelpDeskTicket ? "IT Help Desk Ticket" : selectedSubmission.formType === "it_admin_request" ? "IT Request Form (Admin)" : selectedSubmission.formType === "it_application_request" ? "IT Request Form (Application)" : isFacilitiesRequest ? "IT Facilities Requisition Form" : "CCTV Access Request"}</h1><p className="text-sm text-muted-foreground">{selectedSubmission.data.refNo || `HDSB-${selectedSubmission.id.slice(-4)}`}</p></div></div>
             <Badge className={`w-fit border-0 ${requestStatus(selectedSubmission.status, selectedSubmission.formType).className}`}>{requestStatus(selectedSubmission.status, selectedSubmission.formType).label}</Badge>
           </div>
 
@@ -154,6 +160,9 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
           </div>
 
           <div className="border-t border-border pt-5">
+            {selectedSubmission.formType === "it_admin_request" ? (
+              <ITAdminRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />
+            ) : <>
             <p className="mb-4 text-xs font-bold uppercase tracking-wider text-primary">Request Details</p>
             {isHelpDeskTicket ? <div>
             <Detail label="Urgency" value={selectedSubmission.data.urgency} />
@@ -162,6 +171,13 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
             <Detail label="Issue Explained / Request" value={selectedSubmission.data.issueExplanation} />
             <Detail label="Contact Email" value={selectedSubmission.data.contactEmail} />
             <Detail label="Superior Email" value={selectedSubmission.data.superiorEmail} />
+            </div> : isFacilitiesRequest ? <div>
+            <Detail label="Facilities Required" value={(selectedSubmission.data.facilities || []).join(", ")} />
+            <Detail label="SharePoint Folder" value={selectedSubmission.data.sharePointFolder} />
+            <Detail label="Others" value={selectedSubmission.data.others} />
+            <Detail label="Head of Section" value={selectedSubmission.data.hosName} />
+            <Detail label="Head of Department" value={selectedSubmission.data.hodName} />
+            {(selectedSubmission.data.erpAuthorizationRights || []).length > 0 && <AuthorizationReview rights={selectedSubmission.data.erpAuthorizationRights} />}
             </div> : <div>
             <Detail label="Camera Location" value={selectedSubmission.data.cameraLocation} />
             <Detail label="Purpose of Access" value={selectedSubmission.data.purpose} />
@@ -170,11 +186,12 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
             <Detail label="Head of Section" value={selectedSubmission.data.hosName} />
             <Detail label="Head of Department" value={selectedSubmission.data.hodName} />
             </div>}
+            </>}
           </div>
 
-          {!isHelpDeskTicket && <><div className="border-t border-border pt-5"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">Type of Request</p><div className="flex flex-wrap gap-2">{(selectedSubmission.data.requestTypes || []).map((type: string) => <Badge key={type} className="border-0 bg-violet-500/15 text-violet-700 dark:text-violet-400">{type}</Badge>)}</div></div><div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><ShieldCheck className="h-4 w-4" /> Confidentiality declaration acknowledged</div></div></>}
+          {!isHelpDeskTicket && !isFacilitiesRequest && <><div className="border-t border-border pt-5"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">Type of Request</p><div className="flex flex-wrap gap-2">{(selectedSubmission.data.requestTypes || []).map((type: string) => <Badge key={type} className="border-0 bg-violet-500/15 text-violet-700 dark:text-violet-400">{type}</Badge>)}</div></div><div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4"><div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400"><ShieldCheck className="h-4 w-4" /> Confidentiality declaration acknowledged</div></div></>}
 
-          {isActionRequired(selectedSubmission) && <div className="mt-6 border-t border-border pt-5">{isOwnRequest && <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm font-medium text-amber-800 dark:text-amber-300">This request was submitted by you. Another IT Admin must complete the final review.</div>}<label htmlFor="it-remarks" className="text-sm font-medium text-foreground">{isHelpDeskTicket ? "Resolution Summary" : "IT Admin Remarks"} <span className="font-normal text-muted-foreground">({isHelpDeskTicket ? "required" : "required when rejecting"})</span></label><textarea id="it-remarks" value={remarks} onChange={event => setRemarks(event.target.value)} rows={3} disabled={isOwnRequest} placeholder={isHelpDeskTicket ? "Explain the solution and action taken..." : "Enter review notes or rejection reason..."} className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60" /><div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" disabled={isSubmitting || isOwnRequest} onClick={() => handleAction("rejected")} className="w-full rounded-xl border border-destructive px-6 py-3 text-sm font-bold text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"><XCircle className="mr-2 inline h-4 w-4" />Reject</button><button type="button" disabled={isSubmitting || isOwnRequest} onClick={() => handleAction(isHelpDeskTicket ? "awaiting_confirmation" : "approved")} className="btn-gold w-full rounded-xl px-8 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"><CheckCircle className="mr-2 inline h-4 w-4" />{isSubmitting ? "Processing..." : isHelpDeskTicket ? "Send Resolution" : "Approve Request"}</button></div></div>}
+          {isActionRequired(selectedSubmission) && <div className="mt-6 border-t border-border pt-5">{isOwnRequest && <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm font-medium text-amber-800 dark:text-amber-300">This request was submitted by you. Another IT Admin must complete the final review.</div>}<label htmlFor="it-remarks" className="text-sm font-medium text-foreground">{requiresEmployeeConfirmation ? "IT Response / Remarks" : "IT Admin Remarks"} <span className="font-normal text-muted-foreground">({requiresEmployeeConfirmation ? "required" : "required when rejecting"})</span></label><textarea id="it-remarks" value={remarks} onChange={event => setRemarks(event.target.value)} rows={3} disabled={isOwnRequest} placeholder={requiresEmployeeConfirmation ? "Describe the action taken, update, or facilities provided..." : "Enter review notes or rejection reason..."} className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60" /><div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" disabled={isSubmitting || isOwnRequest} onClick={() => handleAction("rejected")} className="w-full rounded-xl border border-destructive px-6 py-3 text-sm font-bold text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"><XCircle className="mr-2 inline h-4 w-4" />Reject</button><button type="button" disabled={isSubmitting || isOwnRequest} onClick={() => handleAction(requiresEmployeeConfirmation ? "awaiting_confirmation" : "approved")} className="btn-gold w-full rounded-xl px-8 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"><CheckCircle className="mr-2 inline h-4 w-4" />{isSubmitting ? "Processing..." : requiresEmployeeConfirmation ? "Send to Employee" : "Approve Request"}</button></div></div>}
         </div>
       </div>
     );
@@ -182,17 +199,21 @@ const ITAdminDashboard = ({ mode = "cctv" }: { mode?: ITDashboardMode }) => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5">
-      <div className="mb-6"><h1 className="text-2xl font-bold text-foreground">{mode === "helpdesk" ? "IT Help Desk Dashboard" : "CCTV Requests Dashboard"}</h1><p className="mt-1 text-sm text-muted-foreground">{mode === "helpdesk" ? "Receive, resolve, and track employee IT support tickets." : "Review CCTV access requests after HOS and HOD approval."}</p></div>
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"><Stat icon={mode === "helpdesk" ? Headphones : Cctv} label={mode === "helpdesk" ? "Total Tickets" : "Total Requests"} value={itRequests.length} /><Stat icon={Clock} label="Action Required" value={itRequests.filter(isActionRequired).length} /><Stat icon={Clock} label="In Progress" value={itRequests.filter(item => (item.formType === "cctv_access_request" && ["pending", "approved_hos"].includes(item.status)) || item.status === "awaiting_confirmation").length} /><Stat icon={CheckCircle} label="Resolved" value={itRequests.filter(item => ["approved", "rejected", "completed"].includes(item.status)).length} /></div>
+      <div className="mb-6"><h1 className="text-2xl font-bold text-foreground">{mode === "helpdesk" ? "IT Help Desk Ticket Dashboard" : mode === "facilities" ? "IT Requests Dashboard" : "CCTV Requests Dashboard"}</h1><p className="mt-1 text-sm text-muted-foreground">{mode === "helpdesk" ? "Receive, resolve, and track employee IT support tickets." : mode === "facilities" ? "Review Admin and Application requests after HOS and HOD approval." : "Review CCTV access requests after HOS and HOD approval."}</p></div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"><Stat icon={mode === "helpdesk" ? Headphones : mode === "facilities" ? MonitorCog : Cctv} label={mode === "helpdesk" ? "Total Tickets" : "Total Requests"} value={itRequests.length} /><Stat icon={Clock} label="Action Required" value={itRequests.filter(isActionRequired).length} /><Stat icon={Clock} label="In Progress" value={itRequests.filter(item => ((item.formType === "cctv_access_request" || facilitiesFormTypes.includes(item.formType)) && ["pending", "approved_hos"].includes(item.status)) || item.status === "awaiting_confirmation").length} /><Stat icon={CheckCircle} label="Resolved" value={itRequests.filter(item => ["approved", "rejected", "completed"].includes(item.status)).length} /></div>
       <div className="card-elevated overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex max-w-full overflow-x-auto rounded-lg border border-border bg-muted/40 p-1"><button onClick={() => setActiveTab("action_required")} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-bold ${activeTab === "action_required" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>Action Required</button><button onClick={() => setActiveTab("in_progress")} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-bold ${activeTab === "in_progress" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>In Progress</button><button onClick={() => setActiveTab("history")} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-bold ${activeTab === "history" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>History</button></div><div className="relative w-full sm:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search requests..." className="pl-9" /></div></div>
-        {isLoading ? <p className="p-8 text-center text-sm text-muted-foreground">Loading IT requests...</p> : visibleRequests.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No IT requests found.</p> : <Table><TableHeader><TableRow className="bg-muted/30"><TableHead>Reference</TableHead><TableHead>Employee</TableHead><TableHead>Request Type</TableHead><TableHead>Date Submitted</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Action</TableHead></TableRow></TableHeader><TableBody>{visibleRequests.map(item => { const status = requestStatus(item.status, item.formType); return <TableRow key={item.id}><TableCell className="font-semibold text-primary whitespace-nowrap">{item.data.refNo || `HDSB-${item.id.slice(-4)}`}</TableCell><TableCell><p className="font-medium text-foreground">{item.employeeName}</p><p className="text-xs text-muted-foreground">{item.department}</p></TableCell><TableCell>{item.formType === "it_help_desk" ? item.data.issueType || "IT Help Desk" : item.data.cameraLocation || "CCTV Access"}</TableCell><TableCell className="whitespace-nowrap text-sm text-muted-foreground">{new Date(item.submittedAt).toLocaleDateString()}</TableCell><TableCell><Badge className={`whitespace-nowrap border-0 ${status.className}`}>{status.label}</Badge></TableCell><TableCell className="text-center"><button onClick={() => setSelectedSubmission(item)} className="rounded-lg bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20">{isActionRequired(item) ? "Review" : "View"}</button></TableCell></TableRow>; })}</TableBody></Table>}
+        {isLoading ? <p className="p-8 text-center text-sm text-muted-foreground">Loading IT requests...</p> : visibleRequests.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No IT requests found.</p> : <Table><TableHeader><TableRow className="bg-muted/30"><TableHead>Reference</TableHead><TableHead>Employee</TableHead><TableHead>Request Type</TableHead><TableHead>Date Submitted</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Action</TableHead></TableRow></TableHeader><TableBody>{visibleRequests.map(item => { const status = requestStatus(item.status, item.formType); const requestType = facilitiesFormTypes.includes(item.formType) ? (item.data.facilities || []).join(", ") || "IT Request" : item.formType === "it_help_desk" ? item.data.issueType || "IT Help Desk" : item.data.cameraLocation || "CCTV Access"; return <TableRow key={item.id}><TableCell className="font-semibold text-primary whitespace-nowrap">{item.data.refNo || `HDSB-${item.id.slice(-4)}`}</TableCell><TableCell><p className="font-medium text-foreground">{item.employeeName}</p><p className="text-xs text-muted-foreground">{item.department}</p></TableCell><TableCell>{requestType}</TableCell><TableCell className="whitespace-nowrap text-sm text-muted-foreground">{new Date(item.submittedAt).toLocaleDateString()}</TableCell><TableCell><Badge className={`whitespace-nowrap border-0 ${status.className}`}>{status.label}</Badge></TableCell><TableCell className="text-center"><button onClick={() => setSelectedSubmission(item)} className="rounded-lg bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20">{isActionRequired(item) ? "Review" : "View"}</button></TableCell></TableRow>; })}</TableBody></Table>}
       </div>
     </div>
   );
 };
 
 const Detail = ({ label, value }: { label: string; value?: string }) => <div className="grid grid-cols-1 items-start gap-1 border-b border-border/60 py-3 last:border-0 sm:grid-cols-3 sm:gap-4"><p className="text-xs font-bold uppercase tracking-wider text-primary sm:mt-0.5">{label}</p><p className="text-sm font-medium text-foreground sm:col-span-2">{value || "—"}</p></div>;
+const AuthorizationReview = ({ rights }: { rights: Array<{ id: number; module: string; right: string }> }) => {
+  const grouped = rights.reduce<Record<string, Array<{ id: number; right: string }>>>((modules, right) => { (modules[right.module] ||= []).push(right); return modules; }, {});
+  return <div className="mt-5 border-t border-border pt-5"><div className="mb-3 flex items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-wider text-primary">ERP User Access Authorization</p><Badge className="border-0 bg-primary/10 text-primary">{rights.length} selected</Badge></div><div className="space-y-2">{Object.entries(grouped).map(([module, moduleRights]) => <details key={module} className="rounded-lg border border-border/70 bg-muted/10"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-bold text-foreground"><span>{module}</span><span className="text-xs text-primary">{moduleRights.length} rights</span></summary><div className="space-y-2 border-t border-border/60 p-4">{moduleRights.map(right => <p key={right.id} className="text-sm text-foreground"><span className="mr-2 text-xs font-semibold text-muted-foreground">#{right.id}</span>{right.right}</p>)}</div></details>)}</div></div>;
+};
 const Stat = ({ icon: Icon, label, value }: { icon: typeof Cctv; label: string; value: number }) => <div className="card-elevated flex items-center gap-4 p-5"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/15"><Icon className="h-5 w-5 text-violet-600 dark:text-violet-400" /></div><div><p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p><p className="text-2xl font-bold text-foreground">{value}</p></div></div>;
 
 export default ITAdminDashboard;

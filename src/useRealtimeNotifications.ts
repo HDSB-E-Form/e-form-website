@@ -49,8 +49,8 @@ export function useRealtimeNotifications() {
       if (payload.eventType === "UPDATE" && payload.old?.status === newSubmission.status) return;
 
       const isOwnSubmission = submittedBy === user.id;
-      const isHelpDeskConfirmation = formType === 'it_help_desk' && newSubmission.status === 'awaiting_confirmation';
-      const isFinalUserUpdate = ['approved', 'rejected', 'paid', 'completed'].includes(newSubmission.status) || isHelpDeskConfirmation;
+      const isITConfirmation = ['it_help_desk', 'it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(formType) && newSubmission.status === 'awaiting_confirmation';
+      const isFinalUserUpdate = ['approved', 'rejected', 'paid', 'completed'].includes(newSubmission.status) || isITConfirmation;
 
       const excludedForms = ['inventory_addition', 'ppe_request', 'ppe_purchase', 'waste_inventory', 'mixing_chemical_stages', 'final_discharge', 'daily_operation_monitoring'];
       if (excludedForms.includes(formType)) return;
@@ -92,14 +92,16 @@ export function useRealtimeNotifications() {
         : notificationTarget?.recipientType === "it_admin"
           ? formType === "it_help_desk"
             ? `${employeeName}'s IT Help Desk ticket requires action.`
-            : `${employeeName}'s CCTV access request is ready for IT review.`
+            : ['it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(formType)
+              ? `${employeeName}'s IT facilities request requires action.`
+              : `${employeeName}'s CCTV access request is ready for IT review.`
         : notificationTarget?.recipientType === "hr_admin"
           ? `${employeeName}'s form requires HR action.`
         : notificationTarget?.recipientType === "finance_admin"
           ? `${employeeName}'s petty cash claim is ready for finance review.`
           : notificationTarget?.recipientType === "submitter"
-            ? isHelpDeskConfirmation
-              ? "IT has provided a resolution. Please confirm whether the issue is resolved."
+            ? isITConfirmation
+              ? "IT has provided an update. Please review it and accept or return the request with remarks."
               : `Your request status is now ${newSubmission.status.replace(/_/g, ' ')}.`
             : `${employeeName} has just submitted a new form.`;
 

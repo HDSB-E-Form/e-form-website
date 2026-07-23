@@ -7,6 +7,7 @@ export type SubmissionStatus =
   | "pending"
   | "approved_hos"
   | "approved_hod"
+  | "approved_manco"
   | "approved_hop"
   | "approved_hof"
   | "on_leave"
@@ -182,8 +183,52 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
   }, [submissions]);
 
   const addSubmission = useCallback(async (sub: Omit<Submission, "id" | "submittedAt">) => {
-    const isSafetyForm = ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(sub.formType);
+    const limitedFormLabels: Record<string, string> = {
+      car_rental: "Vehicle Booking",
+      leave: "Gate Pass",
+    };
+    const limitedFormLabel = limitedFormLabels[sub.formType];
+    if (limitedFormLabel) {
+      const malaysiaDateKey = (value: string | Date) => {
+        const parts = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Kuala_Lumpur",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(new Date(value));
+        const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value || "";
+        return `${part("year")}-${part("month")}-${part("day")}`;
+      };
+      const todayInMalaysia = malaysiaDateKey(new Date());
+      const submissionsToday = submissions.filter(existing =>
+        existing.submittedBy === sub.submittedBy &&
+        existing.formType === sub.formType &&
+        malaysiaDateKey(existing.submittedAt) === todayInMalaysia
+      ).length;
+
+      if (submissionsToday >= 2) {
+        toast.error(`Daily submission limit reached. You can submit a maximum of 2 ${limitedFormLabel} requests per day.`);
+        return false;
+      }
+    }
+
+    const isSafetyFormType = ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(sub.formType);
+    const isSafetyDashboardRemark = sub.data?.dashboardRemark === true || (
+      sub.formType !== "waste_inventory" &&
+      Boolean(sub.data?.remarks) &&
+      !sub.data?.processInfo &&
+      !sub.data?.finalDischarge
+    );
+    const isSafetyForm = isSafetyFormType && !isSafetyDashboardRemark;
     const isGatePass = sub.formType === 'leave';
+    const usesSharedHdsbReference = [
+      "claim",
+      "car_rental",
+      "cctv_access_request",
+      "it_help_desk",
+      "it_admin_request",
+      "it_application_request",
+    ].includes(sub.formType);
     const isStandardForm = !["inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(sub.formType);
 
     const submissionId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -192,14 +237,29 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
 
     let refNo = null;
     if (isSafetyForm) {
-      const { count, error } = await supabase.from('submissions').select('*', { count: 'exact', head: true }).in('formType', ["waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"]);
-      if (error) { console.error("Could not count safety forms for ref no:", error); }
-      refNo = `SFTY-${String((count || 0) + 1).padStart(5, '0')}`;
+      const { data: safetyRefNo, error } = await supabase.rpc('next_safety_ref_no');
+      if (error || typeof safetyRefNo !== "string") {
+        console.error("Could not allocate Safety reference number:", error);
+        toast.error("Could not generate a Safety reference number. Please try again.");
+        return false;
+      }
+      refNo = safetyRefNo;
     } else if (isGatePass) {
-      const { data: existingSubmissions, error } = await supabase.from('submissions').select('data').eq('formType', 'leave');
-      if (error) { console.error("Could not fetch gate pass submissions for ref no:", error); }
-      const nextSequence = getNextSequenceNumber((existingSubmissions || []) as Array<{ data?: { refNo?: string } }>, 'leave');
-      refNo = formatSubmissionRefNo('leave', nextSequence);
+      const { data: gatePassRefNo, error } = await supabase.rpc('next_gate_pass_ref_no');
+      if (error || typeof gatePassRefNo !== "string") {
+        console.error("Could not allocate Gate Pass reference number:", error);
+        toast.error("Could not generate a Gate Pass reference number. Please try again.");
+        return false;
+      }
+      refNo = gatePassRefNo;
+    } else if (usesSharedHdsbReference) {
+      const { data: hdsbRefNo, error } = await supabase.rpc('next_hdsb_ref_no');
+      if (error || typeof hdsbRefNo !== "string") {
+        console.error("Could not allocate HDSB reference number:", error);
+        toast.error("Could not generate a submission reference number. Please try again.");
+        return false;
+      }
+      refNo = hdsbRefNo;
     } else if (isStandardForm) {
       const excludedForms = '("inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring")';
       const { data: existingSubmissions, error } = await supabase.from('submissions').select('data').not('formType', 'in', excludedForms);
@@ -229,7 +289,12 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
         hint: error.hint,
         code: error.code,
       });
-      toast.error("Database error: " + error.message);
+      if (error.message?.includes("DAILY_SUBMISSION_LIMIT")) {
+        const formLabel = sub.formType === "leave" ? "Gate Pass" : "Vehicle Booking";
+        toast.error(`Daily submission limit reached. You can submit a maximum of 2 ${formLabel} requests per day.`);
+      } else {
+        toast.error("Database error: " + error.message);
+      }
       return false;
     } else if (data) {
       setSubmissions(prev => [data[0] as Submission, ...prev]);

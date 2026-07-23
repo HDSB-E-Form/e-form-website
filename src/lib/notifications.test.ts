@@ -7,7 +7,7 @@ describe('getNotificationTarget', () => {
       { role: 'employee', secondary_roles: ['security_guard'], name: 'Guard One' },
       {
         formType: 'leave',
-        status: 'approved_hod',
+        status: 'approved_manco',
         data: { hosName: 'HOS User', hodName: 'Guard One' },
       }
     );
@@ -52,6 +52,19 @@ describe('getNotificationTarget', () => {
     );
 
     expect(result).toMatchObject({ path: '/admin/it', recipientType: 'it_admin' });
+  });
+
+  it('routes HOD-approved gate passes to the selected Manco Member', () => {
+    const result = getNotificationTarget(
+      { id: 'manco-1', role: 'hod', secondary_roles: ['manco_member'], name: 'Manco HOD' },
+      {
+        formType: 'leave',
+        status: 'approved_hod',
+        data: { mancoMemberUserId: 'manco-1', mancoMemberName: 'Manco HOD' },
+      }
+    );
+
+    expect(result).toMatchObject({ path: '/admin/approvals', recipientType: 'manco_member' });
   });
 
   it('routes a new Help Desk ticket directly to the IT admin dashboard', () => {

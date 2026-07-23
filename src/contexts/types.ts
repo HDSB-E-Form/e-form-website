@@ -3,6 +3,7 @@ export type UserRole =
   | "security_guard"
   | "hos"
   | "hod"
+  | "manco_member"
   | "hr_admin"
   | "finance_admin"
   | "it_admin"

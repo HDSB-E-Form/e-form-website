@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@/contexts/types";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
@@ -16,8 +16,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, Hash } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, Hash, MonitorCog } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -39,7 +40,8 @@ const financeAdminNav = [
 
 const itAdminNav = [
   { title: "CCTV Requests", url: "/admin/it", icon: ShieldCheck },
-  { title: "IT Help Desk", url: "/admin/it/help-desk", icon: Headphones },
+  { title: "IT Help Desk Ticket", url: "/admin/it/help-desk", icon: Headphones },
+  { title: "IT Requests", url: "/admin/it/facilities", icon: MonitorCog },
 ];
 
 const safetyAdminNav = [
@@ -65,6 +67,7 @@ const superAdminNav = [
 const roleLabels: Record<UserRole, string> = {
   employee: "Employee",
   hod: "Head of Department",
+  manco_member: "Manco Member",
   hos: "Head of Section",
   hr_admin: "HR Admin",
   finance_admin: "Finance Admin",
@@ -89,7 +92,7 @@ const getAdminNav = (role?: UserRole) => {
     return itAdminNav;
   } else if (role === "safety_admin") {
     return safetyAdminNav;
-  } else if (role === "hod" || role === "hos" || role === "head_of_purchasing" || role === "head_of_finance") {
+  } else if (role === "hod" || role === "hos" || role === "manco_member" || role === "head_of_purchasing" || role === "head_of_finance") {
     return approverNav;
   } else if (role === "super_admin") {
     return superAdminNav;
@@ -105,13 +108,14 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { submissions } = useSubmissions();
   const navigate = useNavigate(); 
+  const { pathname } = useLocation();
 
-  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
+  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
   const isSuperAdmin = user?.role === "super_admin";
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
-    if (!user) return { hr: 0, finance: 0, it: 0, helpDesk: 0, approver: 0, security: 0 };
+    if (!user) return { hr: 0, finance: 0, it: 0, helpDesk: 0, facilities: 0, approver: 0, security: 0 };
 
     const hrCount = submissions.filter(s => 
       s.status === 'approved_hod' && s.formType === 'car_rental'
@@ -129,18 +133,24 @@ export function AppSidebar() {
       s.formType === "it_help_desk" && ["pending", "reopened"].includes(s.status)
     ).length;
 
+    const facilitiesCount = submissions.filter(s =>
+      ["it_admin_request", "it_application_request", "it_facilities_requisition"].includes(s.formType) && ["approved_hod", "reopened"].includes(s.status)
+    ).length;
+
     const securityCount = submissions.filter(s => 
-      s.formType === 'leave' && s.status === 'approved_hod'
+      s.formType === 'leave' && s.status === 'approved_manco'
     ).length;
 
     const approverCount = submissions.filter(s => {
       const isHOSRole = user.role === 'hos' || user.secondary_roles?.includes('hos');
       const isHODRole = user.role === 'hod' || user.secondary_roles?.includes('hod');
+      const isMancoRole = user.role === 'manco_member' || user.secondary_roles?.includes('manco_member');
       const isHOS = isHOSRole && s.status === 'pending' && (s.data.hosUserId ? s.data.hosUserId === user.id : (s.data.hosName === user.name || s.data.hos === user.name));
       const isHOD = isHODRole && s.status === 'approved_hos' && (s.data.hodUserId ? s.data.hodUserId === user.id : (s.data.hodName === user.name || s.data.hod === user.name));
       const isHOP = (user.role === 'head_of_purchasing' || user.secondary_roles?.includes('head_of_purchasing')) && s.formType === 'claim' && s.status === 'approved_hod' && (s.data.hopUserId ? s.data.hopUserId === user.id : s.data.hopName === user.name);
       const isHOF = (user.role === 'head_of_finance' || user.secondary_roles?.includes('head_of_finance')) && s.formType === 'claim' && s.status === 'approved_hop' && (s.data.hofUserId ? s.data.hofUserId === user.id : s.data.hofName === user.name);
-      return isHOS || isHOD || isHOP || isHOF;
+      const isManco = isMancoRole && s.formType === 'leave' && s.status === 'approved_hod' && (s.data.mancoMemberUserId ? s.data.mancoMemberUserId === user.id : s.data.mancoMemberName === user.name);
+      return isHOS || isHOD || isManco || isHOP || isHOF;
     }).length;
 
     return {
@@ -148,6 +158,7 @@ export function AppSidebar() {
       finance: financeCount,
       it: itCount,
       helpDesk: helpDeskCount,
+      facilities: facilitiesCount,
       approver: approverCount,
       security: securityCount,
     };
@@ -177,20 +188,56 @@ export function AppSidebar() {
   const mainNav = visibleEmployeeNav;
 
   const sidebarTitle = (() => {
+    const hrSubtitle = (() => {
+      if (pathname.startsWith("/admin/hr/inventory")) return "Inventory Tracker";
+      if (pathname.startsWith("/admin/hr/purchases")) return "Purchases";
+      if (pathname.startsWith("/admin/cars")) return "Car Management";
+      if (pathname.startsWith("/admin/hr")) return "Form Approvals";
+      return "Department Portal";
+    })();
+
+    const financeSubtitle = pathname.startsWith("/admin/finance")
+      ? "Finance Dashboard"
+      : "Department Portal";
+
+    const itSubtitle = (() => {
+      if (pathname.startsWith("/admin/it/help-desk")) return "IT Help Desk";
+      if (pathname.startsWith("/admin/it/facilities")) return "IT Requests";
+      if (pathname.startsWith("/admin/it")) return "CCTV Requests";
+      return "Department Portal";
+    })();
+
+    const safetySubtitle = (() => {
+      if (pathname.startsWith("/admin/safety/discharge")) return "Final Discharge";
+      if (pathname.startsWith("/admin/safety/mixing")) return "Mixing & Chemical";
+      if (pathname.startsWith("/admin/safety/waste-records")) return "Safety Records";
+      if (pathname.startsWith("/admin/safety/waste")) return "Scheduled Waste";
+      return "Department Portal";
+    })();
+
     switch (user?.role) {
-      case "hr_admin": return { main: "HR Admin", sub: "Dept. Dashboard" };
-      case "finance_admin": return { main: "Finance Admin", sub: "Dept. Dashboard" }; 
-      case "it_admin": return { main: "IT Admin", sub: "Dept. Dashboard" };
-      case "safety_admin": return { main: "Safety Admin", sub: "Dept. Dashboard" };
-      case "hod": return { main: "HOD Portal", sub: "Approvals" };
-      case "hos": return { main: "HOS Portal", sub: "Approvals" };
+      case "hr_admin": return { main: "HR Admin", sub: hrSubtitle };
+      case "finance_admin": return { main: "Finance Admin", sub: financeSubtitle };
+      case "it_admin": return { main: "IT Admin", sub: itSubtitle };
+      case "safety_admin": return { main: "Safety Admin", sub: safetySubtitle };
+      case "hod": return { main: "HOD Portal", sub: "Department Approvals" };
+      case "hos": return { main: "HOS Portal", sub: "Section Approvals" };
       case "head_of_purchasing": return { main: "Purchasing Head", sub: "Approvals" };
       case "head_of_finance": return { main: "Finance Head", sub: "Approvals" };
+      case "manco_member": return { main: "Manco Member", sub: "Gate Pass Approvals" };
       case "security_guard": return { main: "Security", sub: "Guard Portal" };
       case "super_admin": return { main: "Super Admin", sub: "Management Portal" };
       default: return { main: "HICOM Diecasting", sub: "Employee Portal" };
     }
   })();
+
+  const userInitials = (user?.name || "User")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join("")
+    .toUpperCase();
 
   const handleLogout = async () => {
     await logout();
@@ -202,6 +249,7 @@ export function AppSidebar() {
     if (item.url === "/admin/finance") return pendingCounts.finance;
     if (item.url === "/admin/it") return pendingCounts.it;
     if (item.url === "/admin/it/help-desk") return pendingCounts.helpDesk;
+    if (item.url === "/admin/it/facilities") return pendingCounts.facilities;
     if (item.url === "/admin/security") return pendingCounts.security;
     if (item.url === "/admin/approvals") return pendingCounts.approver;
     return 0;
@@ -273,8 +321,27 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-white/20 p-3">
+      <SidebarFooter className="p-3">
         <SidebarMenu className="gap-0.5">
+          <SidebarMenuItem>
+            <div className={`flex min-h-12 items-center py-1.5 text-sidebar-foreground ${collapsed ? "justify-center" : "px-2"}`}>
+              <Avatar className={`h-9 w-9 border border-white/20 ${collapsed ? "" : "mr-3"}`}>
+                <AvatarImage src={user?.avatar || undefined} alt={user?.name || "User profile"} className="object-cover" />
+                <AvatarFallback className="bg-sidebar-accent text-xs font-bold text-sidebar-foreground">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="min-w-0 flex-1 text-left">
+                  <span className="block truncate text-sm font-semibold">{user?.name || "User"}</span>
+                  <span className="block truncate text-[11px] text-sidebar-foreground/60">
+                    {user?.role ? roleLabels[user.role] : "Employee"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem aria-hidden="true" className="mx-2 my-1 border-t border-solid border-white/25" />
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Sign out" className="h-9">
               <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className="hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground text-[15px]">

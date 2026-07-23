@@ -8,6 +8,8 @@ import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle, XCircle,
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { renderValue } from "@/components/DataRenderer";
+import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
+import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
 import DashboardStatCard from "@/components/DashboardStatCard";
 
@@ -17,6 +19,9 @@ const formTypeLabels: Record<string, string> = {
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
+  it_admin_request: "IT Request Form (Admin)",
+  it_application_request: "IT Request Form (Application)",
+  it_facilities_requisition: "IT Facilities Requisition Form",
 };
 
 const statusBadge = (status: string) => {
@@ -29,6 +34,8 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved_hod":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
+    case "approved_manco":
+      return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">Manco Approved</Badge>;
     case "approved_hos":
       return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
     case "rejected":
@@ -72,6 +79,7 @@ const ApproverDashboard = () => {
   const isHOS = user?.role === "hos" || user?.secondary_roles?.includes("hos");
   const isHOP = user?.role === "head_of_purchasing" || user?.secondary_roles?.includes('head_of_purchasing');
   const isHOF = user?.role === "head_of_finance" || user?.secondary_roles?.includes('head_of_finance');
+  const isMancoMember = user?.role === "manco_member" || user?.secondary_roles?.includes('manco_member');
 
   const filtered = submissions
     .filter(s => {
@@ -79,11 +87,13 @@ const ApproverDashboard = () => {
       const hodValue = s.data.hodName || s.data.hod;
       const hopValue = s.data.hopName;
       const hofValue = s.data.hofName;
+      const mancoValue = s.data.mancoMemberName;
       const isUserHOS = isHOS && (s.data.hosUserId ? s.data.hosUserId === user?.id : hosValue === user?.name);
       const isUserHOD = isHOD && (s.data.hodUserId ? s.data.hodUserId === user?.id : hodValue === user?.name);
       const isUserHOP = isHOP && (s.data.hopUserId ? s.data.hopUserId === user?.id : hopValue === user?.name) && s.formType === 'claim';
       const isUserHOF = isHOF && (s.data.hofUserId ? s.data.hofUserId === user?.id : hofValue === user?.name) && s.formType === 'claim';
-      return isUserHOS || isUserHOD || isUserHOP || isUserHOF;
+      const isUserManco = isMancoMember && (s.data.mancoMemberUserId ? s.data.mancoMemberUserId === user?.id : mancoValue === user?.name) && s.formType === 'leave';
+      return isUserHOS || isUserHOD || isUserHOP || isUserHOF || isUserManco;
     })
     .filter(s => {
       if (!search) return true;
@@ -111,13 +121,15 @@ const ApproverDashboard = () => {
       if (isHOD) conditions.push(s.status === "approved_hos");
       if (isHOP) conditions.push(s.formType === 'claim' && s.status === "approved_hod");
       if (isHOF) conditions.push(s.formType === 'claim' && s.status === "approved_hop");
+      if (isMancoMember) conditions.push(s.formType === 'leave' && s.status === "approved_hod");
       return conditions.some(Boolean);
     }
     if (activeTab === "in_progress") {
-      if (isHOS) return ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "paid"].includes(s.status);
+      if (isHOS) return ["approved_hos", "approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "paid"].includes(s.status);
       if (isHOD) return s.status === "pending";
       if (isHOP && s.formType === 'claim') return ["pending", "approved_hos", "pending_finance_review"].includes(s.status);
       if (isHOF) return ["pending", "approved_hos", "approved_hod", "pending_finance_review"].includes(s.status);
+      if (isMancoMember && s.formType === 'leave') return ["pending", "approved_hos", "approved_manco", "on_leave"].includes(s.status);
       return false;
     }
     if (activeTab === "history") return ["approved", "rejected", "paid", "completed"].includes(s.status);
@@ -126,18 +138,19 @@ const ApproverDashboard = () => {
 
   const stats = {
     total: filtered.length,
-    actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos") || (isHOP && s.formType === 'claim' && s.status === "approved_hod") || (isHOF && s.formType === 'claim' && s.status === "approved_hop")).length,
+    actionRequired: filtered.filter(s => (isHOS && s.status === "pending") || (isHOD && s.status === "approved_hos") || (isMancoMember && s.formType === 'leave' && s.status === "approved_hod") || (isHOP && s.formType === 'claim' && s.status === "approved_hod") || (isHOF && s.formType === 'claim' && s.status === "approved_hop")).length,
     inProgress: filtered.filter(s =>
       (isHOS && ["approved_hod", "approved_hop", "approved_hof"].includes(s.status)) ||
       (isHOD && s.status === "pending") ||
       (isHOP && s.formType === 'claim' && ["pending", "approved_hos"].includes(s.status)) ||
-      (isHOF && ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status))).length,
+      (isHOF && ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status)) ||
+      (isMancoMember && s.formType === 'leave' && ["pending", "approved_hos", "approved_manco", "on_leave"].includes(s.status))).length,
     resolved: filtered.filter(s => s.status === "approved" || s.status === "rejected").length,
   };
 
   const generateRefNo = (sub: Submission) => {
     if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
+    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
   };
 
   const renderLeaveDetailsForApprover = (sub: Submission) => {
@@ -173,10 +186,16 @@ const ApproverDashboard = () => {
             {sub.data.hosName || sub.data.hos || "—"}
           </div>
         </div>
-        <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+        <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
           <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
           <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
             {sub.data.hodName || sub.data.hod || "—"}
+          </div>
+        </div>
+        <div className="py-2 sm:py-4 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+            {sub.data.mancoMemberName || "—"}
           </div>
         </div>
       </>
@@ -219,7 +238,9 @@ const ApproverDashboard = () => {
       return;
     }
     setIsProcessingAction(true);
-    const success = await updateSubmissionStatus(id, status, { remarks: remarks.trim(), rejectedStage: status === "rejected" ? (isHOS ? "hos" : isHOD ? "hod" : isHOP ? "hop" : "hof") : undefined });
+    const currentStatus = selectedSubmission?.status;
+    const rejectedStage = currentStatus === "pending" ? "hos" : currentStatus === "approved_hos" ? "hod" : currentStatus === "approved_hod" && selectedSubmission?.formType === "leave" ? "manco" : currentStatus === "approved_hod" ? "hop" : "hof";
+    const success = await updateSubmissionStatus(id, status, { remarks: remarks.trim(), rejectedStage: status === "rejected" ? rejectedStage : undefined });
     setIsProcessingAction(false);
     if (!success) return;
     toast.success(`Submission ${status === "rejected" ? "rejected" : "approved"} successfully`);
@@ -247,7 +268,7 @@ const ApproverDashboard = () => {
         </button>
 
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-6">
+        <div className="mb-6 rounded-xl border border-border/60 bg-white p-5 shadow-sm dark:bg-card">
           <p className="text-lg font-bold text-foreground">{selectedSubmission.employeeName}</p>
           <p className="text-sm text-muted-foreground mb-1">
             Staff ID: {employeeStaffId}
@@ -259,7 +280,7 @@ const ApproverDashboard = () => {
         </div>
 
         <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-6">
+        <div className="mb-6 rounded-xl border border-border/60 bg-white p-5 shadow-sm dark:bg-card">
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-xs text-muted-foreground">Ref No / No. Rujukan</p>
@@ -304,10 +325,12 @@ const ApproverDashboard = () => {
               <div><p className="text-xs text-muted-foreground">Purpose of Access</p><p className="mt-1 text-sm font-bold text-foreground">{selectedSubmission.data.purpose || "—"}</p></div>
             </div>
           )}
+          {selectedSubmission.formType === 'it_application_request' && <ITApplicationRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />}
+          {['it_admin_request', 'it_facilities_requisition'].includes(selectedSubmission.formType) && <ITAdminRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />}
         </div>
 
         {selectedSubmission.data.passengers && selectedSubmission.data.passengers.some((p: any) => p.name) && (
-          <div className="bg-muted/30 rounded-xl p-5 mb-6 border border-border/50">
+          <div className="mb-6 rounded-xl border border-border/60 bg-white p-5 shadow-sm dark:bg-card">
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">PASSENGERS / PENUMPANG</p>
             <div className="space-y-2">
               {selectedSubmission.data.passengers.filter((p: any) => p.name).map((p: any, i: number) => (
@@ -326,7 +349,7 @@ const ApproverDashboard = () => {
         {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 ? (
           <div className="space-y-3 mb-6">
             {selectedSubmission.data.attachments.map((url: string, idx: number) => (
-              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
+              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl bg-white p-4 shadow-sm dark:bg-card flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm font-medium text-primary">View Attachment {idx + 1} / Lihat Lampiran {idx + 1}</span>
@@ -336,7 +359,7 @@ const ApproverDashboard = () => {
             ))}
           </div>
         ) : selectedSubmission.data.attachment && (
-          <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20 transition-colors">
+          <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl bg-white p-4 shadow-sm dark:bg-card flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20 transition-colors">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm font-medium text-primary">View Attachment / Lihat Lampiran</span>
@@ -355,11 +378,13 @@ const ApproverDashboard = () => {
         {(() => {
           const canApprove = (isHOS && selectedSubmission.status === "pending") || 
                              (isHOD && selectedSubmission.status === "approved_hos") ||
+                             (isMancoMember && selectedSubmission.formType === 'leave' && selectedSubmission.status === "approved_hod") ||
                              (isHOP && selectedSubmission.formType === 'claim' && selectedSubmission.status === "approved_hod") ||
                              (isHOF && selectedSubmission.status === "approved_hop");
           if (!canApprove) {
-            const alreadyApproved = (isHOS && ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
-                                   (isHOD && ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
+            const alreadyApproved = (isHOS && ["approved_hos", "approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "approved", "on_leave"].includes(selectedSubmission.status)) ||
+                                   (isHOD && ["approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "approved", "on_leave"].includes(selectedSubmission.status)) ||
+                                   (isMancoMember && selectedSubmission.formType === 'leave' && ["approved_manco", "on_leave", "approved"].includes(selectedSubmission.status)) ||
                                    (isHOP && ["pending_finance_review", "approved_hop", "approved_hof", "approved"].includes(selectedSubmission.status)) ||
                                     (isHOF && ["approved_hof", "approved"].includes(selectedSubmission.status));
 
@@ -387,7 +412,7 @@ const ApproverDashboard = () => {
               );
             }
 
-            if ((isHOD || isHOP || isHOF) && selectedSubmission.status === "pending") {
+            if ((isHOD || isMancoMember || isHOP || isHOF) && selectedSubmission.status === "pending") {
               return (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center flex items-center justify-center gap-2">
                   <Clock className="h-5 w-5 text-amber-600" />
@@ -398,7 +423,7 @@ const ApproverDashboard = () => {
               );
             }
 
-            if ((isHOP || isHOF) && selectedSubmission.status === "approved_hos") {
+            if ((isMancoMember || isHOP || isHOF) && selectedSubmission.status === "approved_hos") {
               return (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center flex items-center justify-center gap-2">
                   <Clock className="h-5 w-5 text-amber-600" />
@@ -447,9 +472,11 @@ const ApproverDashboard = () => {
                   onClick={() => {
                     let nextStatus: SubmissionStatus = "approved";
                     if (isHOS && selectedSubmission.status === "pending") {
-                      nextStatus = "approved_hos";
+                      nextStatus = selectedSubmission.data.hodName === "N/A" ? "approved_hod" : "approved_hos";
                     } else if (isHOD && selectedSubmission.status === "approved_hos") {
                       nextStatus = "approved_hod";
+                    } else if (isMancoMember && selectedSubmission.formType === 'leave' && selectedSubmission.status === "approved_hod") {
+                      nextStatus = "approved_manco";
                     } else if (isHOP && selectedSubmission.status === "approved_hod") {
                       nextStatus = "pending_finance_review";
                     } else if (isHOF && selectedSubmission.status === "approved_hop") {

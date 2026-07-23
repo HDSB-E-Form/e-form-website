@@ -1,8 +1,8 @@
 create table if not exists public.permission_audit_logs (
   id uuid primary key default gen_random_uuid(),
-  actor_user_id uuid,
+  actor_user_id text,
   actor_name text not null,
-  target_user_id uuid not null,
+  target_user_id text not null,
   target_user_name text not null,
   action text not null check (action in ('permissions_updated', 'user_deactivated')),
   previous_values jsonb not null default '{}'::jsonb,
@@ -20,7 +20,7 @@ to authenticated
 using (
   exists (
     select 1 from public.users
-    where users.id = auth.uid()
+    where users.id::text = auth.uid()::text
       and users.role = 'super_admin'
       and users.status = 'active'
   )
@@ -32,10 +32,10 @@ on public.permission_audit_logs
 for insert
 to authenticated
 with check (
-  actor_user_id = auth.uid()
+  actor_user_id::text = auth.uid()::text
   and exists (
     select 1 from public.users
-    where users.id = auth.uid()
+    where users.id::text = auth.uid()::text
       and users.role = 'super_admin'
       and users.status = 'active'
   )

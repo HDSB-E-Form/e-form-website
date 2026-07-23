@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 // ADDED: "Save" icon to the lucide-react imports
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil, Save, Upload, Image as ImageIcon } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil, Save, Upload, Image as ImageIcon, ZoomIn, UserX, UserRoundCheck, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -21,11 +22,22 @@ interface FirestoreUser {
   employeeId: string;
   department: string;
   position: string;
+  phone?: string;
   role: UserRole;
   createdAt?: Date;
   avatar?: string;
   secondary_roles?: UserRole[];
   status?: string;
+  deactivatedAt?: Date;
+  deactivatedBy?: string;
+  deactivatedByName?: string;
+  reactivatedAt?: Date;
+}
+
+interface HomePosterConfig {
+  enabled: boolean;
+  url: string | null;
+  version?: string;
 }
 
 const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string; icon: any }> = [
@@ -33,6 +45,7 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "security_guard", label: "Security Guard", description: "Approve pass exit forms", icon: ShieldAlert },
   { value: "hos", label: "Head of Section", description: "Approve section submissions", icon: Users },
   { value: "hod", label: "Head of Department", description: "Approve department submissions", icon: Users },
+  { value: "manco_member", label: "Manco Member", description: "Approve Gate Pass requests after HOD", icon: Users },
   { value: "hr_admin", label: "HR Admin", description: "Manage HR forms & fleet", icon: UserCheck },
   { value: "finance_admin", label: "Finance Admin", description: "Manage finance & claims", icon: UserCheck },
   { value: "it_admin", label: "IT Admin", description: "Manage CCTV access requests", icon: UserCheck },
@@ -41,10 +54,16 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
 ];
 
 const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
+  { value: "hos", label: "Head of Section" },
+  { value: "hod", label: "Head of Department" },
   { value: "head_of_purchasing", label: "Head of Purchasing" },
   { value: "head_of_finance", label: "Head of Finance" },
+  { value: "manco_member", label: "Manco Member" },
+  { value: "hr_admin", label: "HR Admin" },
+  { value: "finance_admin", label: "Finance Admin" },
   { value: "safety_admin", label: "Safety Admin" },
   { value: "it_admin", label: "IT Admin" },
+  { value: "security_guard", label: "Security Guard" },
 ];
 
 const roleBadge = (role: UserRole) => {
@@ -61,6 +80,8 @@ const roleBadge = (role: UserRole) => {
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-[10px] font-bold">HEAD OF PURCHASING</Badge>;
     case "head_of_finance":
       return <Badge className="bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-0 text-[10px] font-bold">HEAD OF FINANCE</Badge>;
+    case "manco_member":
+      return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-[10px] font-bold">MANCO MEMBER</Badge>;
     case "hod":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">HOD</Badge>;
     case "hos":
@@ -134,11 +155,13 @@ const AnimatedCount = ({ value, duration = 800 }: { value: number; duration?: nu
 
 const SuperAdminDashboard = () => {
   const { user: currentUser } = useAuth();
-  const { updateUser, deleteUser } = useUsers();
+  const { updateUser, refreshUsers } = useUsers();
   const { submissions, announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [registrationDateFilter, setRegistrationDateFilter] = useState("all");
+  const [directoryView, setDirectoryView] = useState<"active" | "inactive">("active");
   const [users, setUsers] = useState<FirestoreUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<FirestoreUser | null>(null);
@@ -150,6 +173,13 @@ const SuperAdminDashboard = () => {
   const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
   const [isViewAll, setIsViewAll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [exportUserScope, setExportUserScope] = useState<"all" | "active" | "inactive">("all");
+  const [isHomePosterOpen, setIsHomePosterOpen] = useState(false);
+  const [homePosterConfig, setHomePosterConfig] = useState<HomePosterConfig>({ enabled: false, url: null });
+  const [isUploadingHomePoster, setIsUploadingHomePoster] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
@@ -176,7 +206,7 @@ const SuperAdminDashboard = () => {
           setDepartmentsList(deptData.map((d: any) => d.name));
         }
 
-        const { data, error } = await supabase.from("users").select("*").eq("status", "active").order("name");
+        const { data, error } = await supabase.from("users").select("*").order("name");
         if (error) throw error;
 
         const fetchedUsers: FirestoreUser[] = (data || []).map((doc: any) => ({
@@ -186,12 +216,19 @@ const SuperAdminDashboard = () => {
           employeeId: doc.employeeId,
           department: doc.department,
           position: doc.position,
+          phone: doc.phone,
           role: doc.role || "employee",
-          createdAt: doc.created_at ? new Date(doc.created_at) : undefined,
+          createdAt: doc.createdAt || doc.created_at
+            ? new Date(doc.createdAt || doc.created_at)
+            : undefined,
           is_head_of_finance: doc.is_head_of_finance || false,
           avatar: doc.avatar,
           secondary_roles: doc.secondary_roles || [],
           status: doc.status || "active",
+          deactivatedAt: doc.deactivated_at ? new Date(doc.deactivated_at) : undefined,
+          deactivatedBy: doc.deactivated_by || undefined,
+          deactivatedByName: doc.deactivated_by_name || undefined,
+          reactivatedAt: doc.reactivated_at ? new Date(doc.reactivated_at) : undefined,
         }));
 
         setUsers(fetchedUsers);
@@ -206,14 +243,42 @@ const SuperAdminDashboard = () => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    void supabase
+      .from("safety_dashboard_settings")
+      .select("value")
+      .eq("key", "home_poster")
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Could not load Home poster settings:", error);
+          return;
+        }
+        if (data?.value) setHomePosterConfig(data.value as HomePosterConfig);
+      });
+  }, []);
+
   const filtered = users.filter(u => {
+    if ((u.status || "active") !== directoryView) return false;
     const effectiveRoles = [u.role, ...(u.secondary_roles || [])];
-    if (roleFilter === "employee" && u.role !== "employee") return false;
-    if (roleFilter === "hos" && u.role !== "hos") return false;
-    if (roleFilter === "hod" && u.role !== "hod") return false;
-    if (roleFilter === "admin" && !effectiveRoles.some(role => ["hr_admin", "finance_admin", "it_admin", "head_of_purchasing", "head_of_finance", "safety_admin", "super_admin"].includes(role))) return false;
+    if (roleFilter === "employee" && !effectiveRoles.includes("employee")) return false;
+    if (roleFilter === "manco_member" && !effectiveRoles.includes("manco_member")) return false;
+    if (roleFilter === "hos" && !effectiveRoles.includes("hos")) return false;
+    if (roleFilter === "hod" && !effectiveRoles.includes("hod")) return false;
+    if (roleFilter === "admin" && !effectiveRoles.some(role => ["hr_admin", "finance_admin", "it_admin", "safety_admin", "super_admin"].includes(role))) return false;
 
     if (departmentFilter !== "all" && u.department !== departmentFilter) return false;
+
+    if (registrationDateFilter !== "all") {
+      if (!u.createdAt || Number.isNaN(u.createdAt.getTime())) return false;
+
+      const cutoff = new Date();
+      if (registrationDateFilter === "week") cutoff.setDate(cutoff.getDate() - 7);
+      if (registrationDateFilter === "month") cutoff.setDate(cutoff.getDate() - 30);
+      if (registrationDateFilter === "year") cutoff.setFullYear(cutoff.getFullYear() - 1);
+
+      if (u.createdAt < cutoff) return false;
+    }
 
     if (search) {
       const q = search.toLowerCase();
@@ -230,15 +295,215 @@ const SuperAdminDashboard = () => {
     return true;
   });
 
+  const activeUsers = users.filter(person => (person.status || "active") === "active");
+  const inactiveUsers = users.filter(person => person.status === "inactive");
+
+  const handleExportUsers = () => {
+    if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
+      toast.error("The From date must be earlier than or equal to the To date.");
+      return;
+    }
+
+    const toDateKey = (date?: Date) => {
+      if (!date || Number.isNaN(date.getTime())) return "";
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const usersToExport = users
+      .filter(person => exportUserScope === "all" || (person.status || "active") === exportUserScope)
+      .filter(person => {
+        const joinedDate = toDateKey(person.createdAt);
+        if (exportStartDate && (!joinedDate || joinedDate < exportStartDate)) return false;
+        if (exportEndDate && (!joinedDate || joinedDate > exportEndDate)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const dateDifference = (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0);
+        return dateDifference || (a.name || "").localeCompare(b.name || "");
+      });
+
+    if (usersToExport.length === 0) {
+      toast.error("No users were found for the selected status and registration date range.");
+      return;
+    }
+
+    const formatDateTime = (date?: Date) =>
+      date && !Number.isNaN(date.getTime()) ? date.toLocaleString("en-GB") : "";
+    const protectSpreadsheetText = (value?: string) => value ? `\u200B${value}` : "";
+    const escapeCsvCell = (value: unknown) => {
+      let text = value === null || value === undefined ? "" : String(value);
+      if (/^[=+\-@]/.test(text.trimStart())) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const includeAccountLifecycle = exportUserScope !== "active";
+    const headerRow: Array<string | number> = [
+      "No.",
+      "Name",
+      "Staff ID",
+      "Email",
+      "Phone Number",
+      "Department",
+      "Position",
+      "Primary Role",
+      "Additional Roles",
+      "Account Status",
+      "Date Joined / Registered",
+    ];
+    if (includeAccountLifecycle) {
+      headerRow.push("Deactivated Date", "Deactivated By", "Reactivated Date");
+    }
+    const rows: Array<Array<string | number>> = [headerRow];
+
+    usersToExport.forEach((person, index) => {
+      const row: Array<string | number> = [
+        index + 1,
+        person.name || "",
+        protectSpreadsheetText(person.employeeId),
+        person.email || "",
+        protectSpreadsheetText(person.phone),
+        person.department || "",
+        person.position || "",
+        ROLE_OPTIONS.find(option => option.value === person.role)?.label || person.role.replace(/_/g, " "),
+        (person.secondary_roles || [])
+          .map(role => SECONDARY_ROLE_OPTIONS.find(option => option.value === role)?.label || role.replace(/_/g, " "))
+          .join(", "),
+        (person.status || "active").toUpperCase(),
+        formatDateTime(person.createdAt),
+      ];
+      if (includeAccountLifecycle) {
+        row.push(
+          formatDateTime(person.deactivatedAt),
+          person.deactivatedByName || "",
+          formatDateTime(person.reactivatedAt),
+        );
+      }
+      rows.push(row);
+    });
+
+    const csvContent = `\uFEFF${rows.map(row => row.map(escapeCsvCell).join(",")).join("\r\n")}`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const today = new Date().toISOString().split("T")[0];
+    link.href = url;
+    link.download = `HDSB_User_Directory_${exportUserScope}_${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setIsExportOpen(false);
+    toast.success(`${usersToExport.length} user record${usersToExport.length === 1 ? "" : "s"} exported successfully.`);
+  };
+
+  const saveHomePosterConfig = async (nextConfig: HomePosterConfig) => {
+    const previousConfig = homePosterConfig;
+    setHomePosterConfig(nextConfig);
+    const { error } = await supabase.from("safety_dashboard_settings").upsert({
+      key: "home_poster",
+      value: nextConfig,
+      updated_by: currentUser?.id || "",
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      setHomePosterConfig(previousConfig);
+      toast.error(`Failed to save Home poster settings: ${error.message}`);
+      return false;
+    }
+    return true;
+  };
+
+  const getPosterStoragePath = (url: string | null) => {
+    if (!url) return null;
+    const marker = "/form-attachments/";
+    const markerIndex = url.indexOf(marker);
+    if (markerIndex < 0) return null;
+    return decodeURIComponent(url.slice(markerIndex + marker.length));
+  };
+
+  const handleHomePosterUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file.");
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      toast.error("Poster image size must be less than 12MB.");
+      return;
+    }
+
+    setIsUploadingHomePoster(true);
+    const previousUrl = homePosterConfig.url;
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const filePath = `public/home-poster_${Date.now()}_${safeName}`;
+    try {
+      const { data, error } = await supabase.storage.from("form-attachments").upload(filePath, file);
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage.from("form-attachments").getPublicUrl(data.path);
+      const saved = await saveHomePosterConfig({
+        enabled: true,
+        url: publicUrlData.publicUrl,
+        version: new Date().toISOString(),
+      });
+      if (!saved) {
+        await supabase.storage.from("form-attachments").remove([data.path]);
+        return;
+      }
+
+      const previousPath = getPosterStoragePath(previousUrl);
+      if (previousPath?.startsWith("public/home-poster_")) {
+        const { error: cleanupError } = await supabase.storage.from("form-attachments").remove([previousPath]);
+        if (cleanupError) console.warn("Could not remove the replaced Home poster file:", cleanupError);
+      }
+      toast.success(previousUrl ? "Home poster replaced successfully." : "Home poster uploaded successfully.");
+    } catch (error: any) {
+      toast.error(`Failed to upload Home poster: ${error.message}`);
+    } finally {
+      setIsUploadingHomePoster(false);
+    }
+  };
+
+  const handleDeleteHomePoster = async () => {
+    if (!homePosterConfig.url || !window.confirm("Delete the current Home poster? It will no longer appear for users.")) return;
+    const currentPath = getPosterStoragePath(homePosterConfig.url);
+    const saved = await saveHomePosterConfig({
+      enabled: false,
+      url: null,
+      version: new Date().toISOString(),
+    });
+    if (!saved) return;
+
+    if (currentPath?.startsWith("public/home-poster_")) {
+      const { error } = await supabase.storage.from("form-attachments").remove([currentPath]);
+      if (error) console.warn("The Home poster was removed from display but its storage file could not be deleted:", error);
+    }
+    toast.success("Home poster deleted.");
+  };
+
   const stats = {
-    totalPersonnel: users.length,
-    activeHOS: users.filter(u => u.role === 'hos').length,
-    activeHOD: users.filter(u => u.role === 'hod').length,
-    otherAdmins: users.filter(u => [u.role, ...(u.secondary_roles || [])].some(role => ["super_admin", "safety_admin", "finance_admin", "it_admin", "hr_admin", "security_guard"].includes(role))).length,
+    totalPersonnel: activeUsers.length,
+    activeHOS: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].includes('hos')).length,
+    activeHOD: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].includes('hod')).length,
+    otherAdmins: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].some(role => ["super_admin", "safety_admin", "finance_admin", "it_admin", "hr_admin", "security_guard"].includes(role))).length,
     totalCarBookings: submissions.filter(s => s.formType === 'car_rental').length,
     totalGatePass: submissions.filter(s => s.formType === 'leave').length,
     totalClaims: submissions.filter(s => s.formType === 'claim').length,
   };
+
+  const normalizedAdditionalRoles = editSecondaryRoles.filter(role => role !== editRole).slice().sort();
+  const originalAdditionalRoles = (selectedUser?.secondary_roles || []).filter(role => role !== selectedUser?.role).slice().sort();
+  const hasUserChanges = Boolean(selectedUser) && (
+    editRole !== selectedUser?.role ||
+    editDepartment !== selectedUser?.department ||
+    JSON.stringify(normalizedAdditionalRoles) !== JSON.stringify(originalAdditionalRoles)
+  );
 
   const openManage = (user: FirestoreUser) => {
     setSelectedUser(user);
@@ -250,6 +515,7 @@ const SuperAdminDashboard = () => {
 
   const handleSave = async () => {
     if (!selectedUser) return;
+    if (editRole === "super_admin" && selectedUser.role !== "super_admin" && !window.confirm(`Grant Super Admin access to ${selectedUser.name}? This provides full system access.`)) return;
 
     setIsSavingUser(true);
     try {
@@ -287,14 +553,29 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  const handleDeleteUser = async () => {
+  const handleDeactivateUser = async () => {
     if (!selectedUser) return;
+    if (selectedUser.id === currentUser?.id) {
+      toast.error("You cannot deactivate your own Super Admin account.");
+      return;
+    }
     if (!window.confirm(`Deactivate ${selectedUser.name}? They will be removed from the active directory and will no longer have application access.`)) return;
 
     setIsDeactivatingUser(true);
     try {
-      const success = await deleteUser(selectedUser.id);
-      if (!success) throw new Error("The user could not be deactivated.");
+      const deactivatedAt = new Date().toISOString();
+      const { data: deactivatedUser, error: deactivateError } = await supabase
+        .from("users")
+        .update({
+          status: "inactive",
+          deactivated_at: deactivatedAt,
+          deactivated_by: currentUser?.id || null,
+          deactivated_by_name: currentUser?.name || "Super Admin",
+        })
+        .eq("id", selectedUser.id)
+        .select("id")
+        .single();
+      if (deactivateError || !deactivatedUser) throw deactivateError || new Error("The user record could not be deactivated.");
 
       const { error: auditError } = await supabase.from("permission_audit_logs").insert([{
         actor_user_id: currentUser?.id || null,
@@ -303,16 +584,70 @@ const SuperAdminDashboard = () => {
         target_user_name: selectedUser.name,
         action: "user_deactivated",
         previous_values: { status: selectedUser.status || "active", role: selectedUser.role, secondary_roles: selectedUser.secondary_roles || [] },
-        new_values: { status: "inactive" },
+        new_values: { status: "inactive", deactivated_at: deactivatedAt },
       }]);
       if (auditError) console.error("Deactivation audit log could not be written:", auditError);
 
-      setUsers(users.filter(u => u.id !== selectedUser.id));
+      setUsers(current => current.map(person => person.id === selectedUser.id ? {
+        ...person,
+        status: "inactive",
+        deactivatedAt: new Date(deactivatedAt),
+        deactivatedBy: currentUser?.id,
+        deactivatedByName: currentUser?.name || "Super Admin",
+      } : person));
+      await refreshUsers();
       setSheetOpen(false);
       toast.success("User deactivated successfully");
     } catch (error) {
       console.error("Error deactivating user:", error);
       toast.error("Failed to deactivate user");
+    } finally {
+      setIsDeactivatingUser(false);
+    }
+  };
+
+  const handleReactivateUser = async () => {
+    if (!selectedUser) return;
+    if (!window.confirm(`Reactivate ${selectedUser.name}? They will be able to sign in and access the application again.`)) return;
+
+    setIsDeactivatingUser(true);
+    try {
+      const reactivatedAt = new Date().toISOString();
+      const { data: reactivatedUser, error: reactivateError } = await supabase
+        .from("users")
+        .update({
+          status: "active",
+          reactivated_at: reactivatedAt,
+          reactivated_by: currentUser?.id || null,
+          reactivated_by_name: currentUser?.name || "Super Admin",
+        })
+        .eq("id", selectedUser.id)
+        .select("id")
+        .single();
+      if (reactivateError || !reactivatedUser) throw reactivateError || new Error("The user record could not be reactivated.");
+
+      const { error: auditError } = await supabase.from("permission_audit_logs").insert([{
+        actor_user_id: currentUser?.id || null,
+        actor_name: currentUser?.name || "Super Admin",
+        target_user_id: selectedUser.id,
+        target_user_name: selectedUser.name,
+        action: "user_reactivated",
+        previous_values: { status: "inactive" },
+        new_values: { status: "active", reactivated_at: reactivatedAt },
+      }]);
+      if (auditError) console.error("Reactivation audit log could not be written:", auditError);
+
+      setUsers(current => current.map(person => person.id === selectedUser.id ? {
+        ...person,
+        status: "active",
+        reactivatedAt: new Date(reactivatedAt),
+      } : person));
+      await refreshUsers();
+      setSheetOpen(false);
+      toast.success("User reactivated successfully");
+    } catch (error) {
+      console.error("Error reactivating user:", error);
+      toast.error("Failed to reactivate user");
     } finally {
       setIsDeactivatingUser(false);
     }
@@ -552,11 +887,18 @@ const SuperAdminDashboard = () => {
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Fullscreen Image Preview Modal */}
       {fullscreenImage && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-0 cursor-zoom-out" onClick={() => setFullscreenImage(null)}>
-          <button onClick={() => setFullscreenImage(null)} className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full bg-black/50 transition-colors">
+        <div className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/85 p-4 backdrop-blur-sm sm:p-8" onClick={() => setFullscreenImage(null)}>
+          <button
+            type="button"
+            onClick={() => setFullscreenImage(null)}
+            className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white/80 shadow-lg transition-colors hover:bg-black/80 hover:text-white"
+            aria-label="Close profile picture preview"
+          >
             <XCircle className="h-8 w-8" />
           </button>
-          <img src={fullscreenImage} alt="User avatar fullscreen preview" className="max-w-full max-h-full object-contain" onClick={e => e.stopPropagation()} />
+          <div className="h-[90vh] w-[95vw]" onClick={e => e.stopPropagation()}>
+            <img src={fullscreenImage} alt="User avatar fullscreen preview" className="h-full w-full object-contain" />
+          </div>
         </div>
       )}
 
@@ -564,7 +906,7 @@ const SuperAdminDashboard = () => {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage all user accounts and permissions.</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage active accounts and retain inactive employee records.</p>
         </div>
         <div className="relative w-full sm:w-[220px]">
           <button 
@@ -587,6 +929,12 @@ const SuperAdminDashboard = () => {
                 </button>
                 <button onClick={() => { setIsAnnouncementsOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
                   <Megaphone className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Announcements
+                </button>
+                <button onClick={() => { setIsHomePosterOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
+                  <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Manage Home Poster
+                </button>
+                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
+                  <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Export User Directory
                 </button>
                 <div className="h-px bg-border/50 my-1 mx-2" />
                 <button onClick={() => { handleResetAllForms(); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-destructive/10 text-destructive rounded-lg text-sm font-medium transition-colors">
@@ -628,6 +976,26 @@ const SuperAdminDashboard = () => {
 
       {/* Users Table */}
       <div className="card-elevated overflow-hidden">
+        <div className="flex border-b border-border bg-muted/10 px-5 pt-4">
+          <button
+            type="button"
+            onClick={() => { setDirectoryView("active"); setIsViewAll(false); }}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${directoryView === "active" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          >
+            <UserCheck className="h-4 w-4" />
+            Active Users
+            <Badge className="border-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">{activeUsers.length}</Badge>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setDirectoryView("inactive"); setIsViewAll(false); }}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${directoryView === "inactive" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          >
+            <Archive className="h-4 w-4" />
+            Inactive Users
+            <Badge className="border-0 bg-muted text-muted-foreground">{inactiveUsers.length}</Badge>
+          </button>
+        </div>
         <div className="p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -649,10 +1017,11 @@ const SuperAdminDashboard = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="employee">Employees Only</SelectItem>
-                <SelectItem value="hos">HOS Only</SelectItem>
-                <SelectItem value="hod">HOD Only</SelectItem>
-                <SelectItem value="admin">Admins Only</SelectItem>
+                <SelectItem value="employee">Employees</SelectItem>
+                <SelectItem value="manco_member">Manco Members</SelectItem>
+                <SelectItem value="admin">Admins</SelectItem>
+                <SelectItem value="hod">HOD</SelectItem>
+                <SelectItem value="hos">HOS</SelectItem>
               </SelectContent>
             </Select>
             <Select value={departmentFilter} onValueChange={val => { setDepartmentFilter(val); setIsViewAll(false); }}>
@@ -666,6 +1035,17 @@ const SuperAdminDashboard = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={registrationDateFilter} onValueChange={val => { setRegistrationDateFilter(val); setIsViewAll(false); }}>
+              <SelectTrigger className="h-9 w-full md:w-[200px]">
+                <SelectValue placeholder="Registration Date" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Registration Dates</SelectItem>
+                <SelectItem value="week">Last 7 Days</SelectItem>
+                <SelectItem value="month">Last 30 Days</SelectItem>
+                <SelectItem value="year">Last 12 Months</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -677,7 +1057,8 @@ const SuperAdminDashboard = () => {
               <TableHead className="text-xs font-bold uppercase tracking-wider">Email</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-wider">Role</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-wider">Department</TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Actions</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
+                <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -688,18 +1069,28 @@ const SuperAdminDashboard = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'} ${u.avatar ? 'cursor-pointer' : ''}`}
+                    <div className={`group relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'} ${u.avatar ? 'cursor-zoom-in ring-1 ring-border' : ''}`}
                          onClick={() => u.avatar && setFullscreenImage(u.avatar)}
                     >
                       {u.avatar ? (
-                        <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" title="Click to enlarge"/>
+                        <>
+                          <img src={u.avatar} alt={u.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" title="Click to enlarge"/>
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition-all duration-200 group-hover:bg-black/35 group-hover:opacity-100" aria-hidden="true">
+                            <ZoomIn className="h-4 w-4" />
+                          </span>
+                        </>
                       ) : (
                         getInitials(u.name)
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-bold text-foreground">{u.name}</p>
                       <p className="text-xs text-muted-foreground">{u.employeeId}</p>
+                      {directoryView === "inactive" && u.deactivatedAt && (
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          Inactive since {u.deactivatedAt.toLocaleDateString("en-GB")}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </TableCell>
@@ -715,9 +1106,14 @@ const SuperAdminDashboard = () => {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-foreground">{u.department}</TableCell>
+                <TableCell>
+                  {directoryView === "active"
+                    ? <Badge className="border-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">Active</Badge>
+                    : <Badge className="border-0 bg-muted text-muted-foreground">Inactive</Badge>}
+                </TableCell>
                 <TableCell className="text-center">
                   <button onClick={() => openManage(u)} className="px-4 py-1.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50 transition-colors">
-                    Manage
+                    {directoryView === "active" ? "Manage" : "View"}
                   </button>
                 </TableCell>
               </TableRow>
@@ -727,7 +1123,7 @@ const SuperAdminDashboard = () => {
         </div>
         {filtered.length === 0 && (
           <div className="p-8 text-center">
-            <p className="text-muted-foreground">No users found</p>
+            <p className="text-muted-foreground">{directoryView === "active" ? "No active users found" : "No inactive users found"}</p>
           </div>
         )}
         <div className="flex items-center justify-between p-4 border-t border-border">
@@ -743,79 +1139,222 @@ const SuperAdminDashboard = () => {
         </div>
       </div>
 
+      {/* Home Poster Settings Sheet */}
+      <Sheet open={isHomePosterOpen} onOpenChange={setIsHomePosterOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader className="mb-6 border-b border-border pb-4">
+            <SheetTitle className="text-xl font-bold">Home Poster Settings</SheetTitle>
+            <SheetDescription>Manage the popup poster displayed to all signed-in users on the Home page.</SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background p-4 shadow-sm">
+              <div>
+                <p className="text-sm font-bold text-foreground">Enable Popup Poster</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {homePosterConfig.url ? "Show the poster when users enter the Home page." : "Upload a poster before enabling this option."}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!homePosterConfig.url}
+                onClick={() => void saveHomePosterConfig({ ...homePosterConfig, enabled: !homePosterConfig.enabled })}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${homePosterConfig.enabled ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                role="switch"
+                aria-checked={homePosterConfig.enabled}
+                aria-label="Enable Home popup poster"
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${homePosterConfig.enabled ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Current Poster</Label>
+              <div className="flex min-h-56 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-muted/20 p-3">
+                {homePosterConfig.url ? (
+                  <button type="button" onClick={() => setFullscreenImage(homePosterConfig.url)} className="group relative flex h-full w-full items-center justify-center" title="Preview poster">
+                    <img src={homePosterConfig.url} alt="Home poster preview" className="max-h-80 max-w-full rounded-lg object-contain shadow-sm" />
+                    <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/65 px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <ZoomIn className="h-3 w-3" /> Preview
+                    </span>
+                  </button>
+                ) : (
+                  <div className="text-center">
+                    <ImageIcon className="mx-auto h-10 w-10 text-muted-foreground/30" />
+                    <p className="mt-2 text-sm font-semibold text-muted-foreground">No Home poster uploaded</p>
+                    <p className="mt-1 text-xs text-muted-foreground/70">PNG, JPG or WebP up to 12MB</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90">
+                <Upload className="h-4 w-4" />
+                {isUploadingHomePoster ? "Uploading..." : homePosterConfig.url ? "Replace Poster" : "Upload Poster"}
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleHomePosterUpload} disabled={isUploadingHomePoster} />
+              </label>
+              <button
+                type="button"
+                disabled={!homePosterConfig.url || isUploadingHomePoster}
+                onClick={() => void handleDeleteHomePoster()}
+                className="flex items-center justify-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-bold text-destructive transition-colors hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-4 w-4" /> Delete Poster
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-blue-500/15 bg-blue-500/5 p-4">
+              <p className="text-xs font-semibold leading-relaxed text-muted-foreground">
+                The poster appears once per browser session for each uploaded version. Replacing the image makes the new poster appear again for all users.
+              </p>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* User Directory Export Sheet */}
+      <Sheet open={isExportOpen} onOpenChange={setIsExportOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader className="mb-6 border-b border-border pb-4">
+            <SheetTitle className="text-xl font-bold">Export User Directory</SheetTitle>
+            <SheetDescription>Download active, inactive, or all user records as a spreadsheet-compatible CSV file.</SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-6">
+            <div className="space-y-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+              <Label className="text-xs font-bold uppercase tracking-wider text-foreground">Account Status</Label>
+              <Select value={exportUserScope} onValueChange={value => setExportUserScope(value as "all" | "active" | "inactive")}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="active">Active Users Only</SelectItem>
+                  <SelectItem value="inactive">Inactive Users Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+              <div>
+                <Label className="text-xs font-bold uppercase tracking-wider text-foreground">Registration Date Range</Label>
+                <p className="mt-1 text-xs text-muted-foreground">The range applies to the user’s date joined or registration date.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">From Date</Label>
+                  <Input type="date" value={exportStartDate} onChange={event => setExportStartDate(event.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                </div>
+                <div>
+                  <Label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">To Date</Label>
+                  <Input type="date" value={exportEndDate} onChange={event => setExportEndDate(event.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button type="button" onClick={() => {
+                  const today = new Date().toISOString().split("T")[0];
+                  setExportStartDate(today);
+                  setExportEndDate(today);
+                }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">Today</button>
+                <button type="button" onClick={() => {
+                  const today = new Date();
+                  const lastWeek = new Date(today);
+                  lastWeek.setDate(today.getDate() - 7);
+                  setExportStartDate(lastWeek.toISOString().split("T")[0]);
+                  setExportEndDate(today.toISOString().split("T")[0]);
+                }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">Last 7 Days</button>
+                <button type="button" onClick={() => {
+                  const today = new Date();
+                  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                  setExportStartDate(firstDay.toISOString().split("T")[0]);
+                  setExportEndDate(today.toISOString().split("T")[0]);
+                }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">This Month</button>
+                <button type="button" onClick={() => {
+                  setExportStartDate("");
+                  setExportEndDate("");
+                }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">All Dates</button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-muted/10 p-4">
+              <h3 className="text-sm font-bold text-foreground">User Directory Spreadsheet</h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Includes names, staff IDs, contact details, department, position, roles, account status, registration date, and account lifecycle dates.
+              </p>
+              <button type="button" onClick={handleExportUsers} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2.5 text-xs font-bold text-white transition-colors hover:bg-emerald-600">
+                <Download className="h-3.5 w-3.5" /> Download Spreadsheet
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Manage Permissions Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="pb-0">
             <SheetTitle className="text-xl font-bold text-foreground">Manage User</SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground pt-1">
-              Editing permissions for {selectedUser?.name} ({selectedUser?.email}).
+              {selectedUser?.status === "inactive"
+                ? "Review this archived account and its retained access history."
+                : "Review account details and update access permissions."}
             </SheetDescription>
           </SheetHeader>
 
           <div className="mt-6 space-y-6 px-1">
             <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-3">USER INFORMATION</p>
-              <div className="space-y-2 bg-muted/30 p-3 rounded-lg">
-                <div>
-                  <p className="text-xs text-muted-foreground">Staff ID</p>
-                  <p className="text-sm font-medium text-foreground">{selectedUser?.employeeId}</p>
+              <p className="mb-3 text-xs font-bold tracking-wider text-primary">USER INFORMATION</p>
+              <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
+                <div className="flex items-center gap-3 border-b border-border/60 p-3.5">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold ${!selectedUser?.avatar ? getInitialColor(selectedUser?.name) : "bg-transparent"}`}>
+                    {selectedUser?.avatar ? <img src={selectedUser.avatar} alt={selectedUser.name} className="h-full w-full object-cover" /> : getInitials(selectedUser?.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-foreground">{selectedUser?.name || "—"}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{selectedUser?.email || "—"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Position</p>
-                  <p className="text-sm font-medium text-foreground">{selectedUser?.position}</p>
+                <div className="border-b border-border/60 px-3.5 py-2">
+                  <Badge className={`border-0 text-[9px] ${selectedUser?.status === "inactive" ? "bg-muted text-muted-foreground" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"}`}>
+                    {selectedUser?.status === "inactive" ? "INACTIVE" : "ACTIVE"}
+                  </Badge>
                 </div>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-3">ASSIGN ROLE</p>
-              <div className="space-y-2">
-                {ROLE_OPTIONS.map(opt => {
-                  const Icon = opt.icon;
-                  const isSelected = editRole === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => setEditRole(opt.value)}
-                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all text-left ${
-                        isSelected
-                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                          : "border-border hover:border-primary/30 hover:bg-muted/30"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-foreground">{opt.label}</p>
-                        <p className="text-xs text-muted-foreground">{opt.description}</p>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? "border-primary" : "border-muted-foreground/30"}`}>
-                        {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-3">DEPARTMENT</p>
-              <Select value={departmentsList.includes(editDepartment) ? editDepartment : undefined} onValueChange={setEditDepartment}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {departmentsList.map(d => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-3 p-3.5">
+                  {[
+                    ["Staff ID", selectedUser?.employeeId],
+                    ["Position", selectedUser?.position],
+                    ["Department", selectedUser?.department],
+                    ["Phone", selectedUser?.phone],
+                  ].map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+                      <p className="mt-0.5 break-words text-[11px] font-semibold leading-snug text-foreground">{value || "—"}</p>
+                    </div>
                   ))}
+                </div>
+              </div>
+            </div>
+
+            <fieldset disabled={selectedUser?.status === "inactive"} className={`space-y-6 ${selectedUser?.status === "inactive" ? "opacity-65" : ""}`}>
+            <div>
+              <p className="mb-3 text-xs font-bold tracking-wider text-primary">PRIMARY ROLE</p>
+              <Select value={editRole} onValueChange={value => {
+                const role = value as UserRole;
+                setEditRole(role);
+                setEditSecondaryRoles(current => current.filter(item => item !== role));
+              }}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {ROLE_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{ROLE_OPTIONS.find(option => option.value === editRole)?.description}</p>
             </div>
 
             <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-3">ADDITIONAL ROLES</p>
+              <p className="mb-1 text-xs font-bold tracking-wider text-primary">ADDITIONAL ACCESS</p>
+              <p className="mb-3 text-[11px] text-muted-foreground">A user may have multiple additional roles.</p>
               <Select onValueChange={(val) => {
                 if (val && !editSecondaryRoles.includes(val as UserRole)) {
                   setEditSecondaryRoles([...editSecondaryRoles, val as UserRole]);
@@ -833,7 +1372,7 @@ const SuperAdminDashboard = () => {
               <div className="mt-2 flex flex-wrap gap-2">
                 {editSecondaryRoles.map(role => (
                   <Badge key={role} className="bg-primary/10 text-primary text-xs font-bold pl-3 pr-1.5 py-1 rounded-md">
-                    {SECONDARY_ROLE_OPTIONS.find(o => o.value === role)?.label || role}
+                    {SECONDARY_ROLE_OPTIONS.find(o => o.value === role)?.label || role.replace(/_/g, " ")}
                     <button onClick={() => setEditSecondaryRoles(editSecondaryRoles.filter(r => r !== role))} className="ml-1.5 p-0.5 rounded-full hover:bg-black/10">
                       <X className="h-3 w-3" />
                     </button>
@@ -842,30 +1381,84 @@ const SuperAdminDashboard = () => {
                 {editSecondaryRoles.length === 0 && <p className="text-xs text-muted-foreground p-2">No additional roles assigned.</p>}
               </div>
             </div>
+            </fieldset>
 
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={handleDeleteUser}
-                disabled={isSavingUser || isDeactivatingUser}
-                className="px-3 py-2.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive hover:text-white transition-colors flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-50"
-                title="Deactivate User"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
+            {selectedUser?.status === "inactive" && (
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <p className="text-xs font-bold tracking-wider text-primary">ACCOUNT HISTORY</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Deactivated</p>
+                    <p className="mt-1 text-xs font-semibold text-foreground">{selectedUser.deactivatedAt?.toLocaleString("en-GB") || "Not recorded"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Deactivated By</p>
+                    <p className="mt-1 text-xs font-semibold text-foreground">{selectedUser.deactivatedByName || "Not recorded"}</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                  The profile, submissions, approvals, and audit history remain stored under the same user ID.
+                </p>
+              </div>
+            )}
+
+            <fieldset disabled={selectedUser?.status === "inactive"} className={`space-y-6 ${selectedUser?.status === "inactive" ? "opacity-65" : ""}`}>
+            <div>
+              <p className="text-xs font-bold text-primary tracking-wider mb-3">CHANGE DEPARTMENT</p>
+              <Select value={departmentsList.includes(editDepartment) ? editDepartment : undefined} onValueChange={setEditDepartment}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {departmentsList.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Access Summary</p>
+              <p className="mt-1 text-xs font-semibold leading-relaxed text-foreground">
+                Primary: {ROLE_OPTIONS.find(option => option.value === editRole)?.label}
+                {normalizedAdditionalRoles.length > 0 && ` · Additional: ${normalizedAdditionalRoles.map(role => SECONDARY_ROLE_OPTIONS.find(option => option.value === role)?.label || role.replace(/_/g, " ")).join(", ")}`}
+              </p>
+            </div>
+            </fieldset>
+
+            <div className="sticky bottom-0 z-10 -mx-1 flex gap-3 border-t border-border bg-background/95 px-1 pb-1 pt-4 backdrop-blur">
               <button
                 onClick={() => setSheetOpen(false)}
                 disabled={isSavingUser || isDeactivatingUser}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {selectedUser?.status === "inactive" ? "Close" : "Cancel"}
               </button>
-              <button
-                onClick={handleSave}
-                disabled={isSavingUser || isDeactivatingUser}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingUser ? "Saving..." : isDeactivatingUser ? "Deactivating..." : "Save Changes"}
-              </button>
+              {selectedUser?.status === "inactive" ? (
+                <button
+                  onClick={handleReactivateUser}
+                  disabled={isDeactivatingUser}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <UserRoundCheck className="h-4 w-4" />
+                  {isDeactivatingUser ? "Reactivating..." : "Reactivate Account"}
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleDeactivateUser}
+                    disabled={isSavingUser || isDeactivatingUser || selectedUser?.id === currentUser?.id}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-destructive/30 px-3 py-2.5 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={selectedUser?.id === currentUser?.id ? "You cannot deactivate your own account" : "Deactivate Account"}
+                  >
+                    <UserX className="h-4 w-4" />
+                    <span className="hidden sm:inline">Deactivate</span>
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSavingUser || isDeactivatingUser || !hasUserChanges}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSavingUser ? "Saving..." : isDeactivatingUser ? "Deactivating..." : "Save Changes"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </SheetContent>

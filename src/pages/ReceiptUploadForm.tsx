@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFormLanguage } from "@/contexts/FormLanguageContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,8 @@ export function buildReceiptRefNoMap(submissions: Array<{ id: string; formType: 
 
 const ReceiptUploadForm = () => {
   const navigate = useNavigate();
+  const { language } = useFormLanguage();
+  const text = (english: string, malay: string) => language === "ms" ? malay : english;
   const { user } = useAuth();
   const { submissions, updateSubmissionStatus } = useSubmissions();
   const [refNo, setRefNo] = useState("");
@@ -59,30 +62,30 @@ const ReceiptUploadForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!refNo.trim()) {
-      toast.error("Please enter the submission reference number.");
+      toast.error(text("Please enter the submission reference number.", "Sila masukkan nombor rujukan penyerahan."));
       return;
     }
     if (attachedFiles.length === 0) {
-      toast.error("Please attach at least one receipt file.");
+      toast.error(text("Please attach at least one receipt file.", "Sila lampirkan sekurang-kurangnya satu fail resit."));
       return;
     }
 
     const submissionId = refNoMap.get(refNo.trim().toUpperCase());
     if (!submissionId) {
-      toast.error("Invalid reference number. Please check and try again.");
+      toast.error(text("Invalid reference number. Please check and try again.", "Nombor rujukan tidak sah. Sila semak dan cuba lagi."));
       return;
     }
 
     const submission = submissions.find(s => s.id === submissionId);
     if (!submission || submission.formType !== 'claim') {
-      toast.error("This reference number does not correspond to a Petty Cash Claim.");
+      toast.error(text("This reference number does not correspond to a Petty Cash Claim.", "Nombor rujukan ini bukan milik Tuntutan Wang Runcit."));
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      let attachmentUrls: string[] = [];
+      const attachmentUrls: string[] = [];
       for (const file of attachedFiles) {
         const filePath = `public/${user?.id || 'unknown_user'}/receipt_${Date.now()}_${file.name}`;
         const { data, error } = await supabase.storage.from('form-attachments').upload(filePath, file);
@@ -100,10 +103,10 @@ const ReceiptUploadForm = () => {
 
       // The updateSubmissionStatus function resolves on success or throws on error.
       await updateSubmissionStatus(submission.id, submission.status, { attachments: updatedData.attachments });
-      toast.success("Receipt uploaded and attached successfully!");
+      toast.success(text("Receipt uploaded and attached successfully!", "Resit berjaya dimuat naik dan dilampirkan!"));
       navigate("/submissions");
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred during upload.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : text("An error occurred during upload.", "Ralat berlaku semasa muat naik."));
     } finally {
       setIsSubmitting(false);
     }
@@ -112,12 +115,11 @@ const ReceiptUploadForm = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       <button type="button" onClick={() => navigate("/finance")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Finance Forms
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {text("Back to Finance Forms", "Kembali ke Borang Kewangan")}
       </button>
 
       <div className="mb-5">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Upload Petty Cash Receipt</h1>
-        <p className="mt-1 text-base font-medium text-primary">Muat Naik Resit Tunai Runcit</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{text("Upload Petty Cash Receipt", "Muat Naik Resit Wang Runcit")}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -126,11 +128,11 @@ const ReceiptUploadForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <FileText className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Claim Reference / <span className="font-normal">Rujukan Tuntutan</span>
+              {text("Claim Reference", "Rujukan Tuntutan")}
             </h2>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="refNo" className="text-xs font-semibold text-primary">Submission Reference Number <span className="text-destructive">*</span></Label>
+            <Label htmlFor="refNo" className="text-xs font-semibold text-primary">{text("Submission Reference Number", "Nombor Rujukan Penyerahan")} <span className="text-destructive">*</span></Label>
             <Input
               id="refNo"
               value={refNo}
@@ -139,7 +141,7 @@ const ReceiptUploadForm = () => {
               className="h-11 text-base"
               required
             />
-            <p className="text-xs text-muted-foreground">Enter the reference number from your original Petty Cash Claim submission.</p>
+            <p className="text-xs text-muted-foreground">{text("Enter the reference number from your original Petty Cash Claim submission.", "Masukkan nombor rujukan daripada penyerahan asal Tuntutan Wang Runcit anda.")}</p>
           </div>
         </div>
 
@@ -148,11 +150,11 @@ const ReceiptUploadForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <Upload className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Receipt Files / <span className="font-normal">Fail Resit</span>
+              {text("Receipt Files", "Fail Resit")}
             </h2>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-primary">Receipt / Invoice File(s) <span className="text-destructive">*</span></Label>
+            <Label className="text-xs font-semibold text-primary">{text("Receipt / Invoice File(s)", "Fail Resit / Invois")} <span className="text-destructive">*</span></Label>
             {attachedFiles.length > 0 && (
               <div className="space-y-2 py-2">
                 {attachedFiles.map((file, i) => (
@@ -161,7 +163,7 @@ const ReceiptUploadForm = () => {
                       <FileText className="h-5 w-5 text-primary" />
                       <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
                     </div>
-                    <button type="button" onClick={() => removeFile(i)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-md"><Trash2 className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => removeFile(i)} aria-label={text("Remove file", "Buang fail")} className="p-1.5 text-muted-foreground hover:text-destructive rounded-md"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 ))}
               </div>
@@ -174,8 +176,8 @@ const ReceiptUploadForm = () => {
               className={`border-2 border-dashed rounded-xl p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${isDragging ? "border-primary bg-primary/10" : "border-border bg-muted/20 hover:bg-muted/30 hover:border-border/70"}`}
             >
               <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm font-semibold text-muted-foreground">Drag & drop or click to upload</p>
-              <p className="text-xs text-muted-foreground mt-1">(PDF, JPG, PNG supported)</p>
+              <p className="text-sm font-semibold text-muted-foreground">{text("Drag & drop or click to upload", "Seret dan lepaskan atau klik untuk memuat naik")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{text("(PDF, JPG, PNG supported)", "(Format PDF, JPG dan PNG disokong)")}</p>
               <input id="file-upload" type="file" className="hidden" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} />
             </label>
           </div>
@@ -184,7 +186,7 @@ const ReceiptUploadForm = () => {
         <div className="flex justify-center pt-4 pb-8">
           <Button type="submit" disabled={isSubmitting} className="btn-gold h-auto w-full sm:w-auto sm:min-w-64 rounded-full px-6 py-3.5 text-sm font-bold shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/40 active:scale-95">
             {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
-            {isSubmitting ? "Uploading..." : "Submit Receipt"}
+            {isSubmitting ? text("Uploading...", "Sedang dimuat naik...") : text("Submit Receipt", "Hantar Resit")}
           </Button>
         </div>
       </form>

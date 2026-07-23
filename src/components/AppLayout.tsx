@@ -4,11 +4,20 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
+import { FormLanguageToggle } from "./FormLanguageToggle";
+import FormUiTranslator from "./FormUiTranslator";
+import { supportsFormTranslation } from "@/lib/formLanguage";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const AppLayout = () => {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [backPressCount, setBackPressCount] = useState(0);
+  const supportsFormLanguage = supportsFormTranslation(pathname);
+  const employeeLanguagePages = ["/home", "/hr", "/finance", "/it"];
+  const showFormLanguage = supportsFormLanguage
+    || (user?.role === "employee" && employeeLanguagePages.includes(pathname));
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -39,6 +48,7 @@ const AppLayout = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background text-foreground">
+        <FormUiTranslator />
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           
@@ -53,6 +63,7 @@ const AppLayout = () => {
             
             <div className="flex items-center gap-1 sm:gap-2">
               <NotificationBell />
+              {showFormLanguage && <FormLanguageToggle />}
               <ThemeToggle />
             </div>
           </header>

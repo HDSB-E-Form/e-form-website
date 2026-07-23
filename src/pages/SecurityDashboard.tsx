@@ -19,8 +19,8 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
     case "on_leave":
       return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">On Leave</Badge>;
-    case "approved_hod":
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Pending Admin</Badge>;
+    case "approved_manco":
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Ready for Exit</Badge>;
     case "approved_hos":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
@@ -101,7 +101,7 @@ const SecurityDashboard = () => {
   };
 
   const tabFiltered = filtered.filter(s => {
-    if (activeTab === "action_required") return s.status === "approved_hod";
+    if (activeTab === "action_required") return s.status === "approved_manco";
     if (activeTab === "on_leave") return s.status === "on_leave";
     if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
     if (activeTab === "history") {
@@ -114,7 +114,7 @@ const SecurityDashboard = () => {
 
   const stats = {
     total: filtered.length,
-    actionRequired: filtered.filter(s => s.status === "approved_hod").length,
+    actionRequired: filtered.filter(s => s.status === "approved_manco").length,
     onLeave: filtered.filter(s => s.status === "on_leave").length,
     inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
@@ -137,7 +137,7 @@ const SecurityDashboard = () => {
 
   const generateRefNo = (sub: Submission) => {
     if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
+    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
   };
 
   const handleAction = async (id: string, newStatus: SubmissionStatus, logData: any) => {
@@ -206,6 +206,10 @@ const SecurityDashboard = () => {
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
             <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.hodName || sub.data.hod || "—"}</div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
+            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.mancoMemberName || "—"}</div>
+          </div>
           {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
@@ -238,7 +242,7 @@ const SecurityDashboard = () => {
   }
 
   if (selectedSubmission) {
-    const canApprove = selectedSubmission.status === "approved_hod";
+    const canApprove = selectedSubmission.status === "approved_manco";
     const isOnLeave = selectedSubmission.status === "on_leave";
 
     return (
@@ -569,12 +573,12 @@ const SecurityDashboard = () => {
                       <button
                         onClick={() => setSelectedSubmission(sub)}
                         className={`rounded-lg px-3 py-2 text-xs sm:text-sm font-bold transition-colors print:hidden ${
-                          sub.status === "approved_hod" || activeTab === "in_progress" || activeTab === "history"
+                          sub.status === "approved_manco" || activeTab === "in_progress" || activeTab === "history"
                             ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
                             : "text-foreground hover:bg-muted hover:text-primary"
                         }`}
                       >
-                        {sub.status === "approved_hod" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
+                        {sub.status === "approved_manco" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
                       </button>
                     </TableCell>
                   </TableRow>

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SubmissionsProvider } from "@/contexts/SubmissionsContext";
 import { UsersProvider } from "@/contexts/UsersContext";
+import { FormLanguageProvider } from "@/contexts/FormLanguageContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
 import Index from "@/pages/Index.tsx";
@@ -18,6 +19,7 @@ import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import ITFormsPage from "@/pages/ITFormsPage";
 import CCTVAccessRequestForm from "@/pages/CCTVAccessRequestForm";
 import ITHelpDeskForm from "@/pages/ITHelpDeskForm";
+import ITFacilitiesRequisitionForm from "@/pages/ITFacilitiesRequisitionForm";
 import ITAdminDashboard from "@/pages/ITAdminDashboard";
 import CarBookingForm from "@/pages/CarBookingForm";
 import GatePassForm from "@/pages/GatePassForm";
@@ -70,6 +72,7 @@ const App = () => (
       <AuthProvider>
         <UsersProvider>
           <SubmissionsProvider>
+            <FormLanguageProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -97,6 +100,9 @@ const App = () => (
                   <Route path="finance/claim" element={<PettyCashForm />} />
                   <Route path="it/cctv-access-request" element={<CCTVAccessRequestForm />} />
                   <Route path="it/help-desk" element={<ITHelpDeskForm />} />
+                  <Route path="it/request-admin" element={<ITFacilitiesRequisitionForm variant="admin" />} />
+                  <Route path="it/request-application" element={<ITFacilitiesRequisitionForm variant="application" />} />
+                  <Route path="it/facilities-requisition" element={<Navigate to="/it/request-admin" replace />} />
                   <Route path="submissions" element={<MySubmissions />} />
                   <Route path="profile" element={<ProfilePage />} />
                   
@@ -107,8 +113,9 @@ const App = () => (
                   <Route path="admin/finance" element={<ProtectedRoute allowedRoles={["finance_admin"]}><FinanceDashboard /></ProtectedRoute>} />
                   <Route path="admin/it" element={<ProtectedRoute allowedRoles={["it_admin"]}><ITAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/it/help-desk" element={<ProtectedRoute allowedRoles={["it_admin"]}><ITAdminDashboard mode="helpdesk" /></ProtectedRoute>} />
+                  <Route path="admin/it/facilities" element={<ProtectedRoute allowedRoles={["it_admin"]}><ITAdminDashboard mode="facilities" /></ProtectedRoute>} />
                   <Route path="admin/security" element={<ProtectedRoute allowedRoles={["security_guard"]}><SecurityDashboard /></ProtectedRoute>} />
-                  <Route path="admin/approvals" element={<ProtectedRoute allowedRoles={["hod", "hos", "head_of_purchasing", "head_of_finance"]}><ApproverDashboard /></ProtectedRoute>} /> 
+                  <Route path="admin/approvals" element={<ProtectedRoute allowedRoles={["hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance"]}><ApproverDashboard /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/submissions" element={<ProtectedRoute allowedRoles={["super_admin"]}><AllSubmissionsPage /></ProtectedRoute>} />
                   <Route path="admin/cars" element={<ProtectedRoute allowedRoles={["hr_admin", "super_admin"]}><CarManagement /></ProtectedRoute>} />
@@ -124,6 +131,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </TooltipProvider>
+            </FormLanguageProvider>
           </SubmissionsProvider>
         </UsersProvider>
       </AuthProvider>

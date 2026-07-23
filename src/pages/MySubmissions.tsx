@@ -13,6 +13,8 @@ import { renderValue } from "@/components/DataRenderer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import DashboardStatCard from "@/components/DashboardStatCard";
+import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
+import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -20,7 +22,10 @@ const formTypeLabels: Record<string, string> = {
   claim: "Petty Cash Claim",
   ppe_request: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
-  it_help_desk: "IT Help Desk",
+  it_help_desk: "IT Help Desk Ticket",
+  it_facilities_requisition: "IT Facilities Requisition Form",
+  it_admin_request: "IT Request Form (Admin)",
+  it_application_request: "IT Request Form (Application)",
 };
 
 const hiddenUserDetailFields = new Set([
@@ -78,15 +83,21 @@ const getOverallStatus = (sub: Submission) => {
   if (sub.formType === 'leave') {
     if (status === "approved") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
     if (status === "on_leave") return { label: "On Leave", color: "bg-indigo-500", progress: 90 };
-    if (status === "approved_hod") return { label: "Pending Security", color: "bg-blue-500", progress: 75 };
+    if (status === "approved_manco") return { label: "Pending Security", color: "bg-blue-500", progress: 80 };
+    if (status === "approved_hod") return { label: "Pending Manco Member", color: "bg-indigo-500", progress: 65 };
     if (status === "approved_hos") return { label: "Pending HOD", color: "bg-amber-500", progress: 50 };
   } else if (sub.formType === 'cctv_access_request') {
     if (status === "approved_hod") return { label: "Pending IT Admin", color: "bg-violet-500", progress: 75 };
     if (status === "approved_hos") return { label: "Pending HOD", color: "bg-amber-500", progress: 50 };
-  } else if (sub.formType === 'it_help_desk') {
+  } else if (["it_help_desk", "it_admin_request", "it_application_request", "it_facilities_requisition"].includes(sub.formType)) {
     if (status === "approved" || status === "completed") return { label: "Resolved", color: "bg-emerald-500", progress: 100 };
     if (status === "awaiting_confirmation") return { label: "Confirm IT Resolution", color: "bg-sky-500", progress: 85 };
     if (status === "reopened") return { label: "Reopened with IT", color: "bg-amber-500", progress: 45 };
+    if (sub.formType !== "it_help_desk") {
+      if (status === "approved_hod") return { label: "Pending IT Admin", color: "bg-violet-500", progress: 70 };
+      if (status === "approved_hos") return { label: "Pending HOD", color: "bg-sky-500", progress: 45 };
+      return { label: "Pending HOS", color: "bg-amber-500", progress: 20 };
+    }
     return { label: "Submitted to IT", color: "bg-violet-500", progress: 35 };
   } else {
     // Standard HOD approval for other forms
@@ -185,13 +196,13 @@ const MySubmissions = () => {
     total: mySubmissions.length,
     accepted: mySubmissions.filter(s => ["approved", "completed", "paid"].includes(s.status)).length,
     rejected: mySubmissions.filter(s => s.status === "rejected").length,
-    actionRequired: mySubmissions.filter(s => s.status === "paid" || (s.formType === "it_help_desk" && s.status === "awaiting_confirmation")).length,
+    actionRequired: mySubmissions.filter(s => s.status === "paid" || (["it_help_desk", "it_admin_request", "it_application_request", "it_facilities_requisition"].includes(s.formType) && s.status === "awaiting_confirmation")).length,
   };
 
   const filtered = mySubmissions.filter(s => {
     if (filter === "all") return true;
-    if (filter === "action_required") return s.status === "paid" || (s.formType === "it_help_desk" && s.status === "awaiting_confirmation");
-    if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "reopened"].includes(s.status);
+    if (filter === "action_required") return s.status === "paid" || (["it_help_desk", "it_admin_request", "it_application_request", "it_facilities_requisition"].includes(s.formType) && s.status === "awaiting_confirmation");
+    if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "reopened"].includes(s.status);
     if (filter === "approved") return ["approved", "completed"].includes(s.status);
     if (filter === "rejected") return s.status === "rejected";
     return true;
@@ -199,7 +210,7 @@ const MySubmissions = () => {
 
   const generateRefNo = (sub: Submission) => {
     if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
+    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
   };
 
   const handleAcknowledgeReceipt = async (sub: Submission) => {
@@ -233,7 +244,7 @@ const MySubmissions = () => {
   const handleResolutionResponse = async (confirmed: boolean) => {
     if (!selectedSubmission || isRespondingToResolution) return;
     if (!confirmed && !resolutionResponse.trim()) {
-      toast.error("Explain why the issue is not resolved before reopening the ticket.");
+      toast.error("Enter a remark explaining what is incomplete before returning the request to IT.");
       return;
     }
 
@@ -257,7 +268,7 @@ const MySubmissions = () => {
     setIsRespondingToResolution(false);
     if (!success) return;
 
-    toast.success(confirmed ? "Resolution confirmed. The ticket is now closed." : "Ticket reopened and returned to IT.");
+    toast.success(confirmed ? "IT update accepted. The request is now completed." : "Request returned to IT with your remark.");
     setResolutionResponse("");
     setSelectedSubmission(null);
   };
@@ -277,18 +288,22 @@ const MySubmissions = () => {
     const financeRejectionReached = (statuses: string[]) => rejectedStage === "finance_review" &&
       (rejectedFromStatus ? statuses.includes(rejectedFromStatus) : true);
     const wasApprovedByHosBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus
-      ? ["approved_hos", "approved_hod"].includes(rejectedFromStatus)
+      ? ["approved_hos", "approved_hod", "approved_manco", "on_leave"].includes(rejectedFromStatus)
       : rejectedStage === "admin";
     const wasApprovedByHodBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus
-      ? rejectedFromStatus === "approved_hod"
+      ? ["approved_hod", "approved_manco", "on_leave"].includes(rejectedFromStatus)
       : rejectedStage === "admin";
     const isBeforeHodApproval = ["pending", "approved_hos"].includes(selectedSubmission.status);
     const isEditableClaim = selectedSubmission.formType === 'claim' && isBeforeHodApproval;
     const isEditableCar = selectedSubmission.formType === 'car_rental' && isBeforeHodApproval;
 
-    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]) || wasApprovedByHosBeforeAdminRejection;
-    const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
-                          ["hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]) || wasApprovedByHodBeforeAdminRejection;
+    const isApprovedHOS = selectedSubmission.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) || ["hod", "manco", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]) || wasApprovedByHosBeforeAdminRejection;
+    const isApprovedHOD = selectedSubmission.data.hodName === 'N/A' || ["approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
+                          ["manco", "hop", "hof"].includes(rejectedStage) || financeRejectionReached(["approved_hod", "pending_finance_review", "approved_hop", "approved_hof"]) || wasApprovedByHodBeforeAdminRejection;
+    const isApprovedManco = selectedSubmission.formType === "leave" &&
+                            (["approved_manco", "on_leave", "approved"].includes(selectedSubmission.status) || rejectedStage === "admin");
+    const isCompletedBySecurity = selectedSubmission.formType === "leave" &&
+                                  ["on_leave", "approved"].includes(selectedSubmission.status);
     const isApprovedHOP = selectedSubmission.data.hopName === 'N/A' || ["pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || 
                           ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["pending_finance_review", "approved_hop", "approved_hof"]);
     const isApprovedFinanceReview = ["approved_hop", "approved_hof", "approved", "paid", "completed", "on_leave"].includes(selectedSubmission.status) ||
@@ -372,13 +387,15 @@ const MySubmissions = () => {
             {selectedSubmission.formType === 'cctv_access_request' && (
               <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Employee Information</p>
             )}
-            {/* Explicitly place Employee Name at the top */}
-            <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-              <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
-              <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                {selectedSubmission.employeeName}
+            {/* IT request forms render employee fields together in their dedicated detail blocks. */}
+            {!['it_admin_request', 'it_application_request'].includes(selectedSubmission.formType) && (
+              <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                  {selectedSubmission.employeeName}
+                </div>
               </div>
-            </div>
+            )}
             
             {selectedSubmission.formType === 'cctv_access_request' ? (
               <>
@@ -409,6 +426,10 @@ const MySubmissions = () => {
                   </div>
                 ))}
               </>
+            ) : selectedSubmission.formType === 'it_admin_request' ? (
+              <ITAdminRequestDetails submission={selectedSubmission} />
+            ) : selectedSubmission.formType === 'it_application_request' ? (
+              <ITApplicationRequestDetails submission={selectedSubmission} />
             ) : selectedSubmission.formType === 'car_rental' ? (
               <>
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
@@ -518,6 +539,10 @@ const MySubmissions = () => {
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
                   <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
                   <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
+                </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+                  <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
+                  <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.mancoMemberName || "—"}</div>
                 </div>
               </>
             ) : selectedSubmission.formType === 'claim' ? (
@@ -662,23 +687,23 @@ const MySubmissions = () => {
             </div>
           )}
 
-          {selectedSubmission.formType === "it_help_desk" && selectedSubmission.status === "awaiting_confirmation" && (
+          {["it_help_desk", "it_admin_request", "it_application_request", "it_facilities_requisition"].includes(selectedSubmission.formType) && selectedSubmission.status === "awaiting_confirmation" && (
             <div className="mb-8 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 sm:p-5 print:hidden">
               <div className="flex items-start gap-3">
                 <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-foreground">IT has provided a resolution</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Please verify that the solution works before this ticket is closed.</p>
+                  <h3 className="font-bold text-foreground">IT has provided an update</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Please review IT's response before this request is completed.</p>
                   <div className="mt-4 rounded-lg border border-border/60 bg-background/70 p-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resolution summary</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-foreground">{selectedSubmission.data.resolutionSummary || "No resolution summary provided."}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">IT response / remarks</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-foreground">{selectedSubmission.data.resolutionSummary || "No IT response provided."}</p>
                     <p className="mt-3 text-xs text-muted-foreground">Resolved by {selectedSubmission.data.resolvedBy || "IT Admin"}{selectedSubmission.data.resolvedAt ? ` on ${new Date(selectedSubmission.data.resolvedAt).toLocaleString("en-GB")}` : ""}</p>
                   </div>
-                  <label htmlFor="resolution-response" className="mt-4 block text-sm font-semibold text-foreground">If the issue remains, explain what is still not working</label>
-                  <textarea id="resolution-response" value={resolutionResponse} onChange={event => setResolutionResponse(event.target.value)} rows={3} placeholder="Required only when reopening the ticket..." className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+                  <label htmlFor="resolution-response" className="mt-4 block text-sm font-semibold text-foreground">Your remarks</label>
+                  <textarea id="resolution-response" value={resolutionResponse} onChange={event => setResolutionResponse(event.target.value)} rows={3} placeholder="Required when returning the request to IT..." className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
                   <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(false)} className="rounded-lg border border-amber-500 px-5 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50">Issue Not Resolved</button>
-                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(true)} className="btn-gold rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-50">{isRespondingToResolution ? "Submitting..." : "Confirm Resolution"}</button>
+                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(false)} className="rounded-lg border border-amber-500 px-5 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50">Return to IT</button>
+                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(true)} className="btn-gold rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-50">{isRespondingToResolution ? "Submitting..." : "Accept IT Update"}</button>
                   </div>
                 </div>
               </div>
@@ -705,6 +730,22 @@ const MySubmissions = () => {
                   <div className="print:hidden w-full flex justify-center">{stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}</div>
                   <div className="hidden print:block font-bold text-[10px] sm:text-sm">
                     {stage.isApproved ? "APPROVED" : stage.isRejected ? "REJECTED" : isRejected ? "N/A" : "PENDING"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : selectedSubmission.formType === 'leave' ? (
+            <div className="grid grid-cols-4 gap-1 sm:gap-3 p-2.5 sm:p-4 bg-muted/30 print:hidden rounded-lg mt-6 sm:mt-8">
+              {[
+                { name: "HOS", isApproved: isApprovedHOS, isRejected: isRejected && rejectedStage === "hos" },
+                { name: "HOD", isApproved: isApprovedHOD, isRejected: isRejected && rejectedStage === "hod" },
+                { name: "MANCO", isApproved: isApprovedManco, isRejected: isRejected && rejectedStage === "manco" },
+                { name: "Security", isApproved: isCompletedBySecurity, isRejected: isRejected && rejectedStage === "admin" },
+              ].map((stage) => (
+                <div key={stage.name} className="text-center border-r border-border last:border-0 flex min-w-0 flex-col items-center justify-between px-0.5 sm:px-2">
+                  <p className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1.5 sm:mb-2 leading-tight">{stage.name}</p>
+                  <div className="w-full flex justify-center">
+                    {stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
                   </div>
                 </div>
               ))}

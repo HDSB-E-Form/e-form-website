@@ -43,12 +43,15 @@ const ITHelpDeskWidget = () => {
               </div>
               <div>
                 <p className="font-bold">Need help signing in?</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/80">Contact the IT Help Desk for login or registration assistance.</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/80">Contact the IT Help Desk for assistance.</p>
                 <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-medium text-white/90">
                   <Clock3 className="h-3.5 w-3.5" />
-                  <span>Mon–Fri, 8:00 AM–5:30 PM</span>
+                  <span className="font-bold">Mon – Fri, 8:00 AM – 5:30 PM</span>
                 </div>
-                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-white"><span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-400" : "bg-slate-300"}`} />{isOnline ? "IT Help Desk is available" : "Currently outside support hours"}</p>
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-white">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/25 ${isOnline ? "bg-emerald-400" : "bg-slate-300"}`} />
+                  {isOnline ? "Available now" : "Outside support hours"}
+                </p>
               </div>
             </div>
             <button type="button" onClick={() => setIsOpen(false)} aria-label="Close IT Help Desk" className="absolute right-3 top-3 rounded-full p-2 text-white/80 transition-colors hover:bg-white/15 hover:text-white">

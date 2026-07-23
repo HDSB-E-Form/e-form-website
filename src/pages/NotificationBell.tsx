@@ -15,7 +15,7 @@ const formTypeLabels: Record<string, string> = {
   final_discharge: "Discharge Log",
   ppe_purchase: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
-  it_help_desk: "IT Help Desk",
+  it_help_desk: "IT Help Desk Ticket",
 };
 
 interface Notification {
@@ -65,6 +65,12 @@ export const NotificationBell = () => {
     // Look at recent submissions (last 14 days) to avoid performance issues
     const excludedForms = ["inventory_addition", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
     const recentSubmissions = submissions.filter(s => !excludedForms.includes(s.formType)).filter(s => {
+      const isPendingSecurityAction =
+        (user.role === 'security_guard' || user.secondary_roles?.includes('security_guard')) &&
+        s.formType === 'leave' &&
+        s.status === 'approved_manco';
+      if (isPendingSecurityAction) return true;
+
       const daysOld = (new Date().getTime() - new Date(s.submittedAt).getTime()) / (1000 * 60 * 60 * 24);
       return daysOld < 14;
     });
@@ -74,10 +80,10 @@ export const NotificationBell = () => {
       let message = "";
       let path = "";
       
-      // Employees confirm Help Desk resolutions before a ticket is closed
-      if (s.formType === 'it_help_desk' && s.status === 'awaiting_confirmation' && s.submittedBy === user.id) {
+      // Employees confirm IT responses before a ticket or facilities request is closed
+      if (['it_help_desk', 'it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(s.formType) && s.status === 'awaiting_confirmation' && s.submittedBy === user.id) {
         isRelevant = true;
-        message = `IT has resolved your Help Desk ticket. Please confirm that the solution is working.`;
+        message = s.formType !== 'it_help_desk' ? `IT has responded to your request. Please review and accept or return it with remarks.` : `IT has resolved your Help Desk ticket. Please confirm that the solution is working.`;
         path = "/submissions";
       }
       // 2. Approvers (HOS)
@@ -90,6 +96,12 @@ export const NotificationBell = () => {
       else if (user.role === 'hod' && s.status === 'approved_hos' && (s.data.hodName === user.name || s.data.hod === user.name)) {
         isRelevant = true;
         message = `${s.employeeName}'s form requires your approval.`;
+        path = "/admin/approvals";
+      }
+      // Approvers (HOP)
+      else if ((user.role === 'manco_member' || user.secondary_roles?.includes('manco_member')) && s.formType === 'leave' && s.status === 'approved_hod' && (s.data.mancoMemberUserId ? s.data.mancoMemberUserId === user.id : s.data.mancoMemberName === user.name)) {
+        isRelevant = true;
+        message = `A Gate Pass from ${s.employeeName} requires your approval.`;
         path = "/admin/approvals";
       }
       // Approvers (HOP)
@@ -125,6 +137,7 @@ export const NotificationBell = () => {
       // IT Admin receives CCTV requests after HOD approval and Help Desk tickets immediately
       else if ((user.role === 'it_admin' || user.secondary_roles?.includes('it_admin')) && (
         (s.formType === 'cctv_access_request' && s.status === 'approved_hod') ||
+        (['it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(s.formType) && ['approved_hod', 'reopened'].includes(s.status)) ||
         (s.formType === 'it_help_desk' && ['pending', 'reopened'].includes(s.status))
       )) {
         isRelevant = true;
@@ -132,11 +145,13 @@ export const NotificationBell = () => {
           ? s.status === 'reopened'
             ? `${s.employeeName} reopened an IT Help Desk ticket.`
             : `A new IT Help Desk ticket from ${s.employeeName} requires action.`
-          : `A CCTV Access Request from ${s.employeeName} requires IT review.`;
-        path = s.formType === 'it_help_desk' ? "/admin/it/help-desk" : "/admin/it";
+          : ['it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(s.formType)
+            ? `An IT request from ${s.employeeName} requires IT review.`
+            : `A CCTV Access Request from ${s.employeeName} requires IT review.`;
+        path = s.formType === 'it_help_desk' ? "/admin/it/help-desk" : ['it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(s.formType) ? "/admin/it/facilities" : "/admin/it";
       }
       // 6. Security Guard
-      else if (user.role === 'security_guard' && s.formType === 'leave' && s.status === 'approved_hod') {
+      else if ((user.role === 'security_guard' || user.secondary_roles?.includes('security_guard')) && s.formType === 'leave' && s.status === 'approved_manco') {
         isRelevant = true;
         message = `Approved Gate Pass for ${s.employeeName} is ready.`;
         path = "/admin/security";

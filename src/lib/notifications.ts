@@ -1,6 +1,6 @@
 export interface NotificationRecipient {
   path: string;
-  recipientType: 'hos' | 'hod' | 'hr_admin' | 'finance_admin' | 'it_admin' | 'security_guard' | 'head_of_purchasing' | 'head_of_finance';
+  recipientType: 'hos' | 'hod' | 'manco_member' | 'hr_admin' | 'finance_admin' | 'it_admin' | 'security_guard' | 'head_of_purchasing' | 'head_of_finance';
 }
 
 interface NotificationContext {
@@ -31,6 +31,7 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
   const isSecurityGuard = role === 'security_guard' || secondaryRoles.includes('security_guard');
   const isHOP = role === 'head_of_purchasing' || secondaryRoles.includes('head_of_purchasing');
   const isHOF = role === 'head_of_finance' || secondaryRoles.includes('head_of_finance');
+  const isMancoMember = role === 'manco_member' || secondaryRoles.includes('manco_member');
 
   if (isHOS && submission.status === 'pending' && (data.hosUserId ? data.hosUserId === id : (data.hosName === name || data.hos === name))) {
     return { path: '/admin/approvals', recipientType: 'hos' };
@@ -40,7 +41,11 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
     return { path: '/admin/approvals', recipientType: 'hod' };
   }
 
-  if (isHRAdmin && ['car_rental', 'leave'].includes(submission.formType) && submission.status === 'approved_hod') {
+  if (isMancoMember && submission.formType === 'leave' && submission.status === 'approved_hod' && (data.mancoMemberUserId ? data.mancoMemberUserId === id : data.mancoMemberName === name)) {
+    return { path: '/admin/approvals', recipientType: 'manco_member' };
+  }
+
+  if (isHRAdmin && submission.formType === 'car_rental' && submission.status === 'approved_hod') {
     return { path: '/admin/hr', recipientType: 'hr_admin' };
   }
 
@@ -52,11 +57,15 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
     return { path: '/admin/it', recipientType: 'it_admin' };
   }
 
+  if (isITAdmin && ['it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(submission.formType) && ['approved_hod', 'reopened'].includes(submission.status)) {
+    return { path: '/admin/it/facilities', recipientType: 'it_admin' };
+  }
+
   if (isITAdmin && submission.formType === 'it_help_desk' && ['pending', 'reopened'].includes(submission.status)) {
     return { path: '/admin/it/help-desk', recipientType: 'it_admin' };
   }
 
-  if (isSecurityGuard && submission.formType === 'leave' && submission.status === 'approved_hod') {
+  if (isSecurityGuard && submission.formType === 'leave' && submission.status === 'approved_manco') {
     return { path: '/admin/security', recipientType: 'security_guard' };
   }
 

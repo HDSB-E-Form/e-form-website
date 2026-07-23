@@ -9,15 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, UserCheck, Info, ShieldCheck, Shield, Send, Car, LogIn, LogOut, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
+import { useFormLanguage } from "@/contexts/FormLanguageContext";
 
 const GatePassForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useFormLanguage();
+  const isMalay = language === "ms";
+  const text = (english: string, malay: string) => isMalay ? malay : english;
   const { addSubmission } = useSubmissions();
   const { getUsersByRole, isLoading: areUsersLoading } = useUsers();
 
   const hosUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOS") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
   const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
+  const mancoMembers: AppUser[] = useMemo(() => [...(getUsersByRole("manco_member") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
   const securityGuards = getUsersByRole("security_guard") || [];
 
   const [employeeInfo, setEmployeeInfo] = useState({
@@ -49,6 +54,7 @@ const GatePassForm = () => {
 
   const [hosName, setHosName] = useState("");
   const [hodName, setHodName] = useState("");
+  const [mancoMemberId, setMancoMemberId] = useState("");
 
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
@@ -62,19 +68,28 @@ const GatePassForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!hosName || !hodName) {
-      toast.error("Please select both Head of Section and Head of Department.");
+    if (!hosName || !hodName || !mancoMemberId) {
+      toast.error(text("Please select the Head of Section, Head of Department, and Manco Member.", "Sila pilih Ketua Seksyen, Ketua Jabatan dan Ahli Manco."));
       return;
     }
     
     if (!estimatedTime.timeOut || !estimatedTime.timeIn) {
-      toast.error("Please provide both estimated Time Out and Time In.");
+      toast.error(text("Please provide both estimated Time Out and Time In.", "Sila masukkan anggaran Masa Keluar dan Masa Masuk."));
       return;
     }
 
-    const initialStatus: "pending" | "approved_hos" = hosName === "N/A" ? "approved_hos" : "pending";
+    const initialStatus: "pending" | "approved_hos" | "approved_hod" = hosName === "N/A"
+      ? (hodName === "N/A" ? "approved_hod" : "approved_hos")
+      : "pending";
     if (isSubmitting) return;
     setIsSubmitting(true);
+
+    const selectedMancoMember = mancoMembers.find(member => member.id === mancoMemberId);
+    if (!selectedMancoMember) {
+      toast.error(text("The selected Manco Member is no longer available. Please select again.", "Ahli Manco yang dipilih tidak lagi tersedia. Sila pilih semula."));
+      setIsSubmitting(false);
+      return;
+    }
 
     const success = await addSubmission({
       formType: "leave",
@@ -89,6 +104,8 @@ const GatePassForm = () => {
         personalDetails,
         hosName,
         hodName,
+        mancoMemberName: selectedMancoMember.name,
+        mancoMemberUserId: selectedMancoMember.id,
         estimatedTime,
       },
     });
@@ -124,7 +141,7 @@ const GatePassForm = () => {
       //   console.error("Failed to prepare email notification", err);
       // }
 
-      toast.success("Gate Pass submitted successfully!");
+      toast.success(text("Gate Pass submitted successfully!", "Pas Keluar berjaya dihantar!"));
       navigate("/home");
     } else {
       setIsSubmitting(false);
@@ -134,13 +151,13 @@ const GatePassForm = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <button type="button" onClick={() => navigate("/hr")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to HR Forms
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {text("Back to HR Forms", "Kembali ke Borang HR")}
       </button>
 
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gate Pass</h1>
-          <p className="mt-1 text-base font-medium text-primary">Pas Keluar</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{text("Gate Pass", "Pas Keluar")}</h1>
+          <p className="mt-1 text-base font-medium text-primary">{text("Human Resources Department", "Jabatan Sumber Manusia")}</p>
         </div>
 
         {/* Live Clock */}
@@ -150,10 +167,10 @@ const GatePassForm = () => {
           </div>
           <div className="flex flex-col">
             <span className="text-lg font-mono font-bold text-foreground leading-none tracking-wider">
-              {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {currentTime.toLocaleTimeString(isMalay ? "ms-MY" : "en-US", { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mt-1">
-              {currentTime.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+              {currentTime.toLocaleDateString(isMalay ? "ms-MY" : "en-GB", { weekday: 'long', day: 'numeric', month: 'short' })}
             </span>
           </div>
         </div>
@@ -166,26 +183,26 @@ const GatePassForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <UserCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Employee Details / <span className="font-normal">Butiran Pekerja</span>
+              {text("Employee Details", "Butiran Pekerja")}
             </h2>
           </div>
 
           {/* Pre-filled Details (Do not require filling) */}
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Name", "Nama")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Position", "Jawatan")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Staff ID", "No. Pekerja")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.staffNo || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Department", "Jabatan")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
@@ -197,11 +214,11 @@ const GatePassForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <Info className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Purpose of Exit / <span className="font-normal">Tujuan Keluar</span>
+              {text("Purpose of Exit", "Tujuan Keluar")}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup" aria-label="Purpose of exit">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup" aria-label={text("Purpose of exit", "Tujuan keluar")}>
             {/* Company Business */}
             <div
               role="radio"
@@ -226,11 +243,11 @@ const GatePassForm = () => {
                 }`}>
                   {purposeType === "company" && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                 </div>
-                <span className="font-bold text-sm">(A) Company Business / Urusan Syarikat</span>
+                <span className="font-bold text-sm">(A) {text("Company Business", "Urusan Syarikat")}</span>
               </div>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-primary">Location / Tempat</Label>
+                  <Label className="text-xs font-semibold text-primary">{text("Location", "Tempat")}</Label>
                   <Input
                     value={companyDetails.location}
                     onChange={e => setCompanyDetails(p => ({ ...p, location: e.target.value }))}
@@ -240,11 +257,11 @@ const GatePassForm = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-primary">Purpose / Tujuan</Label>
+                  <Label className="text-xs font-semibold text-primary">{text("Purpose", "Tujuan")}</Label>
                   <Input
                     value={companyDetails.purpose}
                     onChange={e => setCompanyDetails(p => ({ ...p, purpose: e.target.value }))}
-                    placeholder="Tooling Inspection"
+                    placeholder={text("Tooling Inspection", "Pemeriksaan Perkakas")}
                     className="h-10"
                     disabled={purposeType !== "company"}
                   />
@@ -276,11 +293,11 @@ const GatePassForm = () => {
                 }`}>
                   {purposeType === "personal" && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                 </div>
-                <span className="font-bold text-sm">(B) Personal Matter / Urusan Peribadi</span>
+                <span className="font-bold text-sm">(B) {text("Personal Matter", "Urusan Peribadi")}</span>
               </div>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-primary">Location / Tempat</Label>
+                  <Label className="text-xs font-semibold text-primary">{text("Location", "Tempat")}</Label>
                   <Input
                     value={personalDetails.location}
                     onChange={e => setPersonalDetails(p => ({ ...p, location: e.target.value }))}
@@ -290,11 +307,11 @@ const GatePassForm = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-primary">Purpose / Tujuan</Label>
+                  <Label className="text-xs font-semibold text-primary">{text("Purpose", "Tujuan")}</Label>
                   <Input
                     value={personalDetails.purpose}
                     onChange={e => setPersonalDetails(p => ({ ...p, purpose: e.target.value }))}
-                    placeholder="Tooling Inspection"
+                    placeholder={text("Tooling Inspection", "Pemeriksaan Perkakas")}
                     className="h-10"
                     disabled={purposeType !== "personal"}
                   />
@@ -310,47 +327,66 @@ const GatePassForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <ShieldCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Digital Approvals / <span className="font-normal">Kelulusan Digital</span>
+              {text("Digital Approvals", "Kelulusan Digital")}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
-                Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
+                {text("Head of Section", "Ketua Seksyen")} <span className="text-destructive">*</span>
               </Label>
               <Select value={hosName} onValueChange={setHosName} disabled={areUsersLoading || hosUsers.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Section", "Pilih Ketua Seksyen")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">N/A</SelectItem>
+                  <SelectItem value="N/A">{text("N/A", "Tidak Berkenaan")}</SelectItem>
                   {hosUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             {!areUsersLoading && hosUsers.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOS list not available.</p>
+              <p className="text-xs text-muted-foreground mt-1.5">{text("Refresh if the HOS list is unavailable.", "Muat semula jika senarai Ketua Seksyen tidak tersedia.")}</p>
             )}
             </div>
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
-                Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
+                {text("Head of Department", "Ketua Jabatan")} <span className="text-destructive">*</span>
               </Label>
-              <Select value={hodName} onValueChange={setHodName} disabled={areUsersLoading || hodUsers.length === 0}>
+              <Select value={hodName} onValueChange={setHodName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Department", "Pilih Ketua Jabatan")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
+                  <SelectItem value="N/A">{text("N/A", "Tidak Berkenaan")}</SelectItem>
                   {hodUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             {!areUsersLoading && hodUsers.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOD list not available.</p>
+              <p className="text-xs text-muted-foreground mt-1.5">{text("No HOD users found. Select N/A if HOD approval is not required.", "Tiada pengguna Ketua Jabatan ditemui. Pilih N/A jika kelulusan Ketua Jabatan tidak diperlukan.")}</p>
             )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-semibold text-sm">
+                {text("Manco Member", "Ahli Manco")} <span className="text-destructive">*</span>
+              </Label>
+              <Select value={mancoMemberId} onValueChange={setMancoMemberId} disabled={areUsersLoading || mancoMembers.length === 0}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Manco Member", "Pilih Ahli Manco")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {mancoMembers.map(member => (
+                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!areUsersLoading && mancoMembers.length === 0 && (
+                <p className="text-xs text-destructive mt-1.5">{text("No Manco Members are configured. Ask a Super Admin to assign the role.", "Tiada Ahli Manco dikonfigurasi. Minta Super Admin menetapkan peranan tersebut.")}</p>
+              )}
             </div>
           </div>
         </div>
@@ -361,14 +397,14 @@ const GatePassForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
             <Shield className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Security & HR Log / <span className="font-normal">Log Keselamatan</span>
+              {text("Security & HR Log", "Log Keselamatan & HR")}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Time Out / Masa Keluar <span className="text-destructive">*</span></Label>
-              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">Select your estimated time out.</p>
+              <Label className="text-xs font-semibold text-primary">{text("Time Out", "Masa Keluar")} <span className="text-destructive">*</span></Label>
+              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">{text("Select your estimated time out.", "Pilih anggaran masa keluar anda.")}</p>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                   <LogOut className="h-4 w-4" />
@@ -384,8 +420,8 @@ const GatePassForm = () => {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Time In / Masa Masuk <span className="text-destructive">*</span></Label>
-              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">Select your estimated time in.</p>
+              <Label className="text-xs font-semibold text-primary">{text("Time In", "Masa Masuk")} <span className="text-destructive">*</span></Label>
+              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">{text("Select your estimated time in.", "Pilih anggaran masa masuk anda.")}</p>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                   <LogIn className="h-4 w-4" />
@@ -411,14 +447,14 @@ const GatePassForm = () => {
             className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit Gate Pass"}
+            {isSubmitting ? text("Submitting...", "Sedang dihantar...") : text("Submit Gate Pass", "Hantar Pas Keluar")}
           </button>
           <button
             type="button"
             onClick={() => navigate("/hr")}
             className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
           >
-            Cancel
+            {text("Cancel", "Batal")}
           </button>
         </div>
       </form>

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers, type AppUser } from "@/contexts/UsersContext";
+import { useFormLanguage } from "@/contexts/FormLanguageContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,6 +69,8 @@ const DEPARTMENT_CODES = [
 const PettyCashForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { language } = useFormLanguage();
+  const text = useCallback((english: string, malay: string) => language === "ms" ? malay : english, [language]);
   const { user } = useAuth();
   const { addSubmission, updateSubmission, submissions, isLoading: areSubmissionsLoading } = useSubmissions();
   const { users, isLoading: areUsersLoading } = useUsers();
@@ -87,7 +90,7 @@ const PettyCashForm = () => {
     phone: user?.phone || "",
     employeeNumber: user?.employeeId || "",
     department: user?.department || "",
-    position: (user as any)?.position || "",
+    position: user?.position || "",
     departmentCode: "",
     avatar: user?.avatar || "",
     date: getLocalDate(),
@@ -101,7 +104,7 @@ const PettyCashForm = () => {
         phone: user.phone || "",
         employeeNumber: user.employeeId || "",
         department: user.department || "",
-        position: (user as any)?.position || "",
+        position: user.position || "",
         avatar: user.avatar || "",
       }));
     }
@@ -134,12 +137,12 @@ const PettyCashForm = () => {
   const addValidatedFiles = (files: File[]) => {
     const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
     const invalidType = files.find(file => !allowedTypes.has(file.type));
-    if (invalidType) return toast.error(`${invalidType.name} is not a PDF, JPG, or PNG file.`);
+    if (invalidType) return toast.error(`${invalidType.name} ${text("is not a PDF, JPG, or PNG file.", "bukan fail PDF, JPG atau PNG.")}`);
     const oversized = files.find(file => file.size > 10 * 1024 * 1024);
-    if (oversized) return toast.error(`${oversized.name} exceeds the 10 MB file limit.`);
+    if (oversized) return toast.error(`${oversized.name} ${text("exceeds the 10 MB file limit.", "melebihi had fail 10 MB.")}`);
     setAttachedFiles(current => {
       const unique = files.filter(file => !current.some(existing => existing.name === file.name && existing.size === file.size));
-      if (unique.length !== files.length) toast.info("Duplicate attachments were ignored.");
+      if (unique.length !== files.length) toast.info(text("Duplicate attachments were ignored.", "Lampiran pendua telah diabaikan."));
       return [...current, ...unique];
     });
   };
@@ -169,25 +172,25 @@ const PettyCashForm = () => {
     if (!editSubmissionId) return;
     if (areSubmissionsLoading) return;
     if (!editSubmission) {
-      toast.error("The claim selected for editing could not be found.");
+      toast.error(text("The claim selected for editing could not be found.", "Tuntutan yang dipilih untuk disunting tidak ditemui."));
       navigate("/submissions");
       return;
     }
 
     if (editSubmission.formType !== "claim") {
-      toast.error("Only petty cash claims can be edited here.");
+      toast.error(text("Only petty cash claims can be edited here.", "Hanya tuntutan wang runcit boleh disunting di sini."));
       navigate("/submissions");
       return;
     }
 
     if (editSubmission.submittedBy !== user?.id) {
-      toast.error("You can only edit your own submissions.");
+      toast.error(text("You can only edit your own submissions.", "Anda hanya boleh menyunting penyerahan anda sendiri."));
       navigate("/submissions");
       return;
     }
 
     if (!["pending", "approved_hos"].includes(editSubmission.status)) {
-      toast.error("This claim cannot be edited after HOD approval.");
+      toast.error(text("This claim cannot be edited after HOD approval.", "Tuntutan ini tidak boleh disunting selepas kelulusan HOD."));
       navigate("/submissions");
       return;
     }
@@ -205,7 +208,7 @@ const PettyCashForm = () => {
     setHopName(editSubmission.data.hopName || "");
     setHofName(editSubmission.data.hofName || "");
     setExistingAttachmentUrls(Array.isArray(editSubmission.data.attachments) ? editSubmission.data.attachments : []);
-  }, [editSubmissionId, editSubmission, user?.id, navigate, areSubmissionsLoading]);
+  }, [editSubmissionId, editSubmission, user?.id, navigate, areSubmissionsLoading, text]);
 
   const removeFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
@@ -238,7 +241,7 @@ const PettyCashForm = () => {
   }, 0);
 
   if (editSubmissionId && areSubmissionsLoading) {
-    return <div className="flex min-h-[50vh] items-center justify-center p-6 text-sm font-medium text-muted-foreground">Loading claim details…</div>;
+    return <div className="flex min-h-[50vh] items-center justify-center p-6 text-sm font-medium text-muted-foreground">{text("Loading claim details…", "Memuatkan butiran tuntutan…")}</div>;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -246,31 +249,31 @@ const PettyCashForm = () => {
     if (isSubmitting) return;
 
     if (!hosName || !hodName || !hopName || !hofName) {
-      toast.error("Please select all approvers: HOS, HOD, Head of Purchasing, and Head of Finance.");
+      toast.error(text("Please select all approvers: HOS, HOD, Head of Purchasing, and Head of Finance.", "Sila pilih semua pelulus: HOS, HOD, Ketua Pembelian dan Ketua Kewangan."));
       return;
     }
 
     const populatedRows = claimRows.filter(row => row.description.trim() || row.receiptNo.trim() || row.amount.trim());
     if (populatedRows.length === 0) {
-      toast.error("Please enter at least one claim item.");
+      toast.error(text("Please enter at least one claim item.", "Sila masukkan sekurang-kurangnya satu item tuntutan."));
       return;
     }
     if (populatedRows.some(row => !row.description.trim() || !row.receiptNo.trim() || !row.amount.trim())) {
-      toast.error("Each claim item must include a description, receipt number, and amount.");
+      toast.error(text("Each claim item must include a description, receipt number, and amount.", "Setiap item tuntutan mesti mempunyai butiran, nombor resit dan jumlah."));
       return;
     }
     if (populatedRows.some(row => !Number.isFinite(Number(row.amount)) || Number(row.amount) <= 0)) {
-      toast.error("Every claim amount must be greater than RM 0.00.");
+      toast.error(text("Every claim amount must be greater than RM 0.00.", "Setiap jumlah tuntutan mestilah melebihi RM 0.00."));
       return;
     }
     const validatedTotalAmount = populatedRows.reduce((sum, row) => sum + Number(row.amount), 0);
 
     if (validatedTotalAmount > 5000) {
-      toast.error("The total claim amount cannot exceed RM 5000.");
+      toast.error(text("The total claim amount cannot exceed RM 5000.", "Jumlah keseluruhan tuntutan tidak boleh melebihi RM 5000."));
       return;
     }
     if (existingAttachmentUrls.length === 0 && attachedFiles.length === 0) {
-      toast.error("Please attach at least one receipt or supporting document.");
+      toast.error(text("Please attach at least one receipt or supporting document.", "Sila lampirkan sekurang-kurangnya satu resit atau dokumen sokongan."));
       return;
     }
 
@@ -288,7 +291,7 @@ const PettyCashForm = () => {
 
         if (error) {
           if (newlyUploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(newlyUploadedPaths);
-          toast.error(`Attachment upload failed: ${error.message}`);
+          toast.error(`${text("Attachment upload failed", "Muat naik lampiran gagal")}: ${error.message}`);
           setIsSubmitting(false);
           return;
         }
@@ -332,7 +335,7 @@ const PettyCashForm = () => {
       }
       const success = await updateSubmission(editSubmissionId, submissionData, restartedStatus);
       if (success) {
-        toast.success("Petty cash claim updated. The approval process has restarted.");
+        toast.success(text("Petty cash claim updated. The approval process has restarted.", "Tuntutan wang runcit telah dikemas kini. Proses kelulusan telah dimulakan semula."));
         navigate("/submissions");
       } else {
         if (newlyUploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(newlyUploadedPaths);
@@ -394,7 +397,7 @@ const PettyCashForm = () => {
       //   console.error("Failed to prepare email notification", err);
       // }
 
-      toast.success("Petty cash claim submitted successfully!");
+      toast.success(text("Petty cash claim submitted successfully!", "Tuntutan wang runcit berjaya dihantar!"));
       navigate("/submissions");
     } else {
       if (newlyUploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(newlyUploadedPaths);
@@ -405,14 +408,13 @@ const PettyCashForm = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       <button type="button" onClick={() => navigate(isEditMode ? "/submissions" : "/finance")} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all mb-6 group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {isEditMode ? "Back to My Submissions" : "Back to Finance Forms"}
+        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {isEditMode ? text("Back to My Submissions", "Kembali ke Penyerahan Saya") : text("Back to Finance Forms", "Kembali ke Borang Kewangan")}
       </button>
 
       <div className="mb-5">
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-          {isEditMode ? "Edit Petty Cash Claim" : "Petty Cash Claim Form"}
+          {isEditMode ? text("Edit Petty Cash Claim", "Sunting Tuntutan Wang Runcit") : text("Petty Cash Claim Form", "Borang Tuntutan Wang Runcit")}
         </h1>
-        <p className="mt-1 text-base font-medium text-primary">Permohonan Wang Pendahuluan</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -422,26 +424,26 @@ const PettyCashForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <User className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Employee Information / <span className="font-normal">Maklumat Pekerja</span>
+              {text("Employee Information", "Maklumat Pekerja")}
             </h2>
           </div>
 
           {/* Pre-filled Details (Do not require filling) */}
           <div className="bg-muted/10 p-4 rounded-xl border border-border/50">
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Name / Nama</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Name", "Nama")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.name || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Position / Jawatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Position", "Jawatan")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.position || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Staff ID / No. Pekerja</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Staff ID", "No. Pekerja")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.employeeNumber || "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
-              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">Department / Jabatan</span>
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">{text("Department", "Jabatan")}</span>
               <div className="text-sm font-bold text-foreground sm:col-span-2">{employeeInfo.department || "—"}</div>
             </div>
           </div>
@@ -449,14 +451,14 @@ const PettyCashForm = () => {
           {/* Input Fields (Require filling) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Department Code / Kod Jabatan <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary">{text("Department Code", "Kod Jabatan")} <span className="text-destructive">*</span></Label>
               <Select
                 value={employeeInfo.departmentCode}
                 onValueChange={value => setEmployeeInfo(p => ({ ...p, departmentCode: value }))}
                 required
               >
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Select Department Code" />
+                  <SelectValue placeholder={text("Select Department Code", "Pilih Kod Jabatan")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {DEPARTMENT_CODES.map(dept => (
@@ -466,7 +468,7 @@ const PettyCashForm = () => {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">Date / Tarikh <span className="text-destructive">*</span></Label>
+              <Label className="text-xs font-semibold text-primary">{text("Date", "Tarikh")} <span className="text-destructive">*</span></Label>
               <Input
                 type="date"
                 max={getLocalDate()}
@@ -485,7 +487,7 @@ const PettyCashForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
             <Receipt className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Claim Details / <span className="font-normal">Butiran Tuntutan</span>
+              {text("Claim Details", "Butiran Tuntutan")}
             </h2>
           </div>
 
@@ -497,13 +499,13 @@ const PettyCashForm = () => {
                     No.
                   </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
-                    Claim Details
+                    {text("Claim Details", "Butiran Tuntutan")}
                   </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
-                    Receipt No.
+                    {text("Receipt No.", "No. Resit")}
                   </th>
                   <th className="text-right text-xs font-semibold text-primary p-3 border border-border">
-                    Total Amount
+                    {text("Total Amount", "Jumlah Keseluruhan")}
                   </th>
                   <th className="w-10 border border-border"></th>
                 </tr>
@@ -518,7 +520,7 @@ const PettyCashForm = () => {
                       <Input
                         value={row.description}
                         onChange={e => updateRow(i, "description", e.target.value)}
-                        placeholder="Write the details"
+                        placeholder={text("Write the details", "Tulis butiran")}
                         className="h-10 border-0 shadow-none"
                       />
                     </td>
@@ -526,7 +528,7 @@ const PettyCashForm = () => {
                       <Input
                         value={row.receiptNo}
                         onChange={e => updateRow(i, "receiptNo", e.target.value)}
-                        placeholder="Enter No."
+                        placeholder={text("Enter No.", "Masukkan No.")}
                         className="h-10 border-0 shadow-none"
                       />
                     </td>
@@ -553,7 +555,7 @@ const PettyCashForm = () => {
                 ))}
                 <tr className="bg-muted/30">
                   <td colSpan={3} className="p-3 border border-border text-right font-semibold text-sm text-muted-foreground">
-                    Total (RM) <span className="text-[10px] text-destructive ml-2 font-bold">(Max RM 5000)</span>
+                    {text("Total", "Jumlah")} (RM) <span className="text-[10px] text-destructive ml-2 font-bold">{text("(Max RM 5000)", "(Maksimum RM 5000)")}</span>
                   </td>
                   <td className="p-3 border border-border text-right font-bold text-foreground text-lg">
                     RM {totalAmount.toFixed(2)}
@@ -570,7 +572,7 @@ const PettyCashForm = () => {
             className="flex items-center gap-2 text-primary font-semibold text-sm mt-4 hover:text-primary/80 transition-colors"
           >
             <PlusCircle className="h-5 w-5" />
-            Add Row / Tambah Baris
+            {text("Add Row", "Tambah Baris")}
           </button>
         </div>
 
@@ -580,55 +582,55 @@ const PettyCashForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <ShieldCheck className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Digital Approvals / <span className="font-normal">Kelulusan Digital</span>
+              {text("Digital Approvals", "Kelulusan Digital")}
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
-                Head of Section / Ketua Bahagian <span className="text-destructive">*</span>
+                {text("Head of Section", "Ketua Seksyen")} <span className="text-destructive">*</span>
               </Label>
               <Select value={hosName || undefined} onValueChange={setHosName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Section"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Section", "Pilih Ketua Seksyen")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">N/A</SelectItem>
+                  <SelectItem value="N/A">{text("N/A", "Tidak Berkenaan")}</SelectItem>
                   {hosUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
           {!areUsersLoading && hosUsers.length === 0 && (
-            <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOS list not available.</p>
+            <p className="text-xs text-muted-foreground mt-1.5">{text("Refresh if HOS list is not available.", "Muat semula jika senarai HOS tidak tersedia.")}</p>
           )}
             </div>
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
-                Head of Department / Ketua Jabatan <span className="text-destructive">*</span>
+                {text("Head of Department", "Ketua Jabatan")} <span className="text-destructive">*</span>
               </Label>
               <Select value={hodName || undefined} onValueChange={setHodName} disabled={areUsersLoading}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Department"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Department", "Pilih Ketua Jabatan")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  <SelectItem value="N/A">N/A</SelectItem>
+                  <SelectItem value="N/A">{text("N/A", "Tidak Berkenaan")}</SelectItem>
                   {hodUsers.map(u => (
                     <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
           {!areUsersLoading && hodUsers.length === 0 && (
-            <p className="text-xs text-muted-foreground mt-1.5">Refresh if HOD list not available.</p>
+            <p className="text-xs text-muted-foreground mt-1.5">{text("Refresh if HOD list is not available.", "Muat semula jika senarai HOD tidak tersedia.")}</p>
           )}
             </div>
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
-                Head of Purchasing / Ketua Pembelian <span className="text-destructive">*</span>
+                {text("Head of Purchasing", "Ketua Pembelian")} <span className="text-destructive">*</span>
               </Label>
               <Select value={hopName || undefined} onValueChange={setHopName} disabled={areUsersLoading || purchasingHeads.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Purchasing"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Purchasing", "Pilih Ketua Pembelian")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {purchasingHeads.map(u => (
@@ -637,16 +639,16 @@ const PettyCashForm = () => {
                 </SelectContent>
               </Select>
               {!areUsersLoading && purchasingHeads.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">Approver list not available. Please refresh the page.</p>
+                <p className="text-xs text-muted-foreground mt-1.5">{text("Approver list not available. Please refresh the page.", "Senarai pelulus tidak tersedia. Sila muat semula halaman.")}</p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label className="font-semibold text-sm">
-                Head of Finance / Ketua Kewangan <span className="text-destructive">*</span>
+                {text("Head of Finance", "Ketua Kewangan")} <span className="text-destructive">*</span>
               </Label>
               <Select value={hofName || undefined} onValueChange={setHofName} disabled={areUsersLoading || financeHeads.length === 0}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Head of Finance"} />
+                  <SelectValue placeholder={areUsersLoading ? text("Loading users...", "Memuatkan pengguna...") : text("Choose Head of Finance", "Pilih Ketua Kewangan")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {financeHeads.map(u => (
@@ -655,7 +657,7 @@ const PettyCashForm = () => {
                 </SelectContent>
               </Select>
               {!areUsersLoading && financeHeads.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">Approver list not available. Please refresh the page.</p>
+                <p className="text-xs text-muted-foreground mt-1.5">{text("Approver list not available. Please refresh the page.", "Senarai pelulus tidak tersedia. Sila muat semula halaman.")}</p>
               )}
             </div>
           </div>
@@ -667,7 +669,7 @@ const PettyCashForm = () => {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">04</span>
             <FileText className="h-5 w-5 text-primary" />
             <h2 className="font-bold text-foreground text-base">
-              Supporting Documents / <span className="font-normal">Dokumen Sokongan</span>
+              {text("Supporting Documents", "Dokumen Sokongan")}
             </h2>
           </div>
           
@@ -675,8 +677,8 @@ const PettyCashForm = () => {
             <div className="space-y-3 mb-4">
               {existingAttachmentUrls.map((url, i) => (
                 <div key={url} className="border border-border rounded-xl p-4 flex items-center justify-between bg-muted/10">
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-4 text-sm font-medium text-primary hover:underline"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="h-5 w-5 text-primary" /></div><span className="truncate">Existing attachment {i + 1}</span></a>
-                  <button type="button" onClick={() => removeExistingAttachment(i)} className="ml-4 flex-shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive" title="Remove existing attachment"><Trash2 className="h-4 w-4" /></button>
+                   <a href={url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-4 text-sm font-medium text-primary hover:underline"><div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><FileText className="h-5 w-5 text-primary" /></div><span className="truncate">{text("Existing attachment", "Lampiran sedia ada")} {i + 1}</span></a>
+                   <button type="button" onClick={() => removeExistingAttachment(i)} className="ml-4 flex-shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive" title={text("Remove existing attachment", "Buang lampiran sedia ada")}><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
               {attachedFiles.map((file, i) => (
@@ -696,7 +698,7 @@ const PettyCashForm = () => {
                     type="button"
                     onClick={() => removeFile(i)}
                     className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex-shrink-0 ml-4"
-                    title="Remove file"
+                    title={text("Remove file", "Buang fail")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -724,7 +726,7 @@ const PettyCashForm = () => {
               />
               <Upload className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="text-sm text-muted-foreground">
-              Drag and drop or tap to upload receipt(s)
+              {text("Drag and drop or tap to upload receipt(s)", "Seret dan lepaskan atau ketik untuk memuat naik resit")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">(PDF, JPG, PNG)</p>
             </label>
@@ -738,14 +740,16 @@ const PettyCashForm = () => {
             className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
-            {isSubmitting ? (isEditMode ? "Updating..." : "Submitting...") : (isEditMode ? "Update Claim" : "Submit")}
+            {isSubmitting
+              ? (isEditMode ? text("Updating...", "Sedang dikemas kini...") : text("Submitting...", "Sedang dihantar..."))
+              : (isEditMode ? text("Update Claim", "Kemas Kini Tuntutan") : text("Submit", "Hantar"))}
           </button>
           <button
             type="button"
             onClick={() => navigate("/finance")}
             className="w-full sm:w-auto px-6 py-3.5 sm:px-12 sm:py-4 rounded-full border-2 border-border text-foreground font-bold text-sm hover:bg-muted transition-colors text-center"
           >
-            Cancel
+            {text("Cancel", "Batal")}
           </button>
         </div>
       </form>

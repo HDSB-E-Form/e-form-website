@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Cctv, Headphones } from "lucide-react";
+import { ArrowLeft, Cctv, Headphones, MonitorCog } from "lucide-react";
 
 const ITFormsPage = () => {
   const navigate = useNavigate();
@@ -31,11 +31,25 @@ const ITFormsPage = () => {
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-5">
             <Headphones className="h-7 w-7 text-white" />
           </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">IT Help Desk</h2>
+          <h2 className="text-xl font-bold text-foreground mb-2">IT Help Desk Ticket</h2>
           <p className="text-muted-foreground text-sm">Submit an IT issue or service request</p>
           <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
             Open Form →
           </div>
+        </div>
+
+        <div onClick={() => navigate("/it/request-admin")} className="dept-card group">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-5"><MonitorCog className="h-7 w-7 text-white" /></div>
+          <h2 className="text-xl font-bold text-foreground mb-2">IT Request Form (Admin)</h2>
+          <p className="text-muted-foreground text-sm">Request computers, email, internet, printing, or SharePoint access</p>
+          <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">Open Form →</div>
+        </div>
+
+        <div onClick={() => navigate("/it/request-application")} className="dept-card group">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-5"><MonitorCog className="h-7 w-7 text-white" /></div>
+          <h2 className="text-xl font-bold text-foreground mb-2">IT Request Form (Application)</h2>
+          <p className="text-muted-foreground text-sm">Request ERP access and application permissions</p>
+          <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">Open Form →</div>
         </div>
       </div>
     </div>

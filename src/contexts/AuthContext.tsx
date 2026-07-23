@@ -105,6 +105,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let deactivationHandled = false;
+    const revokeLocalAccess = async () => {
+      if (deactivationHandled) return;
+      deactivationHandled = true;
+      await supabase.auth.signOut();
+      setUser(null);
+      localStorage.removeItem("hr_user");
+      sessionStorage.removeItem("hr_user");
+      toast.error("This account has been deactivated. Contact an administrator if you need access.");
+    };
+
+    const channel = supabase
+      .channel(`account-status-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "users", filter: `id=eq.${user.id}` },
+        payload => {
+          if ((payload.new as { status?: string }).status === "inactive") {
+            void revokeLocalAccess();
+          }
+        },
+      )
+      .subscribe();
+
+    const verifyAccountStatus = async () => {
+      const { data } = await supabase.from("users").select("status").eq("id", user.id).single();
+      if (data?.status === "inactive") await revokeLocalAccess();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void verifyAccountStatus();
+    };
+    window.addEventListener("focus", verifyAccountStatus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", verifyAccountStatus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
     setIsLoading(true);
 
