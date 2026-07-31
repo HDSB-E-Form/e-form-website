@@ -227,7 +227,7 @@ const WasteInventoryForm = () => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 waste-print-options">
             {/* Plant Toggle */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Plant / Kilang <span className="text-destructive">*</span></Label>
@@ -263,7 +263,7 @@ const WasteInventoryForm = () => {
                   <span className="font-bold text-sm uppercase tracking-wider">Plant 2</span>
                 </button>
               </div>
-              <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
+              <div className="hidden print:flex waste-print-option font-bold text-xl text-black uppercase tracking-widest">
                 Plant: {plant}
               </div>
             </div>
@@ -303,7 +303,7 @@ const WasteInventoryForm = () => {
                   <span className="font-bold text-sm uppercase tracking-wider">Dispose (Pay)</span>
                 </button>
               </div>
-              <div className="hidden print:block font-bold text-xl text-black border-b border-gray-300 pb-2 uppercase tracking-widest">
+              <div className="hidden print:flex waste-print-option font-bold text-xl text-black uppercase tracking-widest">
                 Category: {category === "sell" ? "Recycle (Sell)" : "Dispose (Pay)"}
               </div>
             </div>
@@ -354,7 +354,7 @@ const WasteInventoryForm = () => {
             </div>
           </div>
 
-          <div className="border border-border rounded-lg overflow-x-auto print:border-gray-400 print:overflow-hidden">
+          <div className="waste-print-square-border border border-border rounded-lg overflow-x-auto print:border-gray-400 print:overflow-hidden">
             <table className="w-full min-w-[760px] border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border print:bg-gray-100 print:border-gray-400">
@@ -432,7 +432,7 @@ const WasteInventoryForm = () => {
         </div>
 
         {/* Section 3: Summary & Total */}
-        <div className="card-elevated p-6 bg-card border rounded-xl shadow-sm print:border-gray-400 print:bg-transparent print:border-2">
+        <div className="waste-print-square-border card-elevated p-6 bg-card border rounded-xl shadow-sm print:border-gray-400 print:bg-transparent print:border">
           <div className="mb-5 flex items-center gap-3 print:hidden">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">03</span>
             <CheckCircle2 className="h-5 w-5 text-primary" />

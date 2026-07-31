@@ -13,7 +13,7 @@ interface NotificationContext {
 interface NotificationPayload {
   formType: string;
   status: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export function getNotificationTarget(user: NotificationContext, submission: NotificationPayload): NotificationRecipient | null {

@@ -129,6 +129,9 @@
     .waste-inventory-print {
       font-size: 8pt !important;
       line-height: 1.05 !important;
+      box-sizing: border-box !important;
+      padding: 0 !important;
+      overflow: visible !important;
     }
 
     .waste-inventory-print h1,
@@ -155,12 +158,53 @@
       margin-bottom: 2px !important;
     }
 
+    .waste-inventory-print .waste-print-options {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 10px !important;
+    }
+
+    .waste-inventory-print .waste-print-option {
+      box-sizing: border-box !important;
+      min-height: 28px !important;
+      align-items: center !important;
+      width: 100% !important;
+      padding: 5px 7px !important;
+      border: 1px solid #9ca3af !important;
+      border-radius: 0 !important;
+    }
+
+    .waste-inventory-print .waste-print-square-border {
+      border: 1px solid #9ca3af !important;
+      border-radius: 0 !important;
+    }
+
     .waste-inventory-print table {
       width: 100% !important;
+      min-width: 0 !important;
+      table-layout: fixed !important;
       border-collapse: collapse !important;
       border-spacing: 0 !important;
       font-size: 7.5pt !important;
       line-height: 1.0 !important;
+    }
+
+    .waste-inventory-print th:nth-child(1),
+    .waste-inventory-print td:nth-child(1) {
+      width: 8% !important;
+      padding-left: 6px !important;
+      text-align: center !important;
+    }
+
+    .waste-inventory-print th:nth-child(2),
+    .waste-inventory-print td:nth-child(2),
+    .waste-inventory-print th:nth-child(3),
+    .waste-inventory-print td:nth-child(3) {
+      width: 31% !important;
+    }
+
+    .waste-inventory-print th:nth-child(4),
+    .waste-inventory-print td:nth-child(4) {
+      width: 30% !important;
     }
 
     .waste-inventory-print th,
@@ -177,6 +221,8 @@
 
     .waste-inventory-print td input,
     .waste-inventory-print td textarea {
+      width: 100% !important;
+      min-width: 0 !important;
       border: none !important;
       padding: 0 !important;
       margin: 0 !important;

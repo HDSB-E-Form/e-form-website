@@ -14,32 +14,11 @@ import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { toast } from "sonner";
 import authorizationRightsData from "@/data/erpAuthorizationRights.json";
 import { useFormLanguage } from "@/contexts/FormLanguageContext";
+import { useITAdminFacilities } from "@/hooks/useITAdminFacilities";
+import { useITApplicationOptions } from "@/hooks/useITApplicationOptions";
 
 type AuthorizationRight = { id: number; module: string; right: string };
 const authorizationRights = authorizationRightsData as AuthorizationRight[];
-
-const adminOptions = [
-  "Laptop / Desktop",
-  "Email",
-  "Internet Access",
-  "Printer",
-  "SharePoint",
-];
-
-const applicationOptions = [
-  "ERP - Accounting",
-  "ERP - Customer Order Transfer",
-  "ERP - Field Permissions",
-  "ERP - General Functions",
-  "ERP - General Registers",
-  "ERP - Manufacturing",
-  "ERP - Mobile Client",
-  "ERP - Part Synchronization",
-  "ERP - Purchase",
-  "ERP - Sales",
-  "ERP - Stock",
-  "ERP - Time Recording",
-];
 
 type RequestVariant = "admin" | "application";
 const adminFacilityLabels: Record<string, string> = {
@@ -87,22 +66,31 @@ const ITFacilitiesRequisitionForm = ({ variant }: { variant: RequestVariant }) =
   const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("HOD") || [])].sort((a, b) => a.name.localeCompare(b.name)), [getUsersByRole]);
   const [facilities, setFacilities] = useState<string[]>([]);
   const [others, setOthers] = useState("");
-  const [sharePointFolder, setSharePointFolder] = useState("");
+  const [facilityDetails, setFacilityDetails] = useState<Record<string, string>>({});
   const [selectedRightIds, setSelectedRightIds] = useState<number[]>([]);
   const [hos, setHos] = useState("");
   const [hod, setHod] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMalay = language === "ms";
+  const { facilities: managedAdminFacilities, isLoading: areFacilitiesLoading } = useITAdminFacilities();
+  const { options: managedApplicationOptions, isLoading: areApplicationOptionsLoading } = useITApplicationOptions();
   const copy = adminFormCopy[isMalay ? "ms" : "en"];
   const text = (english: string, malay: string) => isMalay ? malay : english;
-  const facilityOptions = variant === "admin" ? adminOptions : applicationOptions;
+  const facilityOptions = variant === "admin"
+    ? managedAdminFacilities.map(item => item.name)
+    : managedApplicationOptions.map(item => `ERP - ${item.name}`);
+  const facilitiesRequiringDetails = new Set(managedAdminFacilities.filter(item => item.requires_details).map(item => item.name));
   const formTitle = variant === "admin" ? copy.title : text("IT Request Form (Application)", "Borang Permohonan IT (Aplikasi)");
   const formType = variant === "admin" ? "it_admin_request" : "it_application_request";
   const selectedErpModules = facilities.filter(item => item.startsWith("ERP - ")).map(item => item.replace("ERP - ", ""));
 
   const toggleFacility = (facility: string, checked: boolean) => {
     setFacilities(current => checked ? [...current, facility] : current.filter(item => item !== facility));
-    if (facility === "SharePoint" && !checked) setSharePointFolder("");
+    if (!checked) setFacilityDetails(current => {
+      const next = { ...current };
+      delete next[facility];
+      return next;
+    });
     if (facility.startsWith("ERP - ") && !checked) {
       const module = facility.replace("ERP - ", "").toLowerCase();
       setSelectedRightIds(current => current.filter(id => authorizationRights.find(right => right.id === id)?.module.toLowerCase() !== module));
@@ -112,9 +100,13 @@ const ITFacilitiesRequisitionForm = ({ variant }: { variant: RequestVariant }) =
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (facilities.length === 0) return toast.error(copy.facilityError);
-    if (facilities.includes("SharePoint") && !sharePointFolder.trim()) return toast.error(copy.sharePointError);
+    const missingDetails = facilities.find(facility => facilitiesRequiringDetails.has(facility) && !facilityDetails[facility]?.trim());
+    if (missingDetails) return toast.error(`Enter the additional details required for ${missingDetails}.`);
     if (variant === "application") {
-      const moduleWithoutRights = selectedErpModules.find(module => !authorizationRights.some(right => right.module.toLowerCase() === module.toLowerCase() && selectedRightIds.includes(right.id)));
+      const moduleWithoutRights = selectedErpModules.find(module => {
+        const availableRights = authorizationRights.filter(right => right.module.toLowerCase() === module.toLowerCase());
+        return availableRights.length > 0 && !availableRights.some(right => selectedRightIds.includes(right.id));
+      });
       if (moduleWithoutRights) return toast.error(text(`Select at least one access right for ${moduleWithoutRights}.`, `Pilih sekurang-kurangnya satu hak akses untuk ${moduleWithoutRights}.`));
     }
     if (!hos || !hod) return toast.error(copy.approverError);
@@ -131,7 +123,8 @@ const ITFacilitiesRequisitionForm = ({ variant }: { variant: RequestVariant }) =
         position: user?.position || "",
         employeeInfo: { employeeNumber: user?.employeeId || "", position: user?.position || "" },
         facilities,
-        sharePointFolder: sharePointFolder.trim(),
+        facilityDetails: Object.fromEntries(Object.entries(facilityDetails).map(([key, value]) => [key, value.trim()])),
+        sharePointFolder: facilityDetails.SharePoint?.trim() || "",
         erpAuthorizationRightIds: selectedRightIds,
         erpAuthorizationRights: authorizationRights.filter(right => selectedRightIds.includes(right.id)),
         requestSummary: `${facilities.length} facilities requested`,
@@ -169,6 +162,7 @@ const ITFacilitiesRequisitionForm = ({ variant }: { variant: RequestVariant }) =
               {text("ERP Access", "Akses ERP")}
             </h3>
           )}
+          {((variant === "admin" && areFacilitiesLoading) || (variant === "application" && areApplicationOptionsLoading)) && <p className="mb-3 text-sm text-muted-foreground">Loading options...</p>}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {facilityOptions.map(option => {
               const selected = facilities.includes(option);
@@ -178,7 +172,12 @@ const ITFacilitiesRequisitionForm = ({ variant }: { variant: RequestVariant }) =
               return <label key={option} htmlFor={`facility-${option}`} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${selected ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}><Checkbox id={`facility-${option}`} checked={selected} onCheckedChange={checked => toggleFacility(option, checked === true)} className="h-5 w-5 rounded-none border-2" /><span className="text-sm font-medium text-foreground">{optionLabel}</span></label>;
             })}
           </div>
-          {variant === "admin" && facilities.includes("SharePoint") && <div className="mt-5 animate-in fade-in slide-in-from-top-1"><Label htmlFor="sharepoint-folder">{copy.sharePointFolder} <span className="text-destructive">*</span></Label><Input id="sharepoint-folder" value={sharePointFolder} onChange={event => setSharePointFolder(event.target.value)} placeholder={copy.sharePointPlaceholder} className="mt-1.5 h-11" autoFocus /></div>}
+          {variant === "admin" && facilities.filter(facility => facilitiesRequiringDetails.has(facility)).map(facility => (
+            <div key={facility} className="mt-5 animate-in fade-in slide-in-from-top-1">
+              <Label htmlFor={`facility-details-${facility}`}>{facility === "SharePoint" ? copy.sharePointFolder : `${facility} details`} <span className="text-destructive">*</span></Label>
+              <Input id={`facility-details-${facility}`} value={facilityDetails[facility] || ""} onChange={event => setFacilityDetails(current => ({ ...current, [facility]: event.target.value }))} placeholder={facility === "SharePoint" ? copy.sharePointPlaceholder : `Enter details for ${facility}`} className="mt-1.5 h-11" />
+            </div>
+          ))}
           {variant === "admin" && <div className="mt-5 space-y-1.5"><Label htmlFor="facilities-others">{copy.others}</Label><Textarea id="facilities-others" value={others} onChange={event => setOthers(event.target.value)} placeholder={copy.othersPlaceholder} className="min-h-24 resize-y" /></div>}
           {variant === "application" && selectedErpModules.length > 0 && <AuthorizationSelector selectedModules={selectedErpModules} selectedIds={selectedRightIds} onChange={setSelectedRightIds} language={language} />}
         </section>

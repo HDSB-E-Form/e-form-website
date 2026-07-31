@@ -5,7 +5,7 @@ import { useSubmissions, type Submission, type CarInfo, type SubmissionStatus } 
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, ArrowLeft, Printer, Car, Wallet, HandCoins, EyeOff, Pencil } from "lucide-react";
+import { FileText, FileCheck2, FileX2, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, ArrowLeft, Printer, Car, Wallet, HandCoins, EyeOff, Pencil } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DashboardStatCard from "@/components/DashboardStatCard";
 import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
+import ApprovalOverview from "@/components/ApprovalOverview";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -39,18 +40,20 @@ const hiddenUserDetailFields = new Set([
 const isHiddenUserDetailField = (key: string) =>
   hiddenUserDetailFields.has(key.replace(/[^a-z0-9]/gi, "").toLowerCase());
 
-type FilterType = "all" | "pending" | "approved" | "rejected" | "action_required";
+type FilterType = "all" | "pending" | "approved" | "rejected" | "voided" | "action_required";
 
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
+      return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">APPROVED</Badge>;
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REJECTED</Badge>;
+      return <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REJECTED</Badge>;
+    case "voided":
+      return <Badge className="border-0 bg-slate-500/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-slate-700 sm:px-2.5 sm:py-1 sm:text-[10px] dark:text-slate-300">VOIDED</Badge>;
     case "paid":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PAID</Badge>;
     case "completed":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">COMPLETED</Badge>;
+      return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">COMPLETED</Badge>;
     case "awaiting_confirmation":
       return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">AWAITING CONFIRMATION</Badge>;
     case "reopened":
@@ -68,6 +71,7 @@ const naStatus = () => (
 const getOverallStatus = (sub: Submission) => {
   const status = sub.status as string;
   if (status === "rejected") return { label: "Rejected", color: "bg-destructive", progress: 100 };
+  if (status === "voided") return { label: "Voided", color: "bg-slate-500", progress: 100 };
   if (status === "completed") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
   if (status === "approved" || status === "paid") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
   
@@ -205,6 +209,7 @@ const MySubmissions = () => {
     if (filter === "pending") return ["pending", "approved_hos", "approved_hod", "approved_manco", "pending_finance_review", "approved_hop", "approved_hof", "reopened"].includes(s.status);
     if (filter === "approved") return ["approved", "completed"].includes(s.status);
     if (filter === "rejected") return s.status === "rejected";
+    if (filter === "voided") return s.status === "voided";
     return true;
   });
 
@@ -360,6 +365,17 @@ const MySubmissions = () => {
           </div>
         </div>
 
+        {selectedSubmission.status === "voided" && (
+          <div className="mb-6 rounded-xl border border-slate-400/30 bg-slate-500/10 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Submission Voided</p>
+            <p className="mt-1 text-sm text-foreground">{selectedSubmission.data.voidReason || "No reason was provided."}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              By {selectedSubmission.data.voidedByName || "Admin"}
+              {selectedSubmission.data.voidedAt ? ` · ${new Date(selectedSubmission.data.voidedAt).toLocaleString()}` : ""}
+            </p>
+          </div>
+        )}
+
         {/* Print Header */}
         <div className="hidden print:flex items-center mb-8 border-b-2 border-black pb-6">
           <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
@@ -420,7 +436,7 @@ const MySubmissions = () => {
                   ['Head of Section', selectedSubmission.data.hosName || selectedSubmission.data.hos || 'â€”'],
                   ['Head of Department', selectedSubmission.data.hodName || selectedSubmission.data.hod || 'â€”'],
                 ].map(([label, value]) => (
-                  <div key={String(label)} className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
+                  <div key={String(label)} className={`${["Head of Section", "Head of Department"].includes(String(label)) ? "hidden" : "grid"} py-2 sm:py-4 border-b border-border print:border-gray-300 grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0`}>
                     <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
                     <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
                   </div>
@@ -474,11 +490,11 @@ const MySubmissions = () => {
                     {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                   </div>
                 </div>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <div className="hidden py-2 sm:py-4 border-b border-border print:border-gray-300 grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hos || selectedSubmission.data.hosName || "—"}</div>
                 </div>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <div className="hidden py-2 sm:py-4 border-b border-border print:border-gray-300 grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hod || selectedSubmission.data.hodName || "—"}</div>
                 </div>
@@ -532,15 +548,15 @@ const MySubmissions = () => {
                     </div>
                   </div>
                 )}
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+                <div className="hidden py-2 border-b border-border print:border-gray-300 grid-cols-3 gap-4 items-start">
                   <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
                   <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}</div>
                 </div>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+                <div className="hidden py-2 border-b border-border print:border-gray-300 grid-cols-3 gap-4 items-start">
                   <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
                   <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
                 </div>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+                <div className="hidden py-2 border-b border-border print:border-gray-300 grid-cols-3 gap-4 items-start">
                   <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
                   <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.mancoMemberName || "—"}</div>
                 </div>
@@ -559,7 +575,7 @@ const MySubmissions = () => {
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department Code</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
                 </div>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <div className="hidden py-2 sm:py-4 border-b border-border print:border-gray-300 grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     HOS: {selectedSubmission.data.hosName || "—"}<br/>
@@ -710,6 +726,7 @@ const MySubmissions = () => {
             </div>
           )}
 
+          <div className="hidden" aria-hidden="true">
           {selectedSubmission.formType === 'it_help_desk' ? (
             <div className="rounded-lg bg-muted/30 p-4 text-center print:hidden">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Help Desk Status</p>
@@ -778,6 +795,11 @@ const MySubmissions = () => {
                 </div>
               </div>
             </div>
+          )}
+          </div>
+
+          {selectedSubmission.formType !== "it_help_desk" && (
+            <ApprovalOverview submission={selectedSubmission} />
           )}
 
           {/* Print Footer */}
@@ -870,8 +892,8 @@ const MySubmissions = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <DashboardStatCard label="Total Submissions" value={stats.total} icon={FileText} tone="blue" />
-        <DashboardStatCard label="Accepted / Diterima" value={stats.accepted} icon={CheckCircle} tone="emerald" />
-        <DashboardStatCard label="Rejected / Ditolak" value={stats.rejected} icon={XCircle} tone="rose" />
+        <DashboardStatCard label="Accepted / Diterima" value={stats.accepted} icon={FileCheck2} tone="emerald" />
+        <DashboardStatCard label="Rejected / Ditolak" value={stats.rejected} icon={FileX2} tone="rose" />
       </div>
 
       {/* Filter Tabs */}
@@ -884,6 +906,7 @@ const MySubmissions = () => {
             { value: "pending", label: "Pending" },
             { value: "approved", label: "Accepted" },
             { value: "rejected", label: "Rejected" },
+            { value: "voided", label: "Voided" },
           ] as const).map((f) => (
             <button
               key={f.value}

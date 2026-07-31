@@ -23,7 +23,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
   register: (data: Partial<User> & { password: string }) => Promise<boolean>;
   logout: () => void;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
@@ -221,12 +221,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       storage.setItem("hr_user", JSON.stringify(userData));
       
     setIsLoading(false);
-    return true;
+    return { success: true };
     } catch (error: any) {
       console.error("Login error:", error);
-      toast.error(error.message || "Invalid credentials");
       setIsLoading(false);
-      return false;
+      const isInvalidCredentials =
+        error?.message?.toLowerCase().includes("invalid login credentials") ||
+        error?.code === "invalid_credentials";
+
+      return {
+        success: false,
+        error: isInvalidCredentials
+          ? "Email or password is incorrect. Please check your details and try again."
+          : error?.message || "Unable to sign in. Please try again.",
+      };
     }
   }, []);
 

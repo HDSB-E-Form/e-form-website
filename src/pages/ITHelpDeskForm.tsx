@@ -10,10 +10,6 @@ import { useFormLanguage } from "@/contexts/FormLanguageContext";
 import { toast } from "sonner";
 
 const urgencyOptions = ["Low", "Medium", "High"];
-const reportOptions = [
-  "IT Issues / Troubleshooting / Request",
-  "IT Request Form",
-];
 const issueTypeOptions = [
   "Administration (e.g. Hardware, Laptop, PC, Printing)",
   "ERP LN (BAAN)",
@@ -24,10 +20,6 @@ const issueTypeOptions = [
   "Data Recovery",
 ];
 const urgencyLabels: Record<string, string> = { Low: "Rendah", Medium: "Sederhana", High: "Tinggi" };
-const reportLabels: Record<string, string> = {
-  "IT Issues / Troubleshooting / Request": "Masalah IT / Penyelesaian Masalah / Permohonan",
-  "IT Request Form": "Borang Permohonan IT",
-};
 const issueTypeLabels: Record<string, string> = {
   "Administration (e.g. Hardware, Laptop, PC, Printing)": "Pentadbiran (cth. Perkakasan, Komputer Riba, PC, Percetakan)",
   "ERP LN (BAAN)": "ERP LN (BAAN)", "ERP Monitor": "Pemantau ERP",
@@ -76,7 +68,6 @@ const ITHelpDeskForm = () => {
   const text = (english: string, malay: string) => isMalay ? malay : english;
   const [superiorEmail, setSuperiorEmail] = useState("");
   const [urgency, setUrgency] = useState("");
-  const [reportFor, setReportFor] = useState("");
   const [issueType, setIssueType] = useState("");
   const [issueExplanation, setIssueExplanation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,7 +78,6 @@ const ITHelpDeskForm = () => {
     if (!user?.department) return toast.error(text("Your department is required before submitting. Please update your profile.", "Jabatan anda diperlukan sebelum menghantar. Sila kemas kini profil anda."));
     if (!superiorEmail.trim()) return toast.error(text("Enter the superior email.", "Masukkan e-mel pegawai atasan."));
     if (!urgency) return toast.error(text("Select the urgency level.", "Pilih tahap keutamaan."));
-    if (!reportFor) return toast.error(text("Select what the ticket is reporting.", "Pilih perkara yang dilaporkan oleh tiket."));
     if (!issueType) return toast.error(text("Select the type of issue or request.", "Pilih jenis masalah atau permohonan."));
     if (!issueExplanation.trim()) return toast.error(text("Explain the issue or request.", "Terangkan masalah atau permohonan."));
 
@@ -110,7 +100,7 @@ const ITHelpDeskForm = () => {
         contactEmail: user.email,
         superiorEmail: superiorEmail.trim(),
         urgency,
-        reportFor,
+        reportFor: "IT Issues / Troubleshooting / Request",
         issueType,
         issueExplanation: issueExplanation.trim(),
       },
@@ -153,14 +143,6 @@ const ITHelpDeskForm = () => {
             <EmployeeDetail label={text("Staff ID", "No. Pekerja")} value={user?.employeeId} />
             <EmployeeDetail label={text("Department", "Jabatan")} value={user?.department} last />
           </div>
-          <div className="mt-5">
-            <Field label={text("Superior Email", "E-mel Pegawai Atasan")} id="superior-email" required>
-              <Select value={superiorEmail} onValueChange={setSuperiorEmail}>
-                <SelectTrigger id="superior-email" className="h-11"><SelectValue placeholder={text("Select superior email", "Pilih e-mel pegawai atasan")} /></SelectTrigger>
-                <SelectContent className="max-h-72">{superiorEmailOptions.map(email => <SelectItem key={email} value={email}>{email}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
-          </div>
         </section>
 
         <section className="card-elevated p-5 sm:p-6">
@@ -173,9 +155,11 @@ const ITHelpDeskForm = () => {
             <Field label={text("Urgency", "Keutamaan")} id="ticket-urgency" required>
               <Select value={urgency} onValueChange={setUrgency}><SelectTrigger id="ticket-urgency" className="h-11"><SelectValue placeholder={text("Select urgency", "Pilih tahap keutamaan")} /></SelectTrigger><SelectContent>{urgencyOptions.map(option => <SelectItem key={option} value={option}>{isMalay ? urgencyLabels[option] : option}</SelectItem>)}</SelectContent></Select>
             </Field>
-            <Field label={text("Please Choose Report For", "Sila Pilih Jenis Laporan")} id="report-for" required>
-              <Select value={reportFor} onValueChange={setReportFor}><SelectTrigger id="report-for" className="h-11"><SelectValue placeholder={text("Select report option", "Pilih pilihan laporan")} /></SelectTrigger><SelectContent>{reportOptions.map(option => <SelectItem key={option} value={option}>{isMalay ? reportLabels[option] : option}</SelectItem>)}</SelectContent></Select>
-              <p className="mt-2 text-xs text-muted-foreground">{text("Select the option that best matches your IT request.", "Pilih pilihan yang paling sepadan dengan permohonan IT anda.")}</p>
+            <Field label={text("Superior Email", "E-mel Pegawai Atasan")} id="superior-email" required>
+              <Select value={superiorEmail} onValueChange={setSuperiorEmail}>
+                <SelectTrigger id="superior-email" className="h-11"><SelectValue placeholder={text("Select superior email", "Pilih e-mel pegawai atasan")} /></SelectTrigger>
+                <SelectContent className="max-h-72">{superiorEmailOptions.map(email => <SelectItem key={email} value={email}>{email}</SelectItem>)}</SelectContent>
+              </Select>
             </Field>
           </div>
 

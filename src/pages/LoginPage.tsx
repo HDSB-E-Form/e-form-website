@@ -83,11 +83,11 @@ const LoginPage = () => {
       localStorage.removeItem("rememberedEmail");
     }
 
-    const success = await login(email, password, rememberMe);
-    if (success) {
+    const result = await login(email, password, rememberMe);
+    if (result.success) {
       navigate("/home", { replace: true });
     } else {
-      setError("Unable to sign in. Check your email and password, then try again.");
+      setError(result.error || "Unable to sign in. Please try again.");
     }
   };
 
@@ -292,7 +292,8 @@ const LoginPage = () => {
                       placeholder="Enter your email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="h-10 pl-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow"
+                      aria-describedby={error ? "login-error" : undefined}
+                      className="h-10 pl-10 transition-shadow focus-visible:border-blue-500 focus-visible:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -307,7 +308,8 @@ const LoginPage = () => {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="h-10 pl-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow"
+                      aria-describedby={error ? "login-error" : undefined}
+                      className="h-10 pl-10 pr-10 transition-shadow focus-visible:border-blue-500 focus-visible:ring-blue-500"
                     />
                     <button
                       type="button"
@@ -340,7 +342,11 @@ const LoginPage = () => {
                     Forgot Password?
                   </button>
                 </div>
-                {error && <p className="text-destructive text-sm">{error}</p>}
+                {error && (
+                  <p id="login-error" role="alert" aria-live="polite" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                )}
                 
                 <button 
                   type="submit" 

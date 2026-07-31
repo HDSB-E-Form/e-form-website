@@ -253,15 +253,26 @@ const PettyCashForm = () => {
       return;
     }
 
-    const populatedRows = claimRows.filter(row => row.description.trim() || row.receiptNo.trim() || row.amount.trim());
-    if (populatedRows.length === 0) {
+    const populatedRowsWithIndex = claimRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => row.description.trim() || row.receiptNo.trim() || row.amount.trim());
+    if (populatedRowsWithIndex.length === 0) {
       toast.error(text("Please enter at least one claim item.", "Sila masukkan sekurang-kurangnya satu item tuntutan."));
       return;
     }
-    if (populatedRows.some(row => !row.description.trim() || !row.receiptNo.trim() || !row.amount.trim())) {
-      toast.error(text("Each claim item must include a description, receipt number, and amount.", "Setiap item tuntutan mesti mempunyai butiran, nombor resit dan jumlah."));
+    const incompleteItem = populatedRowsWithIndex.find(({ row }) => !row.description.trim() || !row.amount.trim());
+    if (incompleteItem) {
+      const missingFields = [
+        !incompleteItem.row.description.trim() ? text("description", "butiran") : null,
+        !incompleteItem.row.amount.trim() ? text("amount", "jumlah") : null,
+      ].filter(Boolean).join(text(" and ", " dan "));
+      toast.error(text(
+        `Claim item ${incompleteItem.index + 1} is missing: ${missingFields}.`,
+        `Item tuntutan ${incompleteItem.index + 1} belum lengkap: ${missingFields}.`,
+      ));
       return;
     }
+    const populatedRows = populatedRowsWithIndex.map(({ row }) => row);
     if (populatedRows.some(row => !Number.isFinite(Number(row.amount)) || Number(row.amount) <= 0)) {
       toast.error(text("Every claim amount must be greater than RM 0.00.", "Setiap jumlah tuntutan mestilah melebihi RM 0.00."));
       return;
@@ -492,22 +503,29 @@ const PettyCashForm = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse">
+            <table className="w-full min-w-[720px] table-fixed border-collapse">
+              <colgroup>
+                <col className="w-[7%]" />
+                <col className="w-[55%]" />
+                <col className="w-[16%]" />
+                <col className="w-[16%]" />
+                <col className="w-[6%]" />
+              </colgroup>
               <thead>
                 <tr className="bg-muted/50">
-                  <th className="text-center text-xs font-semibold text-primary p-3 border border-border w-12">
+                  <th className="text-center text-xs font-semibold text-primary p-3 border border-border">
                     No.
                   </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
-                    {text("Claim Details", "Butiran Tuntutan")}
+                    {text("Claim Details", "Butiran Tuntutan")} <span className="text-destructive">*</span>
                   </th>
                   <th className="text-left text-xs font-semibold text-primary p-3 border border-border">
                     {text("Receipt No.", "No. Resit")}
                   </th>
                   <th className="text-right text-xs font-semibold text-primary p-3 border border-border">
-                    {text("Total Amount", "Jumlah Keseluruhan")}
+                    {text("Total Amount", "Jumlah Keseluruhan")} <span className="text-destructive">*</span>
                   </th>
-                  <th className="w-10 border border-border"></th>
+                  <th className="border border-border"></th>
                 </tr>
               </thead>
               <tbody>

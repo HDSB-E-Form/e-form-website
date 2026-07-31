@@ -117,6 +117,7 @@ const App = () => (
                   <Route path="admin/security" element={<ProtectedRoute allowedRoles={["security_guard"]}><SecurityDashboard /></ProtectedRoute>} />
                   <Route path="admin/approvals" element={<ProtectedRoute allowedRoles={["hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance"]}><ApproverDashboard /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
+                  <Route path="admin/settings" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/submissions" element={<ProtectedRoute allowedRoles={["super_admin"]}><AllSubmissionsPage /></ProtectedRoute>} />
                   <Route path="admin/cars" element={<ProtectedRoute allowedRoles={["hr_admin", "super_admin"]}><CarManagement /></ProtectedRoute>} />
                   <Route path="admin/safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DischargeDashboard /></ProtectedRoute>} />

@@ -41,9 +41,11 @@ const ITAdminRequestDetails = ({ submission, showEmployeeDetails = true }: { sub
       {hasSharePoint && <Row label="SharePoint Folder">{submission.data.sharePointFolder || "—"}</Row>}
       {submission.data.others && <Row label="Other Requirements"><span className="whitespace-pre-wrap">{submission.data.others}</span></Row>}
 
+      {false && <>
       <SectionLabel>Approval Routing</SectionLabel>
       <Row label="Head of Section">{submission.data.hosName || submission.data.hos || "—"}</Row>
       <Row label="Head of Department">{submission.data.hodName || submission.data.hod || "—"}</Row>
+      </>}
     </div>
   );
 };

@@ -13,6 +13,8 @@ import HRModuleSkeleton from "@/components/HRModuleSkeleton";
 type ViewMode = "overview" | "checkout" | "checkin";
 
 type CarHistoryEntry = {
+  submissionId?: string | null;
+  submissionRefNo?: string | null;
   employeeName: string;
   checkedOutAt: string;
   checkedInAt: string;
@@ -36,6 +38,14 @@ type AggregatedHistoryEntry = CarHistoryEntry & {
   plateNumber: string;
 };
 
+type ApprovedBookingOption = {
+  submissionId: string;
+  referenceNumber: string;
+  employeeName: string;
+  fromDate: string;
+  toDate: string;
+};
+
 const petrolCardOptions = [
   "708381 530122 65680",
   "708381 530098 38960",
@@ -50,7 +60,7 @@ const toLocalDateTimeValue = (date: Date) => {
 };
 
 const CarManagement = () => {
-  const { submissions, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar, refreshSubmissions, isLoading } = useSubmissions();
+  const { submissions, refNoMap, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar, refreshSubmissions, isLoading } = useSubmissions();
   const { user } = useAuth();
   const [view, setView] = useState<ViewMode>("overview");
   const [selectedCar, setSelectedCar] = useState<CarInfo | null>(null);
@@ -58,8 +68,13 @@ const CarManagement = () => {
   const [isCarModalOpen, setIsCarModalOpen] = useState(false);
   const [carToEdit, setCarToEdit] = useState<CarInfo | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   useEffect(() => { void refreshSubmissions(); }, [refreshSubmissions]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   if (isLoading) return <HRModuleSkeleton cards={3} />;
 
@@ -83,46 +98,38 @@ const CarManagement = () => {
     }
   };
 
-  const checkedOutEmployees = checkedOut.map(car => car.lastCheckedOutBy);
+  const checkedOutEmployees = new Set(checkedOut.map(car => car.lastCheckedOutBy).filter(Boolean));
+  const activeSubmissionIds = new Set(checkedOut.map(car => car.activeSubmissionId).filter(Boolean));
+  const fulfilledSubmissionIds = new Set(
+    cars.flatMap(car => car.history || []).map(entry => entry.submissionId).filter(Boolean)
+  );
+  const now = currentTime;
 
-  // Get all checkouts across all cars to determine if a booking has been fulfilled
-  const allCheckOuts = cars.flatMap(car => car.history || []);
-
-  const approvedCarRequesters = submissions
+  const approvedBookings: ApprovedBookingOption[] = submissions
     .filter((sub: Submission) => {
-      // Include submissions that are fully approved or HOD-approved (ready for admin to finalize)
       if (sub.formType !== 'car_rental' || sub.status !== "approved") return false;
-      if (checkedOutEmployees.includes(sub.employeeName)) return false;
-      
-      // Clean up dummy/past data: Hide malformed, expired, and already fulfilled requests
       if (!sub.data?.fromDate || !sub.data?.toDate) return false;
-
-      const fromDate = new Date(sub.data.fromDate).getTime();
       const toDate = new Date(sub.data.toDate).getTime();
-      const now = new Date().getTime();
-
-      // 1. Expired booking: toDate is in the past (with a 12-hour grace period)
-      if (toDate < now - 12 * 60 * 60 * 1000) return false;
-
-      // 2. Fulfilled booking: employee checked out a car around this booking's requested dates
-      const hasFulfilled = allCheckOuts.some(entry => 
-        entry.employeeName === sub.employeeName &&
-        new Date(entry.checkedOutAt).getTime() >= (fromDate - 12 * 60 * 60 * 1000) &&
-        new Date(entry.checkedOutAt).getTime() <= (toDate + 24 * 60 * 60 * 1000)
-      );
-
-      return !hasFulfilled;
+      if (!Number.isFinite(toDate) || toDate < now) return false;
+      if (checkedOutEmployees.has(sub.employeeName)) return false;
+      if (activeSubmissionIds.has(sub.id) || fulfilledSubmissionIds.has(sub.id)) return false;
+      if (["checked_out", "returned"].includes(sub.data.carCheckoutStatus)) return false;
+      return true;
     })
-    .map((sub: Submission) => sub.employeeName);
-  
-  const uniqueRequesters = [...new Set(approvedCarRequesters)].filter(name => name && name.trim() !== '');
+    .map((sub: Submission) => ({
+      submissionId: sub.id,
+      referenceNumber: sub.data.refNo || refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`,
+      employeeName: sub.employeeName,
+      fromDate: sub.data.fromDate,
+      toDate: sub.data.toDate,
+    }));
   const availablePetrolCards = petrolCardOptions.filter(serial => !checkedOut.some(car => car.petrolCardOut && car.petrolCardSerialOut === serial));
 
   if (view === "checkout" && selectedCar) {
-    return <CheckOutForm car={selectedCar} requesters={uniqueRequesters} availablePetrolCards={availablePetrolCards} onCancel={() => setView("overview")} onSubmit={async (car, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut) => {
-      const success = await checkOutCar(car.id, employee, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut);
+    return <CheckOutForm car={selectedCar} bookings={approvedBookings} availablePetrolCards={availablePetrolCards} onCancel={() => setView("overview")} onSubmit={async (car, booking, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut) => {
+      const success = await checkOutCar(car.id, booking.submissionId, booking.referenceNumber, booking.employeeName, mileage, fuelLevel, remarks, photosOut, dateTimeOut, petrolCardOut, petrolCardSerialOut);
       if (success) {
-        toast.success(`Vehicle checked out to ${employee}.`);
+        toast.success(`Vehicle checked out to ${booking.employeeName} for ${booking.referenceNumber}.`);
         setView("overview");
       }
       return success;
@@ -152,7 +159,7 @@ const CarManagement = () => {
     });
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in slide-in-from-bottom-2 duration-700">
+    <div className="mx-auto max-w-7xl animate-in slide-in-from-bottom-2 p-4 duration-700 sm:p-6 lg:p-8">
       {/* Fullscreen Image Preview Modal */}
       {fullscreenImage && (
         <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setFullscreenImage(null)}>
@@ -185,36 +192,28 @@ const CarManagement = () => {
           }} 
         />
       )}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Cars Overview</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming department requests.</p>
         </div>
-        <button onClick={() => setIsBookingHistoryOpen(true)} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors whitespace-nowrap">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-2 sm:flex sm:items-stretch">
+          <div className="rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-4 py-2 shadow-sm">
+            <p className="text-[11px] font-semibold text-muted-foreground">Available</p>
+            <p className="mt-0.5 text-xl font-bold leading-none text-foreground">{available.length}</p>
+          </div>
+          <div className="rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-4 py-2 shadow-sm">
+            <p className="text-[11px] font-semibold text-muted-foreground">In Use</p>
+            <p className="mt-0.5 text-xl font-bold leading-none text-foreground">{checkedOut.length}</p>
+          </div>
+        <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="col-span-2 flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border/60 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/25 hover:shadow active:scale-[0.98] sm:w-auto">
+          <Plus className="h-4 w-4" />
+          Add New Car
+        </button>
+        <button onClick={() => setIsBookingHistoryOpen(true)} className="col-span-2 flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border/60 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/25 hover:shadow sm:w-auto">
           <History className="h-4 w-4" />
           Vehicle Usage History
         </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <div className="card-elevated p-5 flex items-start sm:items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Available</p>
-            <p className="text-2xl sm:text-3xl font-bold text-foreground">{available.length}</p>
-          </div>
-        </div>
-        <div className="card-elevated p-5 flex items-start sm:items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Car className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Booked</p>
-            <p className="text-2xl sm:text-3xl font-bold text-foreground">{checkedOut.length}</p>
-          </div>
         </div>
       </div>
 
@@ -227,7 +226,7 @@ const CarManagement = () => {
               <h2 className="font-bold text-foreground">Available Cars</h2>
               <p className="text-xs text-muted-foreground">Ready for Check-out</p>
             </div>
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-bold">{available.length} VEHICLES</Badge>
+            <Badge className="border-0 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{available.length} VEHICLES</Badge>
           </div>
           <div className="divide-y divide-border">
             {available.length === 0 && (
@@ -245,15 +244,15 @@ const CarManagement = () => {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-foreground text-sm">{car.model}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="mt-0.5 sm:flex sm:items-center sm:gap-2">
                       <p className="text-xs text-muted-foreground">{car.plateNumber} • {car.type || "Sedan"}</p>
                       {(() => {
                         const fuel = car.currentFuelLevel || car.history?.[0]?.fuelLevelIn;
                         if (!fuel) return null;
                         const activeBars = fuelBars[fuel] || 0;
                         return (
-                          <div className="flex items-center gap-1.5 ml-2 border-l border-border pl-3">
-                            <span className="text-[10px] font-bold text-muted-foreground">Fuel: {fuel}</span>
+                          <div className="mt-2 flex items-center gap-1.5 sm:ml-2 sm:mt-0 sm:border-l sm:border-border sm:pl-3">
+                            <span className="text-[11px] font-bold text-muted-foreground">Fuel: {fuel}</span>
                             <div className="flex gap-0.5 h-2.5">
                               {[1, 2, 3, 4, 5, 6, 7].map(bar => (
                                 <div key={bar} className={`w-1 h-full ${bar <= activeBars ? (activeBars === 1 ? 'bg-destructive' : 'bg-primary') : 'bg-muted-foreground/20'}`} />
@@ -265,31 +264,25 @@ const CarManagement = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button onClick={() => handleStartCheckout(car)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors whitespace-nowrap">
-                    <ArrowRightLeft className="h-3.5 w-3.5" /> Check-Out
-                  </button>
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   <button 
                     onClick={() => { setCarToEdit(car); setIsCarModalOpen(true); }} 
-                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                     title="Edit Car">
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button 
                     onClick={() => handleDeleteCar(car)} 
-                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     title="Delete Car">
                     <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => handleStartCheckout(car)} className="ml-auto flex min-h-11 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-4 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
+                    <ArrowRightLeft className="h-3.5 w-3.5" /> Check-Out
                   </button>
                 </div>
               </div>
             ))}
-          </div>
-          <div className="p-4 border-t border-border flex justify-end">
-            <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium whitespace-nowrap">
-              <Plus className="h-4 w-4" />
-              Add New Car
-            </button>
           </div>
         </div>
 
@@ -301,11 +294,11 @@ const CarManagement = () => {
                 <h2 className="font-bold text-foreground">Vehicles In-Use</h2>
                 <p className="text-xs text-muted-foreground">Pending Returns</p>
               </div>
-              <Badge className="bg-destructive/10 text-destructive border-0 text-xs font-bold">{checkedOut.length} VEHICLES</Badge>
+              <Badge className="border-0 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{checkedOut.length} VEHICLES</Badge>
             </div>
             <div className="divide-y divide-border">
               {checkedOut.map(car => (
-                <div key={car.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div key={car.id} className="flex flex-col gap-4 p-4 2xl:flex-row 2xl:items-center">
                   <div className="flex items-center gap-4 w-full">
                     <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {car.imageUrl ? (
@@ -317,17 +310,22 @@ const CarManagement = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start gap-2 mb-0.5">
                         <p className="font-semibold text-foreground text-sm truncate">{car.model}</p>
-                        <Badge className="bg-amber-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold shrink-0 whitespace-nowrap mt-0.5">IN USE</Badge>
+                        <Badge className="mt-0.5 shrink-0 whitespace-nowrap border-0 bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">IN USE</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{car.plateNumber} • {car.type || "Sedan"}</p>
+                      {car.activeSubmissionRefNo && <p className="mt-1 text-[11px] font-semibold text-primary">{car.activeSubmissionRefNo}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-6">
-                    <div className="text-left">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Booked By</p>
-                      <p className="text-sm font-bold text-foreground">{car.lastCheckedOutBy || "—"}</p>
+                  <div className="flex w-full items-center justify-between gap-3 2xl:w-auto 2xl:justify-end 2xl:gap-6">
+                    <div className="min-w-0 max-w-[9rem] text-left">
+                      <p className="text-[11px] font-medium text-muted-foreground">Booked By</p>
+                      <p className="truncate text-sm font-bold text-foreground" title={car.lastCheckedOutBy || undefined}>
+                        {car.lastCheckedOutBy && car.lastCheckedOutBy.length > 15
+                          ? `${car.lastCheckedOutBy.slice(0, 15)}...`
+                          : car.lastCheckedOutBy || "—"}
+                      </p>
                     </div>
-                    <button onClick={() => handleStartCheckin(car)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted/50 transition-colors whitespace-nowrap">
+                    <button onClick={() => handleStartCheckin(car)} className="flex min-h-11 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-4 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
                       <ArrowRightLeft className="h-3.5 w-3.5" /> Check-In
                     </button>
                   </div>
@@ -388,15 +386,14 @@ const CarManagement = () => {
         </div>
         </div>
 
-      <p className="text-xs text-muted-foreground mt-6">Last Updated: Today at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
     </div>
   );
 };
 
 /* ─── Check-Out Form ─── */
-function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmit }: { car: CarInfo; requesters: string[]; availablePetrolCards: string[]; onCancel: () => void; onSubmit: (car: CarInfo, employee: string, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string, petrolCardOut: boolean, petrolCardSerialOut: string) => Promise<boolean> }) {
+function CheckOutForm({ car, bookings, availablePetrolCards, onCancel, onSubmit }: { car: CarInfo; bookings: ApprovedBookingOption[]; availablePetrolCards: string[]; onCancel: () => void; onSubmit: (car: CarInfo, booking: ApprovedBookingOption, mileage: string, fuelLevel: string, remarks: string, photosOut: Record<string, string | null>, dateTimeOut: string, petrolCardOut: boolean, petrolCardSerialOut: string) => Promise<boolean> }) {
   const { user } = useAuth();
-  const [employee, setEmployee] = useState<string | undefined>(requesters[0] || undefined);
+  const [submissionId, setSubmissionId] = useState<string | undefined>(bookings[0]?.submissionId);
   const [mileage, setMileage] = useState("");
   const [fuelLevel, setFuelLevel] = useState("Full");
   const [petrolCard, setPetrolCard] = useState(false);
@@ -447,7 +444,7 @@ function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmi
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-700">
+    <div className="mx-auto max-w-5xl animate-in slide-in-from-bottom-2 p-4 duration-700 sm:p-6 lg:p-8">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-Out</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-Out Form</h1>
 
@@ -472,21 +469,23 @@ function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmi
       <div className="card-elevated p-5 mt-4">
         <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">👤 Employee Selection</h3>
         <p className="text-xs text-muted-foreground mb-2">Who is taking the car?</p>
-        <Select value={employee} onValueChange={setEmployee} required>
+        <Select value={submissionId} onValueChange={setSubmissionId} required>
           <SelectTrigger className="h-11 text-base sm:text-sm">
             <SelectValue placeholder="Select Employee" />
           </SelectTrigger>
           <SelectContent className="max-h-64">
-            {requesters.map(name => (
-              <SelectItem key={name} value={name}>{name}</SelectItem>
+            {bookings.map(booking => (
+              <SelectItem key={booking.submissionId} value={booking.submissionId}>
+                {booking.employeeName}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Rent Details */}
+      {/* Booking Details */}
       <div className="card-elevated p-5 mt-4">
-        <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Rent Details</h3>
+        <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Booking Details</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
@@ -545,10 +544,10 @@ function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmi
         )}
 
         {/* Vehicle Condition Photos */}
-        <div className="mt-6 pt-5 border-t border-border/50 text-center">
-          <h4 className="font-bold text-foreground text-sm mb-1">Vehicle Condition Photos / Gambar Keadaan Kenderaan</h4>
-          <p className="text-xs text-muted-foreground mb-4">Max 12MB per photo / Maksimum 12MB setiap gambar</p>
-          <div className="grid grid-cols-3 grid-rows-3 gap-2 sm:gap-4 max-w-lg mx-auto p-4 bg-muted/20 rounded-xl border border-border shadow-sm">
+        <div className="mt-5 text-center">
+          <h4 className="font-bold text-foreground text-sm mb-1">Vehicle Condition Photos</h4>
+          <p className="text-xs text-muted-foreground mb-4">Maximum 12MB per photo</p>
+          <div className="mx-auto grid max-w-lg grid-cols-3 grid-rows-3 gap-2 rounded-xl border border-border bg-muted/20 p-3 shadow-sm sm:gap-4 sm:p-4">
             <div className="col-start-2 row-start-1">
               {renderPhotoUpload('front', 'Front View')}
             </div>
@@ -580,8 +579,13 @@ function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmi
       <div className="flex flex-col sm:flex-row-reverse justify-center gap-3 sm:gap-4 pt-4 pb-8">
         <button
           onClick={async () => {
-            if (!employee) {
-              toast.error("Please select an employee.");
+            const selectedBooking = bookings.find(booking => booking.submissionId === submissionId);
+            if (!selectedBooking) {
+              toast.error("Please select an active approved booking.");
+              return;
+            }
+            if (new Date(selectedBooking.toDate).getTime() < Date.now()) {
+              toast.error("This booking has expired. Return to the overview and select another booking.");
               return;
             }
             setIsSubmitting(true);
@@ -614,7 +618,7 @@ function CheckOutForm({ car, requesters, availablePetrolCards, onCancel, onSubmi
                   }
                 }
               }
-              const success = await onSubmit(car, employee, mileage, fuelLevel, remarks, uploadedUrls, new Date(dateTimeOut).toISOString(), petrolCard, petrolSerial);
+              const success = await onSubmit(car, selectedBooking, mileage, fuelLevel, remarks, uploadedUrls, new Date(dateTimeOut).toISOString(), petrolCard, petrolSerial);
               if (!success && uploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(uploadedPaths);
             } catch (error: any) {
               if (uploadedPaths.length > 0) await supabase.storage.from('form-attachments').remove(uploadedPaths);
@@ -688,37 +692,35 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in slide-in-from-bottom-2 duration-700">
+    <div className="mx-auto max-w-5xl animate-in slide-in-from-bottom-2 p-4 duration-700 sm:p-6 lg:p-8">
       <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-In</span></p>
       <h1 className="text-2xl font-bold text-foreground">Vehicle Check-In Form</h1>
 
-      {/* Section 1: Rental Summary */}
-      <div className="card-elevated p-5 mt-6">
-        <div className="border-b border-border pb-3 mb-4">
-          <h3 className="font-bold text-primary">Section 1: Rental Summary</h3>
+      {/* Section 1: Booking Summary */}
+      <div className="card-elevated mt-4 p-4">
+        <div className="mb-3 border-b border-border pb-2">
+          <h3 className="text-sm font-bold text-primary">Section 1: Booking Summary</h3>
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Car Name</p>
-            <p className="font-semibold text-foreground">{car.model} ({car.plateNumber})</p>
+            <p className="text-sm font-semibold text-foreground">{car.model} ({car.plateNumber})</p>
           </div>
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Petrol Card</p>
-            <p className="font-semibold text-foreground">{car.petrolCardOut ? car.petrolCardSerialOut || "Issued" : "Not issued"}</p>
+            <p className="text-sm font-semibold text-foreground">{car.petrolCardOut ? car.petrolCardSerialOut || "Issued" : "Not issued"}</p>
           </div>
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Employee</p>
-            <p className="font-semibold text-foreground">{car.lastCheckedOutBy || "—"}</p>
+            <p className="text-sm font-semibold text-foreground">{car.lastCheckedOutBy || "—"}</p>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Date Out</p>
-            <p className="font-semibold text-foreground">{car.lastCheckedOutAt ? new Date(car.lastCheckedOutAt).toLocaleString() : "—"}</p>
+            <p className="text-sm font-semibold text-foreground">{car.lastCheckedOutAt ? new Date(car.lastCheckedOutAt).toLocaleString() : "—"}</p>
           </div>
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Mileage Out</p>
-            <p className="font-semibold text-foreground">{car.mileageOut ? `${car.mileageOut} km` : "—"}</p>
+            <p className="text-sm font-semibold text-foreground">{car.mileageOut ? `${car.mileageOut} km` : "—"}</p>
           </div>
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5">Fuel Level Out</p>
@@ -726,7 +728,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
               const activeBars = fuelBars[car.fuelLevelOut] || 0;
               return (
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">{car.fuelLevelOut}</span>
+                  <span className="text-sm font-semibold text-foreground">{car.fuelLevelOut}</span>
                   <div className="flex gap-0.5 h-2.5">
                     {[1, 2, 3, 4, 5, 6, 7].map(bar => (
                       <div key={bar} className={`w-1.5 h-full ${bar <= activeBars ? (activeBars === 1 ? 'bg-destructive' : 'bg-primary') : 'bg-muted-foreground/20'}`} />
@@ -735,13 +737,13 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
                 </div>
               );
             })() : (
-              <p className="font-semibold text-foreground">—</p>
+              <p className="text-sm font-semibold text-foreground">—</p>
             )}
           </div>
         </div>
 
         {car.remarksOut && (
-          <div className="mt-4 pt-4 border-t border-border/50">
+          <div className="mt-3 border-t border-border/50 pt-3">
             <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Condition Remarks (Out)</p>
             <p className="text-sm text-foreground mt-0.5">{car.remarksOut}</p>
           </div>
@@ -791,17 +793,15 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
 
         {/* Condition Remarks */}
         <div className="mb-5 space-y-1.5">
-          <label htmlFor="checkin-remarks" className="text-sm font-medium text-foreground">
-            Condition Remarks / <span className="font-normal text-muted-foreground">Catatan Keadaan</span>
-          </label>
+          <label htmlFor="checkin-remarks" className="text-sm font-medium text-foreground">Condition Remarks</label>
           <textarea id="checkin-remarks" rows={3} placeholder="State any new scratches, cleaning required or issues..." value={remarks} onChange={e => setRemarks(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
 
         {/* Vehicle Condition Photos */}
-        <div className="mb-5 pt-5 border-t border-border/50 text-center">
-          <h4 className="font-bold text-foreground text-sm mb-1">Vehicle Condition Photos / Gambar Keadaan Kenderaan</h4>
-          <p className="text-xs text-muted-foreground mb-4">Max 12MB per photo / Maksimum 12MB setiap gambar</p>
-          <div className="grid grid-cols-3 grid-rows-3 gap-2 sm:gap-4 max-w-lg mx-auto p-4 bg-muted/20 rounded-xl border border-border shadow-sm">
+        <div className="mb-5 pt-2 text-center">
+          <h4 className="font-bold text-foreground text-sm mb-1">Vehicle Condition Photos</h4>
+          <p className="text-xs text-muted-foreground mb-4">Maximum 12MB per photo</p>
+          <div className="mx-auto grid max-w-lg grid-cols-3 grid-rows-3 gap-2 rounded-xl border border-border bg-muted/20 p-3 shadow-sm sm:gap-4 sm:p-4">
             <div className="col-start-2 row-start-1">
               {renderPhotoUpload('front', 'Front View')}
             </div>
@@ -935,7 +935,7 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
             {history.map((entry, index) => (
               <article key={index} className="rounded-xl border border-border bg-background p-4">
                 <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
-                  <div><p className="font-bold text-foreground">{entry.employeeName || "Unknown employee"}</p><p className="text-xs text-muted-foreground">{entry.model} · {entry.plateNumber}</p></div>
+                  <div><p className="font-bold text-foreground">{entry.employeeName || "Unknown employee"}</p><p className="text-xs text-muted-foreground">{entry.model} · {entry.plateNumber}</p>{entry.submissionRefNo && <p className="mt-1 text-[11px] font-semibold text-primary">{entry.submissionRefNo}</p>}</div>
                   <Badge className="shrink-0 border-0 bg-primary/10 text-primary">{getDistance(entry)}</Badge>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
@@ -969,7 +969,7 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
                 {history.map((entry, index) => (
                   <TableRow key={index} className="hover:bg-muted/20">
                     <TableCell className="font-medium text-foreground">{entry.employeeName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground"><p>{entry.model} ({entry.plateNumber})</p><p className="mt-1 text-[10px]">Card: {entry.petrolCardOut ? entry.petrolCardSerialOut || "Issued" : "Not issued"}</p></TableCell>
+                    <TableCell className="text-sm text-muted-foreground"><p>{entry.model} ({entry.plateNumber})</p>{entry.submissionRefNo && <p className="mt-1 text-[11px] font-semibold text-primary">{entry.submissionRefNo}</p>}<p className="mt-1 text-[10px]">Card: {entry.petrolCardOut ? entry.petrolCardSerialOut || "Issued" : "Not issued"}</p></TableCell>
                     <TableCell className="text-sm"><HistoryDateTime value={entry.checkedOutAt} /></TableCell>
                     <TableCell className="text-sm"><HistoryDateTime value={entry.checkedInAt} /></TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap"><p className="font-semibold text-foreground">{entry.mileageOut || "—"} → {entry.mileageIn || "—"} km</p><p className="mt-1">Distance: {getDistance(entry)}</p></TableCell>
@@ -1071,14 +1071,14 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
           </div>
           <div>
             <h3 className="font-bold text-lg text-foreground">{initialData ? "Edit Car" : "Add New Car"}</h3>
-            <p className="text-sm text-muted-foreground">{initialData ? "Kemaskini Kereta" : "Tambah Kereta Baru"}</p>
+            <p className="text-sm text-muted-foreground">{initialData ? "Update vehicle details" : "Create a fleet vehicle"}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Image Upload */}
           <div>
-            <label className="text-sm font-medium text-foreground block mb-2">Car Photo / Gambar Kereta</label>
+            <label className="text-sm font-medium text-foreground block mb-2">Car Photo</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-xl bg-muted border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                 {previewUrl ? (
@@ -1096,11 +1096,11 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground block mb-1">Car Model / Model Kereta <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground block mb-1">Car Model <span className="text-destructive">*</span></label>
             <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. Proton X50" className="w-full h-10 rounded-lg border border-border bg-background px-3 text-base sm:text-sm" required autoFocus={!initialData} disabled={isUploading} />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground block mb-1">Plate Number / No. Plat <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground block mb-1">Plate Number <span className="text-destructive">*</span></label>
             <input type="text" value={plateNumber} onChange={e => setPlateNumber(e.target.value)} placeholder="e.g. VCA 1234" className="w-full h-10 rounded-lg border border-border bg-background px-3 text-base sm:text-sm uppercase" required disabled={isUploading} />
           </div>
           <div className="grid grid-cols-2 gap-4">

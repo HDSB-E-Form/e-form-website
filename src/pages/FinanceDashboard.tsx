@@ -2,14 +2,20 @@ import { useState, useMemo, useEffect } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, ExternalLink, Printer, Settings, Wallet, XCircle, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, Printer, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 import { renderValue } from "@/components/DataRenderer";
-import DashboardStatCard from "@/components/DashboardStatCard";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
+import ApprovalOverview from "@/components/ApprovalOverview";
+import { useAuth } from "@/contexts/AuthContext";
+import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
+import { Textarea } from "@/components/ui/textarea";
+import { appendApprovalRemark } from "@/lib/approvalRemarks";
+import EmployeeSummary from "@/components/EmployeeSummary";
+import VoidSubmissionControl from "@/components/VoidSubmissionControl";
 
 const formTypeLabels: Record<string, string> = {
   claim: "PETTY CASH CLAIM",
@@ -24,17 +30,19 @@ const statusBadge = (status: string) => {
     case "paid":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Paid</Badge>;
     case "completed":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Completed</Badge>;
+      return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-xs font-medium px-3 py-1">Completed</Badge>;
     case "approved_hop":
       return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">Pending HOF</Badge>;
     case "approved":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
+      return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
     case "approved_hod":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOP</Badge>;
     case "approved_hos":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
+      return <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
+    case "voided":
+      return <Badge className="border-0 bg-slate-500/15 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">Voided</Badge>;
     case "pending":
     default:
       // For claim forms, 'pending' always means waiting for HOS.
@@ -56,6 +64,7 @@ const getInitialColor = (name: string) => {
 };
 
 const FinanceDashboard = () => {
+  const { user } = useAuth();
   const { submissions, updateSubmissionStatus, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
@@ -97,7 +106,7 @@ const FinanceDashboard = () => {
     if (activeTab === "review_required") return s.status === "pending_finance_review"; // This remains the same, but the trigger is different
     if (activeTab === "payment_required") return s.status === "approved_hof";
     if (activeTab === "in_progress") return ["pending", "approved_hos", "approved_hod", "approved_hop"].includes(s.status);
-    if (activeTab === "history") return ["approved", "rejected", "paid", "completed"].includes(s.status);
+    if (activeTab === "history") return ["approved", "rejected", "paid", "completed", "voided"].includes(s.status);
     return true;
   });
 
@@ -131,8 +140,29 @@ const FinanceDashboard = () => {
       finance_admin_remarks: remarks.trim(), 
       // Keep original remarks if any, or set to current remarks if it's a rejection with new comments
       remarks: nextStatus === "rejected" && remarks ? remarks : selectedSubmission?.data.remarks,
-      rejectedStage: nextStatus === "rejected" ? 'finance_review' : undefined,
+      rejectedStage: nextStatus === "rejected"
+        ? selectedSubmission?.status === "approved_hof" ? "admin" : "finance_review"
+        : undefined,
       rejectedFromStatus: nextStatus === "rejected" ? selectedSubmission?.status : undefined };
+
+    updateData.approvalRemarksHistory = appendApprovalRemark(selectedSubmission?.data.approvalRemarksHistory, {
+      actorName: user?.name || "Finance Admin",
+      actorRole: "Finance Admin",
+      action: nextStatus === "rejected" ? "rejected" : nextStatus === "paid" ? "payment_processed" : "approved",
+      remark: remarks.trim(),
+    });
+
+    if (selectedSubmission?.status === "pending_finance_review") {
+      updateData.financeReviewedByName = user?.name || "Finance Admin";
+      updateData.financeReviewedById = user?.id || null;
+      updateData.financeReviewedAt = new Date().toISOString();
+    }
+
+    if (selectedSubmission?.status === "approved_hof") {
+      updateData.financePaidByName = user?.name || "Finance Admin";
+      updateData.financePaidById = user?.id || null;
+      updateData.financePaidAt = new Date().toISOString();
+    }
 
     if (selectedSubmission?.formType === 'claim' && nextStatus === 'paid') {
       updateData.financeCode = financeCode.trim();
@@ -167,22 +197,24 @@ const FinanceDashboard = () => {
 
   if (selectedSubmission) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0 animate-in fade-in-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
+      <div className="min-h-full bg-muted/30">
+      <div className="mx-auto max-w-5xl animate-in fade-in-5 p-4 duration-300 sm:p-6 lg:p-7 print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-3 shadow-sm sm:p-4 lg:p-5 print:border-0 print:bg-white print:p-0 print:shadow-none">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 print:hidden">
           <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
           </button>
           <button onClick={() => {
             const originalTitle = document.title;
             document.title = generateRefNo(selectedSubmission);
-            
-            const isDark = document.documentElement.classList.contains('dark');
-            if (isDark) document.documentElement.classList.remove('dark');
+
+            const isDark = document.documentElement.classList.contains("dark");
+            if (isDark) document.documentElement.classList.remove("dark");
 
             setTimeout(() => {
               window.onafterprint = () => {
                 document.title = originalTitle;
-                if (isDark) document.documentElement.classList.add('dark');
+                if (isDark) document.documentElement.classList.add("dark");
                 window.onafterprint = null;
               };
               window.print();
@@ -202,45 +234,36 @@ const FinanceDashboard = () => {
           </div>
         </div>
 
-        <div className="card-elevated bg-white p-4 sm:p-6 dark:bg-card print:bg-white print:border-none print:shadow-none print:p-0 mb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
-                {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType}
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
-            </div>
-            <div className="print:hidden">
-              {statusBadge(selectedSubmission.status)}
-            </div>
-          </div>
+        <EmployeeSummary
+          name={selectedSubmission.employeeName}
+          staffId={selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || selectedSubmission.submittedBy || "—"}
+          department={selectedSubmission.department || "—"}
+          position={selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
+          additionalDetails={[
+            {
+              label: "Phone Number",
+              value: selectedSubmission.data.employeeInfo?.phone || selectedSubmission.data.phone || selectedSubmission.data.mobileNumber || "—",
+            },
+          ]}
+          className="mb-5 [&>div]:bg-background sm:[&>div>div]:grid-cols-4 print:mb-6"
+        />
 
-          <div className="mb-0">
-            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
-              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Employee Name</span>
-              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">
-                {selectedSubmission.employeeName}
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary print:text-black">Submission Summary</p>
+        <div className="mb-5 divide-y divide-border/50 rounded-xl border border-border/60 bg-background px-4 shadow-sm sm:px-5 print:rounded-none print:border-gray-300 print:bg-transparent print:px-0 print:shadow-none">
+            <div className="grid grid-cols-1 items-start gap-1 py-3 sm:grid-cols-3 sm:gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary print:text-gray-500 sm:text-sm">Reference Number</span>
+              <div className="flex items-start justify-between gap-3 sm:col-span-2">
+                <div>
+                  <p className="text-xs font-bold text-foreground sm:text-sm">{generateRefNo(selectedSubmission)}</p>
+                </div>
+                <div className="shrink-0 print:hidden">{statusBadge(selectedSubmission.status)}</div>
               </div>
-            </div>
-            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
-              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Staff ID</span>
-              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
-            </div>
-            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
-              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Phone Number</span>
-              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">
-                {selectedSubmission.data.employeeInfo?.phone || selectedSubmission.data.phone || selectedSubmission.data.mobileNumber || "—"}
-              </div>
-            </div>
-            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
-              <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Department</span>
-              <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.department || "—"}</div>
             </div>
             <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
               <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Department Code</span>
               <div className="text-sm font-medium text-foreground print:text-xs print:text-black col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || selectedSubmission.data.departmentCode || "—"}</div>
             </div>
-            <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
+            <div className="hidden py-2 border-b border-border print:border-gray-300 grid-cols-3 gap-4 items-start">
               <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold col-span-1">Approvers</span>
               <div className="flex flex-col gap-0.5 text-sm font-medium text-foreground print:text-xs print:text-black sm:col-span-2">
                 <p>HOS: {selectedSubmission.data.hosName || "—"}</p>
@@ -250,16 +273,33 @@ const FinanceDashboard = () => {
               </div>
             </div>
             {(selectedSubmission.data.financeCode || selectedSubmission.data.amountPaid) && (
-              <div className="py-2 border-b border-border print:border-gray-300 flex items-center gap-4">
-                <p className="text-sm font-medium print:text-xs">
-                  <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">GL Code:</span>
-                  <span className="font-bold text-foreground print:text-black">{selectedSubmission.data.financeCode || "—"}</span>
-                </p>
-                <div className="h-4 w-px bg-border print:bg-gray-400 mx-2"></div>
-                <p className="text-sm font-medium print:text-xs">
-                  <span className="text-xs text-primary print:text-gray-500 uppercase font-bold mr-2">Amount Paid:</span>
-                  <span className="font-bold text-foreground print:text-black">RM {selectedSubmission.data.amountPaid || "0.00"}</span>
-                </p>
+              <>
+                <div className="grid grid-cols-3 items-start gap-4 border-b border-border py-2 print:border-gray-300">
+                  <span className="col-span-1 text-xs font-bold uppercase tracking-wider text-primary print:text-gray-500">GL Code</span>
+                  <span className="col-span-2 text-sm font-bold text-foreground print:text-xs print:text-black">{selectedSubmission.data.financeCode || "—"}</span>
+                </div>
+                <div className="grid grid-cols-3 items-start gap-4 border-b border-border py-2 print:border-gray-300">
+                  <span className="col-span-1 text-xs font-bold uppercase tracking-wider text-primary print:text-gray-500">Amount Paid</span>
+                  <span className="col-span-2 text-sm font-bold text-foreground print:text-xs print:text-black">RM {selectedSubmission.data.amountPaid || "0.00"}</span>
+                </div>
+              </>
+            )}
+            {(selectedSubmission.data.attachments?.length > 0 || selectedSubmission.data.attachment) && (
+              <div className="grid grid-cols-1 items-start gap-2 border-b border-border py-3 sm:grid-cols-3 sm:gap-4 print:border-gray-300">
+                <span className="text-xs font-bold uppercase tracking-wider text-primary print:text-gray-500">Attachments</span>
+                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  {selectedSubmission.data.attachments?.length > 0 ? (
+                    selectedSubmission.data.attachments.map((url: string, idx: number) => (
+                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+                        <FileText className="h-3.5 w-3.5" /> Attachment {idx + 1}
+                      </a>
+                    ))
+                  ) : (
+                    <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+                      <FileText className="h-3.5 w-3.5" /> View Attachment
+                    </a>
+                  )}
+                </div>
               </div>
             )}
             <div className="py-2 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
@@ -275,58 +315,20 @@ const FinanceDashboard = () => {
                 {selectedSubmission.data.totalAmount?.toFixed(2) || "0.00"}
               </div>
             </div>
-          </div>
         </div>
 
-        {/* Attachment */}
-        {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 ? (
-          <div className="mb-6">
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">Attachments / Lampiran</p>
-            <div className="flex flex-wrap gap-3">
-            {selectedSubmission.data.attachments.map((url: string, idx: number) => (
-                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1.5 border border-border rounded-full text-xs font-bold text-primary bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <FileText className="h-3.5 w-3.5" /> Attachment {idx + 1} <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </a>
-            ))}
-          </div>
-            </div>
-        ) : selectedSubmission.data.attachment && (
-          <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl p-4 flex items-center justify-between mb-6 cursor-pointer hover:bg-muted/20 transition-colors">
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm font-medium text-primary">View Attachment / Lihat Lampiran</span>
-            </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground" />
-          </a>
-        )}
 
-
-        {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-3 print:bg-white ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-background'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Approver Remarks / Ulasan Pelulus</p>
-            <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
-          </div>
-        )}
-
-        {/* Display Finance Admin specific remarks */}
-        {selectedSubmission.data.finance_admin_remarks && (
-          <div className="p-4 rounded-xl border mb-3 print:bg-white bg-background">
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">
-              Finance Admin Remarks / Ulasan Pentadbir Kewangan
-            </p>
-            <p className="text-sm font-medium">"{selectedSubmission.data.finance_admin_remarks}"</p>
-          </div>
-        )}
+        <ApprovalRemarksHistory submission={selectedSubmission} />
 
         {/* Remarks & Actions - only when HOD has approved */}
         {(selectedSubmission.status === "approved_hof" || selectedSubmission.status === "pending_finance_review") && (
-          <div className="mt-6 pt-6 border-t border-border">
+          <div className="mt-4 rounded-xl border border-border/60 bg-background p-4 shadow-sm sm:p-5">
             {selectedSubmission.status === "approved_hof" && (
               <div className="my-6">
-                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE USE / KEGUNAAN KEWANGAN</p>
+                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">FINANCE USE</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">GL Code / GL Kod <span className="text-destructive">*</span></Label>
+                    <Label className="text-sm font-medium">GL Code <span className="text-destructive">*</span></Label>
                     <Input
                       placeholder="Enter GL Code"
                       value={financeCode}
@@ -335,19 +337,20 @@ const FinanceDashboard = () => {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Amount Paid / Jumlah Dibayar <span className="text-destructive">*</span></Label>
+                    <Label className="text-sm font-medium">Amount Paid <span className="text-destructive">*</span></Label>
                     <Input placeholder="Enter amount" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} className="h-11 bg-muted/20 text-base sm:text-sm" />
                   </div>
                 </div>
               </div>
             )}
             <>
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3 mt-6">FINANCE REMARKS / ULASAN KEWANGAN</p>
-              <Input
-                placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3 mt-6">FINANCE REMARKS</p>
+              <Textarea
+                placeholder="Please enter remarks if any..."
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
-                className="mb-6 h-12 bg-muted/20"
+                rows={3}
+                className="mb-6 min-h-20 resize-y bg-muted/20"
               />
 
               {selectedSubmission.status === "pending_finance_review" ? (
@@ -357,12 +360,12 @@ const FinanceDashboard = () => {
                     disabled={isProcessingAction}
                     className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
+                    REJECT
                   </button>
                   <button
                 onClick={() => handleAction(selectedSubmission.id, "approved_hop")}
                     disabled={isProcessingAction}
-                    className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2 text-xs sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-[#57D51B] text-white font-bold text-center hover:bg-[#49BD16] transition-colors flex items-center justify-center gap-2 text-xs sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isProcessingAction ? "SAVING..." : "APPROVE & PROCEED TO HOF"}
                   </button>
@@ -374,7 +377,7 @@ const FinanceDashboard = () => {
                     disabled={isProcessingAction}
                     className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
+                    REJECT
                   </button>
                 <button
                   onClick={() => handleAction(selectedSubmission.id, "paid")}
@@ -390,7 +393,7 @@ const FinanceDashboard = () => {
         )}
 
         {["pending", "approved_hos", "approved_hod", "approved_hop"].includes(selectedSubmission.status) && (
-          <div className="p-4 bg-muted/30 rounded-xl text-center">
+          <div className="rounded-xl border border-border/60 bg-background p-4 text-center shadow-sm">
             <div className="flex flex-col items-center justify-center gap-4">
               <p className="text-sm text-muted-foreground font-medium">
                 {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
@@ -400,77 +403,91 @@ const FinanceDashboard = () => {
               </p>
               <div className="w-full max-w-md">
                 <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Finance Admin Action</p>
-                <Input
+                <Textarea
                   placeholder="Enter remarks if rejecting..."
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
-                  className="mb-3 h-11 bg-background"
+                  rows={3}
+                  className="mb-3 min-h-20 resize-y bg-background"
                 />
                 <button onClick={() => handleAction(selectedSubmission.id, "rejected")} disabled={isProcessingAction} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed">{isProcessingAction ? "SAVING..." : "REJECT SUBMISSION"}</button>
               </div>
             </div>
           </div>
         )}
+
+        <ApprovalOverview submission={selectedSubmission} />
+        <VoidSubmissionControl submission={selectedSubmission} onVoided={() => setSelectedSubmission(null)} />
+        </div>
+      </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
+    <div className="mx-auto max-w-7xl animate-in fade-in-5 slide-in-from-bottom-2 p-4 duration-500 sm:p-6 lg:p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Department Overview / Gambaran Keseluruhan Jabatan</h1>
+        <h1 className="text-2xl font-bold text-foreground">Finance Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming finance requests.</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <DashboardStatCard label="Total Submissions" value={stats.total} icon={FileText} tone="blue" />
-        <DashboardStatCard label="Action Required" value={stats.reviewRequired + stats.paymentRequired} icon={AlertCircle} tone="amber" />
-        <DashboardStatCard label="Approval Rate" value={`${stats.approvalRate}%`} icon={CheckCircle} tone="emerald" />
-      </div>
-
       {/* Action Tabs */}
-      <div className="card-elevated p-4 sm:p-5 mb-4">
-        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Finance Requests</p>
-        <div className="flex w-full sm:w-fit max-w-full items-center overflow-x-auto no-scrollbar rounded-xl border border-black/25 bg-white/70 p-1.5 shadow-sm backdrop-blur-xl dark:border-white/25 dark:bg-white/10">
-        <button onClick={() => { setActiveTab("review_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "review_required" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+      <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+        <p className="mb-3 text-sm font-bold text-foreground">Filter Finance Requests</p>
+        <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
+        <button onClick={() => { setActiveTab("review_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "review_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
           Review Required
           {stats.reviewRequired > 0 && (
             <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.reviewRequired}</Badge>
           )}
         </button>
-        <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-        <button onClick={() => { setActiveTab("payment_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "payment_required" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+        <button onClick={() => { setActiveTab("payment_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "payment_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
           Payment Required
           {stats.paymentRequired > 0 && (
             <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.paymentRequired}</Badge>
           )}
         </button>
-        <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-        <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "in_progress" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+        <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
           In Progress
           {stats.inProgress > 0 && (
             <Badge className="h-5 min-w-5 justify-center border-0 bg-amber-500 px-1.5 text-[10px] text-white hover:bg-amber-500">{stats.inProgress}</Badge>
           )}
         </button>
-        <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-        <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "history" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+        <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
           History
         </button>
+        </div>
+        <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:shrink-0">
+          {[
+            ["Action Required", stats.reviewRequired + stats.paymentRequired, "text-foreground"],
+            ["Approval Rate", `${stats.approvalRate}%`, "text-foreground"],
+            ["In Progress", stats.inProgress, "text-muted-foreground"],
+            ["Total Submissions", stats.total, "text-foreground"],
+          ].map(([label, value, color]) => (
+            <div key={String(label)} className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+              <p className="text-[10px] font-semibold leading-tight text-muted-foreground">{label}</p>
+              <p className={`mt-1 text-xl font-bold leading-none ${color}`}>{value}</p>
+            </div>
+          ))}
+        </div>
         </div>
       </div>
 
       {/* Submissions Table */}
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
-          <div className="relative">
+          <h2 className="text-lg font-bold text-foreground">Recent Submissions</h2>
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Search by employee name or date..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
-              className="pl-9 w-full sm:w-72 h-9 text-sm" 
+              className="h-11 w-full pl-9 text-sm sm:w-80" 
             />
           </div>
         </div>
@@ -482,14 +499,14 @@ const FinanceDashboard = () => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto sm:block">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
+                  <TableHead className="w-40 pr-1 text-xs font-bold uppercase tracking-wider">RefNo.</TableHead>
+                  <TableHead className="pl-1 text-xs font-bold uppercase tracking-wider">Employee</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Status</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -498,8 +515,8 @@ const FinanceDashboard = () => {
               const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
                   return (
                     <TableRow key={sub.id} className={`${(activeTab === "review_required" || activeTab === "payment_required") && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"} print-hide-finance-claim-row`}>
-                      <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
-                      <TableCell>
+                      <TableCell className="py-4 pl-4 pr-1 text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
+                      <TableCell className="py-4 pl-1 pr-4">
                         <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
                         {avatarUrl ? (
@@ -512,13 +529,16 @@ const FinanceDashboard = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col items-start gap-1">
+                        <div className="flex flex-col items-start gap-0.5">
                           <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
+                          <span className="text-[11px] text-muted-foreground/80">
+                            {new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>{statusBadge(sub.status)}</TableCell>
                       <TableCell className="text-center">
-                        <button onClick={() => setSelectedSubmission(sub)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 transition-colors whitespace-nowrap">
+                        <button onClick={() => setSelectedSubmission(sub)} className="min-h-11 min-w-[8rem] whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
                           {sub.status === "approved_hof" || sub.status === "pending_finance_review" ? "Review" : "Details"}
                         </button>
                       </TableCell>
@@ -527,6 +547,35 @@ const FinanceDashboard = () => {
                 })}
               </TableBody>
             </Table>
+            </div>
+            <div className="divide-y divide-border/60 sm:hidden">
+              {(isViewAll ? tabFiltered : tabFiltered.slice(0, 10)).map(sub => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setSelectedSubmission(sub)}
+                  className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${
+                    (activeTab === "review_required" || activeTab === "payment_required") && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
+                  }`}
+                >
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
+                      <p className="mt-0.5 text-xs font-medium text-primary">{generateRefNo(sub)}</p>
+                    </div>
+                    {statusBadge(sub.status)}
+                  </div>
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="text-xs text-muted-foreground">
+                      <p>{new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                      <p className="mt-1">{new Date(sub.submittedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}</p>
+                    </div>
+                    <span className="flex min-h-11 min-w-[7rem] shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm">
+                      {sub.status === "approved_hof" || sub.status === "pending_finance_review" ? "Review" : "Details"}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>

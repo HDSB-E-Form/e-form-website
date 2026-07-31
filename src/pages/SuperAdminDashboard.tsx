@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 // ADDED: "Save" icon to the lucide-react imports
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, Settings, FolderPlus, X, XCircle, Megaphone, Pencil, Save, Upload, Image as ImageIcon, ZoomIn, UserX, UserRoundCheck, Archive } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, FolderPlus, MonitorCog, X, Megaphone, Pencil, Save, Upload, Image as ImageIcon, ZoomIn, UserX, UserRoundCheck, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -14,6 +16,8 @@ import { supabase } from "@/supabase";
 import { useUsers } from "@/contexts/UsersContext"; 
 import { useSubmissions, type Announcement } from "@/contexts/SubmissionsContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ITAdminFacilitiesSettings } from "@/components/ITAdminFacilitiesSettings";
+import { ITApplicationOptionsSettings } from "@/components/ITApplicationOptionsSettings";
 
 interface FirestoreUser {
   id: string;
@@ -155,8 +159,12 @@ const AnimatedCount = ({ value, duration = 800 }: { value: number; duration?: nu
 
 const SuperAdminDashboard = () => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const { updateUser, refreshUsers } = useUsers();
-  const { submissions, announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
+  const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
+  const isSettingsPage = pathname === "/admin/settings";
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -172,7 +180,6 @@ const SuperAdminDashboard = () => {
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
   const [isViewAll, setIsViewAll] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
@@ -184,6 +191,8 @@ const SuperAdminDashboard = () => {
 
   const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const [isAnnouncementsOpen, setIsAnnouncementsOpen] = useState(false);
+  const [isITFacilitiesOpen, setIsITFacilitiesOpen] = useState(false);
+  const [isITApplicationOptionsOpen, setIsITApplicationOptionsOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementAction, setAnnouncementAction] = useState<string | null>(null);
@@ -194,6 +203,13 @@ const SuperAdminDashboard = () => {
   const [editingDepartmentName, setEditingDepartmentName] = useState("");
   const [isSavingDepartment, setIsSavingDepartment] = useState(false);
   const [deletingDepartment, setDeletingDepartment] = useState<string | null>(null);
+
+  useEffect(() => {
+    const panel = searchParams.get("panel");
+    if (panel === "departments") setAddDeptOpen(true);
+    if (panel === "poster") setIsHomePosterOpen(true);
+    if (panel === "announcements") setIsAnnouncementsOpen(true);
+  }, [searchParams]);
 
   // Fetch users from Firestore
   useEffect(() => {
@@ -488,13 +504,12 @@ const SuperAdminDashboard = () => {
   };
 
   const stats = {
-    totalPersonnel: activeUsers.length,
+    totalAccounts: users.length,
+    activeUsers: activeUsers.length,
+    inactiveUsers: inactiveUsers.length,
     activeHOS: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].includes('hos')).length,
     activeHOD: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].includes('hod')).length,
-    otherAdmins: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].some(role => ["super_admin", "safety_admin", "finance_admin", "it_admin", "hr_admin", "security_guard"].includes(role))).length,
-    totalCarBookings: submissions.filter(s => s.formType === 'car_rental').length,
-    totalGatePass: submissions.filter(s => s.formType === 'leave').length,
-    totalClaims: submissions.filter(s => s.formType === 'claim').length,
+    activeAdmins: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].some(role => ["super_admin", "safety_admin", "finance_admin", "it_admin", "hr_admin", "security_guard"].includes(role))).length,
   };
 
   const normalizedAdditionalRoles = editSecondaryRoles.filter(role => role !== editRole).slice().sort();
@@ -740,6 +755,9 @@ const SuperAdminDashboard = () => {
   };
 
   const handleResetAllForms = async () => {
+    toast.error("Bulk deletion is disabled. Use Submission Records to delete one terminal record at a time.");
+    return;
+    /*
     const confirm1 = window.confirm("⚠️WARNING: This will permanently delete all form submissions across the entire system. Are you absolutely sure?");
     if (!confirm1) return;
     
@@ -761,6 +779,7 @@ const SuperAdminDashboard = () => {
       toast.error("Failed to delete forms: " + err.message);
       setIsLoading(false);
     }
+    */
   };
 
   const handleAnnouncementSubmit = async () => {
@@ -885,18 +904,61 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      {isSettingsPage ? (
+        <div>
+          <div className="mb-7">
+            <h1 className="text-2xl font-bold text-foreground">System Settings</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Manage organization-wide configuration and Home page content.</p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <button type="button" onClick={() => setAddDeptOpen(true)} className="group rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <FolderPlus className="h-5 w-5" />
+              </span>
+              <span className="block text-base font-bold text-foreground">Manage Departments</span>
+              <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">Add, rename, or remove departments used throughout the system.</span>
+            </button>
+
+            <button type="button" onClick={() => setIsHomePosterOpen(true)} className="group rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                <ImageIcon className="h-5 w-5" />
+              </span>
+              <span className="block text-base font-bold text-foreground">Manage Home Poster</span>
+              <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">Upload, replace, enable, or disable the Home page poster.</span>
+            </button>
+
+            <button type="button" onClick={() => setIsAnnouncementsOpen(true)} className="group rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Megaphone className="h-5 w-5" />
+              </span>
+              <span className="block text-base font-bold text-foreground">Announcements</span>
+              <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">Publish and manage organization-wide announcements.</span>
+            </button>
+
+            <button type="button" onClick={() => setIsITFacilitiesOpen(true)} className="group rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <MonitorCog className="h-5 w-5" />
+              </span>
+              <span className="block text-base font-bold text-foreground">IT Admin Facilities</span>
+              <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">Add, edit, or remove requisition checkboxes in the IT Request Form (Admin).</span>
+            </button>
+
+            <button type="button" onClick={() => setIsITApplicationOptionsOpen(true)} className="group rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <MonitorCog className="h-5 w-5" />
+              </span>
+              <span className="block text-base font-bold text-foreground">IT Application Options</span>
+              <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">Add, edit, or remove application checkboxes in the IT Request Form (Application).</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Fullscreen Image Preview Modal */}
       {fullscreenImage && (
         <div className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/85 p-4 backdrop-blur-sm sm:p-8" onClick={() => setFullscreenImage(null)}>
-          <button
-            type="button"
-            onClick={() => setFullscreenImage(null)}
-            className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white/80 shadow-lg transition-colors hover:bg-black/80 hover:text-white"
-            aria-label="Close profile picture preview"
-          >
-            <XCircle className="h-8 w-8" />
-          </button>
-          <div className="h-[90vh] w-[95vw]" onClick={e => e.stopPropagation()}>
+          <div className="h-[90vh] w-[95vw]">
             <img src={fullscreenImage} alt="User avatar fullscreen preview" className="h-full w-full object-contain" />
           </div>
         </div>
@@ -908,69 +970,42 @@ const SuperAdminDashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage active accounts and retain inactive employee records.</p>
         </div>
-        <div className="relative w-full sm:w-[220px]">
-          <button 
-            onClick={() => setIsMenuOpen(!isMenuOpen)} 
-            className="w-full h-11 px-5 flex items-center justify-center gap-2.5 bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold whitespace-nowrap shadow-sm"
-            aria-haspopup="menu"
-            aria-expanded={isMenuOpen}
-          >
-            <Settings className="h-[18px] w-[18px]" />
-            Settings
-          </button>
-
-          {isMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-              <div role="menu" className="absolute right-0 top-full mt-2 w-full min-w-[220px] bg-background border border-border rounded-xl shadow-xl z-50 flex flex-col p-1.5 animate-in fade-in slide-in-from-top-2">
-                <button onClick={() => { setAddDeptOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-3 px-3.5 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
-                  <FolderPlus className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
-                  <span>Manage Departments</span>
-                </button>
-                <button onClick={() => { setIsAnnouncementsOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
-                  <Megaphone className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Announcements
-                </button>
-                <button onClick={() => { setIsHomePosterOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
-                  <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Manage Home Poster
-                </button>
-                <button onClick={() => { setIsExportOpen(true); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-foreground">
-                  <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" /> Export User Directory
-                </button>
-                <div className="h-px bg-border/50 my-1 mx-2" />
-                <button onClick={() => { handleResetAllForms(); setIsMenuOpen(false); }} className="w-full flex items-center justify-start gap-2.5 px-3 py-2.5 hover:bg-destructive/10 text-destructive rounded-lg text-sm font-medium transition-colors">
-                  <Trash2 className="h-4 w-4 text-destructive/70" /> Wipe All Forms
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setIsExportOpen(true)}
+          className="h-11 w-full gap-2 font-bold sm:w-auto"
+        >
+          <Download className="h-[18px] w-[18px]" />
+          Export Users
+        </Button>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
-        <div className="card-elevated p-4 border-l-4 border-l-primary/50">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Staff</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalPersonnel} /></p>
+        <div className="card-elevated border-l-4 border-l-primary p-4">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Accounts</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalAccounts} /></p>
         </div>
-        <div className="card-elevated p-4 border-l-4 border-l-violet-500">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Active HOS</p>
+        <div className="card-elevated border-l-4 border-l-emerald-500 p-4">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Users</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeUsers} /></p>
+        </div>
+        <div className="card-elevated border-l-4 border-l-slate-400 p-4">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Inactive Users</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.inactiveUsers} /></p>
+        </div>
+        <div className="card-elevated border-l-4 border-l-violet-500 p-4">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Active HOS</p>
           <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeHOS} /></p>
         </div>
-        <div className="card-elevated p-4 border-l-4 border-l-sky-500">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Active HOD</p>
+        <div className="card-elevated border-l-4 border-l-sky-500 p-4">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Active HOD</p>
           <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeHOD} /></p>
         </div>
-        <div className="card-elevated p-4 border-l-4 border-l-blue-500">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Vehicle Forms</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalCarBookings} /></p>
-        </div>
-        <div className="card-elevated p-4 border-l-4 border-l-blue-500">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Gate Pass Forms</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalGatePass} /></p>
-        </div>
-        <div className="card-elevated p-4 border-l-4 border-l-blue-500">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Petty Cash Claims</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalClaims} /></p>
+        <div className="card-elevated border-l-4 border-l-amber-500 p-4">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Administrators</p>
+          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeAdmins} /></p>
         </div>
       </div>
 
@@ -984,7 +1019,7 @@ const SuperAdminDashboard = () => {
           >
             <UserCheck className="h-4 w-4" />
             Active Users
-            <Badge className="border-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">{activeUsers.length}</Badge>
+            <Badge className="border-0 bg-muted text-muted-foreground">{activeUsers.length}</Badge>
           </button>
           <button
             type="button"
@@ -1072,14 +1107,9 @@ const SuperAdminDashboard = () => {
                     <div className={`group relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${!u.avatar ? getInitialColor(u.name) : 'bg-transparent'} ${u.avatar ? 'cursor-zoom-in ring-1 ring-border' : ''}`}
                          onClick={() => u.avatar && setFullscreenImage(u.avatar)}
                     >
-                      {u.avatar ? (
-                        <>
-                          <img src={u.avatar} alt={u.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" title="Click to enlarge"/>
-                          <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition-all duration-200 group-hover:bg-black/35 group-hover:opacity-100" aria-hidden="true">
-                            <ZoomIn className="h-4 w-4" />
-                          </span>
-                        </>
-                      ) : (
+                       {u.avatar ? (
+                         <img src={u.avatar} alt={u.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" title="Click to enlarge"/>
+                       ) : (
                         getInitials(u.name)
                       )}
                     </div>
@@ -1138,9 +1168,11 @@ const SuperAdminDashboard = () => {
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* Home Poster Settings Sheet */}
-      <Sheet open={isHomePosterOpen} onOpenChange={setIsHomePosterOpen}>
+      <Sheet open={isHomePosterOpen} onOpenChange={open => { setIsHomePosterOpen(open); if (!open && searchParams.get("panel") === "poster") navigate("/admin/users"); }}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader className="mb-6 border-b border-border pb-4">
             <SheetTitle className="text-xl font-bold">Home Poster Settings</SheetTitle>
@@ -1464,8 +1496,57 @@ const SuperAdminDashboard = () => {
         </SheetContent>
       </Sheet>
 
+      {/* Submission Records now belongs to the All Submissions page.
+      <Sheet open={isSubmissionRecordsOpen} onOpenChange={setIsSubmissionRecordsOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+          <SheetHeader className="border-b border-border pb-4">
+            <SheetTitle className="text-xl font-bold">Submission Records</SheetTitle>
+            <SheetDescription>
+              Permanent deletion is limited to completed, rejected, and voided records. An audit snapshot is retained.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-5 space-y-3">
+            {eligibleDeletionSubmissions.length === 0 ? (
+              <p className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">No eligible records.</p>
+            ) : eligibleDeletionSubmissions.map(submission => {
+              const reference = getSubmissionReference(submission);
+              const selected = deletionTarget?.id === submission.id;
+              return (
+                <div key={submission.id} className="rounded-xl border border-border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-foreground">{reference}</p>
+                      <p className="text-xs text-muted-foreground">{submission.employeeName} · {submission.formType.replace(/_/g, " ")}</p>
+                    </div>
+                    <Badge className="border-0 bg-muted text-muted-foreground uppercase">{submission.status}</Badge>
+                  </div>
+                  {!selected ? (
+                    <button type="button" onClick={() => { setDeletionTarget(submission); setDeletionReason(""); setDeletionConfirmation(""); }} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10">
+                      <Trash2 className="h-3.5 w-3.5" /> Permanently Delete
+                    </button>
+                  ) : (
+                    <div className="mt-4 space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                      <p className="text-xs font-semibold text-destructive">This cannot be undone. Type the exact reference number to confirm.</p>
+                      <textarea value={deletionReason} onChange={event => setDeletionReason(event.target.value)} rows={2} placeholder="Required deletion reason..." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                      <Input value={deletionConfirmation} onChange={event => setDeletionConfirmation(event.target.value)} placeholder={`Type ${reference}`} />
+                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <button type="button" disabled={isDeletingSubmission} onClick={() => setDeletionTarget(null)} className="rounded-lg bg-muted px-4 py-2 text-sm font-semibold">Cancel</button>
+                        <button type="button" disabled={isDeletingSubmission || deletionConfirmation !== reference || deletionReason.trim().length < 5} onClick={handlePermanentSubmissionDelete} className="rounded-lg bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground disabled:opacity-50">
+                          {isDeletingSubmission ? "Deleting..." : "Delete Permanently"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+      */}
+
       {/* Manage Departments Sheet */}
-      <Sheet open={addDeptOpen} onOpenChange={setAddDeptOpen}>
+      <Sheet open={addDeptOpen} onOpenChange={open => { setAddDeptOpen(open); if (!open && searchParams.get("panel") === "departments") navigate("/admin/users"); }}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="pb-4 border-b border-border">
             <SheetTitle className="text-xl font-bold text-foreground">Manage Departments</SheetTitle>
@@ -1518,7 +1599,7 @@ const SuperAdminDashboard = () => {
       </Sheet>
 
       {/* Manage Announcements Sheet */}
-      <Sheet open={isAnnouncementsOpen} onOpenChange={setIsAnnouncementsOpen}>
+      <Sheet open={isAnnouncementsOpen} onOpenChange={open => { setIsAnnouncementsOpen(open); if (!open && searchParams.get("panel") === "announcements") navigate("/admin/users"); }}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader className="pb-4 border-b border-border">
             <SheetTitle className="text-xl font-bold text-foreground">Manage Announcements</SheetTitle>
@@ -1581,6 +1662,34 @@ const SuperAdminDashboard = () => {
                 ))}
               </div>
             </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={isITFacilitiesOpen} onOpenChange={setIsITFacilitiesOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader className="border-b border-border pb-4">
+            <SheetTitle className="text-xl font-bold">IT Admin Facilities</SheetTitle>
+            <SheetDescription>
+              Manage the requisition options shown as checkboxes in IT Request Form (Admin). Existing submissions are never changed.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            <ITAdminFacilitiesSettings />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={isITApplicationOptionsOpen} onOpenChange={setIsITApplicationOptionsOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader className="border-b border-border pb-4">
+            <SheetTitle className="text-xl font-bold">IT Application Options</SheetTitle>
+            <SheetDescription>
+              Manage the application and ERP-module checkboxes shown in IT Request Form (Application). Existing submissions are never changed.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            <ITApplicationOptionsSettings />
           </div>
         </SheetContent>
       </Sheet>

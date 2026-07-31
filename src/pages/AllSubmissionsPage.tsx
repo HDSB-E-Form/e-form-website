@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, ArrowLeft, Printer, FileText, Search, Calendar, XCircle } from "lucide-react";
+import { Clock, ArrowLeft, Printer, FileText, Search, Calendar, XCircle, Archive, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
+import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 import { renderValue } from "@/components/DataRenderer";
 import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
@@ -30,13 +32,15 @@ const makeStatusBadge = (label: string, colors: string) => (
 const statusBadge = (status: string, formType?: string) => {
   switch (status) {
     case "approved":
-      return makeStatusBadge("APPROVED", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400");
+      return makeStatusBadge("APPROVED", "bg-[#57D51B] text-white hover:bg-[#57D51B]");
     case "rejected":
-      return makeStatusBadge("REJECTED", "bg-destructive/15 text-destructive dark:text-red-400");
+      return makeStatusBadge("REJECTED", "bg-destructive text-destructive-foreground hover:bg-destructive");
     case "paid":
       return makeStatusBadge("PAID", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
     case "completed":
-      return makeStatusBadge("COMPLETED", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400");
+      return makeStatusBadge("COMPLETED", "bg-[#57D51B] text-white hover:bg-[#57D51B]");
+    case "voided":
+      return makeStatusBadge("VOIDED", "bg-slate-500/15 text-slate-700 dark:text-slate-300");
     case "awaiting_confirmation":
       return makeStatusBadge("AWAITING EMPLOYEE CONFIRMATION", "bg-sky-500/15 text-sky-700 dark:text-sky-400");
     case "reopened":
@@ -49,6 +53,8 @@ const statusBadge = (status: string, formType?: string) => {
       return makeStatusBadge("PENDING HOF", "bg-teal-500/15 text-teal-700 dark:text-teal-400");
     case "approved_manco":
       return makeStatusBadge("PENDING SECURITY", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
+    case "on_leave":
+      return makeStatusBadge("EMPLOYEE OUT", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
     case "approved_hod":
       if (formType === 'claim') {
         return makeStatusBadge("PENDING HOP", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
@@ -84,6 +90,28 @@ const naStatus = () => (
   makeStatusBadge("N/A", "bg-muted text-muted-foreground")
 );
 
+type GatePassStageState = "approved" | "rejected" | "pending" | "skipped" | "exit-recorded" | "out" | "completed";
+
+const gatePassStageBadge = (state: GatePassStageState) => {
+  switch (state) {
+    case "approved":
+      return statusBadge("approved");
+    case "rejected":
+      return statusBadge("rejected");
+    case "skipped":
+      return naStatus();
+    case "exit-recorded":
+      return makeStatusBadge("EXIT RECORDED", "bg-blue-500/15 text-blue-700 dark:text-blue-400");
+    case "out":
+      return makeStatusBadge("OUT", "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400");
+    case "completed":
+      return makeStatusBadge("COMPLETED", "bg-[#57D51B] text-white hover:bg-[#57D51B]");
+    case "pending":
+    default:
+      return statusBadge("pending");
+  }
+};
+
 const toLocalDateString = (value: string | Date) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -95,7 +123,7 @@ const toLocalDateString = (value: string | Date) => {
 };
 
 const AllSubmissionsPage = () => {
-  const { submissions: allSubmissions, refNoMap, isLoading, refreshSubmissions } = useSubmissions();
+  const { submissions: allSubmissions, refNoMap, isLoading, refreshSubmissions, permanentlyDeleteSubmission } = useSubmissions();
   const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -103,6 +131,12 @@ const AllSubmissionsPage = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'car_rental' | 'claim' | 'leave' | 'it_application_request'>('all');
+  const [isSubmissionRecordsOpen, setIsSubmissionRecordsOpen] = useState(false);
+  const [submissionRecordSearch, setSubmissionRecordSearch] = useState("");
+  const [deletionTarget, setDeletionTarget] = useState<Submission | null>(null);
+  const [deletionReason, setDeletionReason] = useState("");
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
+  const [isDeletingSubmission, setIsDeletingSubmission] = useState(false);
 
   useEffect(() => {
     refreshSubmissions();
@@ -110,6 +144,7 @@ const AllSubmissionsPage = () => {
 
   const isDateFiltered = startDate !== "" || endDate !== "";
   const hasInvalidDateRange = Boolean(startDate && endDate && startDate > endDate);
+  const hasActiveFilters = Boolean(search.trim() || isDateFiltered || activeTab !== "all");
 
   if (isLoading) {
     return (
@@ -161,6 +196,11 @@ const AllSubmissionsPage = () => {
     );
   }
 
+  const generateRefNo = (sub: Submission) => {
+    if (sub.data?.refNo) return sub.data.refNo;
+    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
+  };
+
   const submissions = allSubmissions
     .filter(s => !excludedForms.includes(s.formType))
     .filter(s => activeTab === 'all' ? true : s.formType === activeTab)
@@ -170,7 +210,10 @@ const AllSubmissionsPage = () => {
       const dateStr = toLocalDateString(s.submittedAt) || "";
       const typeStr = (formTypeLabels[s.formType] || s.formType).toLowerCase();
       return s.employeeName.toLowerCase().includes(q) ||
+             generateRefNo(s).toLowerCase().includes(q) ||
              s.id.toLowerCase().includes(q) ||
+             s.department.toLowerCase().includes(q) ||
+             s.status.replace(/_/g, " ").toLowerCase().includes(q) ||
              typeStr.includes(q) ||
              dateStr.includes(q);
     })
@@ -184,9 +227,35 @@ const AllSubmissionsPage = () => {
       return subDate >= start && subDate <= end;
     });
 
-  const generateRefNo = (sub: Submission) => {
-    if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
+  const eligibleDeletionSubmissions = allSubmissions.filter(submission =>
+    !excludedForms.includes(submission.formType) && ["completed", "rejected", "voided"].includes(submission.status)
+  );
+  const filteredDeletionSubmissions = eligibleDeletionSubmissions.filter(submission => {
+    const query = submissionRecordSearch.trim().toLowerCase();
+    if (!query) return true;
+    const reference = generateRefNo(submission).toLowerCase();
+    const formType = (formTypeLabels[submission.formType] || submission.formType.replace(/_/g, " ")).toLowerCase();
+    return reference.includes(query)
+      || submission.employeeName.toLowerCase().includes(query)
+      || formType.includes(query)
+      || submission.status.toLowerCase().includes(query);
+  });
+
+  const handlePermanentSubmissionDelete = async () => {
+    if (!deletionTarget || isDeletingSubmission) return;
+    const reference = generateRefNo(deletionTarget);
+    if (deletionReason.trim().length < 5) return toast.error("Enter a deletion reason of at least 5 characters.");
+    if (deletionConfirmation.trim() !== reference) return toast.error("The reference number confirmation does not match.");
+
+    setIsDeletingSubmission(true);
+    const success = await permanentlyDeleteSubmission(deletionTarget.id, deletionReason);
+    setIsDeletingSubmission(false);
+    if (!success) return;
+
+    toast.success(`${reference} was permanently deleted. An audit snapshot was retained.`);
+    setDeletionTarget(null);
+    setDeletionReason("");
+    setDeletionConfirmation("");
   };
 
   if (selectedSubmission) {
@@ -201,6 +270,68 @@ const AllSubmissionsPage = () => {
     const isApprovedFinanceReview = ["approved_hop", "approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || ["hof", "admin"].includes(rejectedStage) || financeRejectionReached(["approved_hop", "approved_hof"]);
     const isApprovedHOF = selectedSubmission.data.hofName === 'N/A' || ["approved_hof", "approved", "paid", "completed"].includes(selectedSubmission.status) || rejectedStage === "admin";
     const isRejected = selectedSubmission.status === "rejected";
+    const gatePassStatusesAfterHOS = ["approved_hos", "approved_hod", "approved_manco", "on_leave", "approved"];
+    const gatePassStatusesAfterHOD = ["approved_hod", "approved_manco", "on_leave", "approved"];
+    const gatePassStatusesAfterManco = ["approved_manco", "on_leave", "approved"];
+    const gatePassHOSApproved = gatePassStatusesAfterHOS.includes(selectedSubmission.status) || ["hod", "manco", "admin"].includes(rejectedStage);
+    const gatePassHODApproved = gatePassStatusesAfterHOD.includes(selectedSubmission.status) || ["manco", "admin"].includes(rejectedStage);
+    const gatePassMancoApproved = gatePassStatusesAfterManco.includes(selectedSubmission.status) || rejectedStage === "admin";
+    const gatePassExitRecorded = ["on_leave", "approved"].includes(selectedSubmission.status);
+    const gatePassEntryRecorded = selectedSubmission.status === "approved";
+    const gatePassStages: { name: string; state: GatePassStageState }[] = [
+      {
+        name: "HOS",
+        state: selectedSubmission.data.hosName === "N/A"
+          ? "skipped"
+          : rejectedStage === "hos"
+            ? "rejected"
+            : gatePassHOSApproved
+              ? "approved"
+              : "pending",
+      },
+      {
+        name: "HOD",
+        state: selectedSubmission.data.hodName === "N/A"
+          ? "skipped"
+          : rejectedStage === "hod"
+            ? "rejected"
+            : gatePassHODApproved
+              ? "approved"
+              : isRejected
+                ? "skipped"
+                : "pending",
+      },
+      {
+        name: "MANCO",
+        state: rejectedStage === "manco"
+          ? "rejected"
+          : gatePassMancoApproved
+            ? "approved"
+            : isRejected
+              ? "skipped"
+              : "pending",
+      },
+      {
+        name: "Security Exit",
+        state: rejectedStage === "admin"
+          ? "rejected"
+          : gatePassExitRecorded
+            ? "exit-recorded"
+            : isRejected
+              ? "skipped"
+              : "pending",
+      },
+      {
+        name: "Security Entry",
+        state: gatePassEntryRecorded
+          ? "completed"
+          : selectedSubmission.status === "on_leave"
+            ? "out"
+            : isRejected
+              ? "skipped"
+              : "pending",
+      },
+    ];
 
     return (
       <div className="p-6 lg:p-8 max-w-5xl mx-auto print:absolute print:inset-0 print:max-w-none print:w-full print:bg-white print:text-black print:z-50 print:p-8 print:m-0">
@@ -448,14 +579,18 @@ const AllSubmissionsPage = () => {
                     {selectedSubmission.data.purposeType === 'company' ? (selectedSubmission.data.companyDetails?.purpose || "—") : (selectedSubmission.data.personalDetails?.purpose || "—")}
                   </div>
                 </div>
-                {selectedSubmission.data.estimatedTime && (
-                  <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                    <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Estimated Time</span>
-                    <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                      Out: {selectedSubmission.data.estimatedTime.timeOut || "—"} &nbsp;|&nbsp; In: {selectedSubmission.data.estimatedTime.timeIn || "—"}
-                    </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time Out</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.estimatedTime?.timeOut || "—"}
                   </div>
-                )}
+                </div>
+                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time In</span>
+                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
+                    {selectedSubmission.data.estimatedTime?.timeIn || "—"}
+                  </div>
+                </div>
                 <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
@@ -553,11 +688,11 @@ const AllSubmissionsPage = () => {
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Gate Log</span>
             <div className="w-full flex mt-2 sm:mt-3 bg-muted/5 print:bg-transparent p-3 sm:p-4 rounded-lg border border-border print:border-gray-400">
               <div className="flex-1 border-r border-border/50 print:border-gray-300 pr-3 sm:pr-4">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Time Out</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Actual Time Out</span>
                 <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeOut || '—'}</span>
               </div>
               <div className="flex-1 pl-3 sm:pl-4">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Time In</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Actual Time In</span>
                 <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeIn || '—'}</span>
               </div>
             </div>
@@ -596,7 +731,7 @@ const AllSubmissionsPage = () => {
               ].map(stage => (
                 <div key={stage.name} className="flex min-h-20 flex-col items-center justify-between rounded-lg border border-border/70 bg-background/60 p-3 text-center">
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{stage.name}</p>
-                  <Badge className={`border-0 text-[10px] font-bold ${stage.done ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>{stage.done ? stage.label : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "REOPENED" : "PENDING"}</Badge>
+                  <Badge className={`border-0 text-[10px] font-bold ${stage.done ? "bg-[#57D51B] text-white hover:bg-[#57D51B]" : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>{stage.done ? stage.label : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "REOPENED" : "PENDING"}</Badge>
                 </div>
               ))}
             </div>
@@ -614,6 +749,19 @@ const AllSubmissionsPage = () => {
                   <p className="mb-2 text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider font-bold leading-tight">{stage.name}</p>
                   <div className="flex w-full justify-center">
                     {stage.isApproved ? statusBadge("approved") : stage.isRejected ? statusBadge("rejected") : isRejected ? naStatus() : statusBadge("pending")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : selectedSubmission.formType === 'leave' ? (
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/30 p-2.5 sm:grid-cols-3 sm:p-4 lg:grid-cols-5 print:hidden mt-6 sm:mt-8">
+              {gatePassStages.map(stage => (
+                <div key={stage.name} className="flex min-h-20 flex-col items-center justify-between rounded-lg border border-border/70 bg-background/60 p-2 text-center">
+                  <p className="mb-2 text-[9px] font-bold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[10px]">
+                    {stage.name}
+                  </p>
+                  <div className="flex w-full justify-center">
+                    {gatePassStageBadge(stage.state)}
                   </div>
                 </div>
               ))}
@@ -663,9 +811,15 @@ const AllSubmissionsPage = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">All System Submissions</h1>
-        <p className="text-muted-foreground text-sm mt-1">Monitor all form submissions across the entire organization.</p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">All System Submissions</h1>
+          <p className="text-muted-foreground text-sm mt-1">Monitor all form submissions across the entire organization.</p>
+        </div>
+        <Button variant="outline" className="h-11 w-full gap-2 font-bold sm:w-auto" onClick={() => setIsSubmissionRecordsOpen(true)}>
+          <Archive className="h-4 w-4" />
+          Submission Records
+        </Button>
       </div>
 
       <div className="mb-6 bg-muted/20 p-4 rounded-xl border border-border">
@@ -673,7 +827,7 @@ const AllSubmissionsPage = () => {
           <div className="relative lg:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search by name, date, or type..." 
+              placeholder="Search reference, employee, department..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
               className="pl-9 pr-9 w-full lg:w-52 xl:w-60 h-9 text-sm" />
@@ -695,7 +849,7 @@ const AllSubmissionsPage = () => {
             <Label className="text-xs font-medium text-muted-foreground">To:</Label>
             <Input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setIsViewAll(false); }} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
           </div>
-          <div className="flex items-center gap-2 pt-2 sm:col-span-2 lg:col-auto lg:pt-0 lg:border-l lg:border-border lg:pl-3">
+          <div className="flex flex-wrap items-center gap-2 pt-2 sm:col-span-2 lg:col-auto lg:pt-0 lg:border-l lg:border-border lg:pl-3">
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => { const today = toLocalDateString(new Date())!; setStartDate(today); setEndDate(today); setIsViewAll(false); }}>Today</Button>
             <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => {
                 const today = new Date();
@@ -718,11 +872,29 @@ const AllSubmissionsPage = () => {
                 <XCircle className="h-4 w-4 mr-1.5" /> Clear Dates
               </Button>
             )}
+            {(search.trim() || activeTab !== "all") && (
+              <Button variant="ghost" size="sm" className="h-9 text-xs font-semibold text-destructive hover:text-destructive" onClick={() => {
+                setSearch("");
+                setStartDate("");
+                setEndDate("");
+                setActiveTab("all");
+                setIsViewAll(false);
+              }}>
+                Clear All
+              </Button>
+            )}
           </div>
         </div>
         {hasInvalidDateRange && (
           <p className="mt-3 text-xs font-medium text-destructive" role="alert">
             The From date must be earlier than or the same as the To date.
+          </p>
+        )}
+        {!hasInvalidDateRange && hasActiveFilters && (
+          <p className="mt-3 text-xs text-muted-foreground" aria-live="polite">
+            {submissions.length} matching {submissions.length === 1 ? "submission" : "submissions"}
+            {activeTab !== "all" ? ` · ${formTypeLabels[activeTab] || activeTab}` : ""}
+            {isDateFiltered ? ` · ${startDate || "earliest"} to ${endDate || "latest"}` : ""}
           </p>
         )}
       </div>
@@ -808,7 +980,18 @@ const AllSubmissionsPage = () => {
         {submissions.length === 0 && (
           <div className="p-8 text-center text-muted-foreground">
             <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            No submissions found in the system.
+            <p>{hasActiveFilters ? "No submissions match the selected filters." : "No submissions found in the system."}</p>
+            {hasActiveFilters && (
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => {
+                setSearch("");
+                setStartDate("");
+                setEndDate("");
+                setActiveTab("all");
+                setIsViewAll(false);
+              }}>
+                Clear All Filters
+              </Button>
+            )}
           </div>
         )}
         {submissions.length > 0 && (
@@ -825,6 +1008,84 @@ const AllSubmissionsPage = () => {
           </div>
         )}
       </div>
+
+      <Sheet open={isSubmissionRecordsOpen} onOpenChange={open => {
+        setIsSubmissionRecordsOpen(open);
+        if (!open) {
+          setDeletionTarget(null);
+          setSubmissionRecordSearch("");
+        }
+      }}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+          <SheetHeader className="border-b border-border pb-4">
+            <SheetTitle className="text-xl font-bold">Submission Records</SheetTitle>
+            <SheetDescription>
+              Permanent deletion is limited to completed, rejected, and voided records. An audit snapshot is retained.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="relative mt-5">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={submissionRecordSearch}
+              onChange={event => setSubmissionRecordSearch(event.target.value)}
+              placeholder="Search reference, employee, type, or status..."
+              className="h-10 pl-9 pr-9"
+              aria-label="Search submission records"
+            />
+            {submissionRecordSearch && (
+              <button
+                type="button"
+                onClick={() => setSubmissionRecordSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear submission record search"
+              >
+                <XCircle className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Showing {filteredDeletionSubmissions.length} of {eligibleDeletionSubmissions.length} eligible records
+          </p>
+          <div className="mt-4 space-y-3">
+            {eligibleDeletionSubmissions.length === 0 ? (
+              <p className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">No eligible records.</p>
+            ) : filteredDeletionSubmissions.length === 0 ? (
+              <p className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">No submission records match your search.</p>
+            ) : filteredDeletionSubmissions.map(submission => {
+              const reference = generateRefNo(submission);
+              const selected = deletionTarget?.id === submission.id;
+              return (
+                <div key={submission.id} className="rounded-xl border border-border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-foreground">{reference}</p>
+                      <p className="text-xs text-muted-foreground">{submission.employeeName} · {formTypeLabels[submission.formType] || submission.formType.replace(/_/g, " ")}</p>
+                    </div>
+                    <Badge className="border-0 bg-muted text-muted-foreground uppercase">{submission.status}</Badge>
+                  </div>
+                  {!selected ? (
+                    <button type="button" onClick={() => { setDeletionTarget(submission); setDeletionReason(""); setDeletionConfirmation(""); }} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10">
+                      <Trash2 className="h-3.5 w-3.5" /> Permanently Delete
+                    </button>
+                  ) : (
+                    <div className="mt-4 space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                      <p className="text-xs font-semibold text-destructive">This cannot be undone. Type the exact reference number to confirm.</p>
+                      <textarea value={deletionReason} onChange={event => setDeletionReason(event.target.value)} rows={2} placeholder="Required deletion reason..." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                      <Input value={deletionConfirmation} onChange={event => setDeletionConfirmation(event.target.value)} placeholder={`Type ${reference}`} />
+                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <Button type="button" variant="secondary" disabled={isDeletingSubmission} onClick={() => setDeletionTarget(null)}>Cancel</Button>
+                        <Button type="button" variant="destructive" disabled={isDeletingSubmission || deletionConfirmation !== reference || deletionReason.trim().length < 5} onClick={handlePermanentSubmissionDelete}>
+                          {isDeletingSubmission ? "Deleting..." : "Delete Permanently"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

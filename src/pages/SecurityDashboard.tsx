@@ -2,12 +2,15 @@ import { useState, useEffect, useMemo } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, LogOut, LogIn, Settings, Printer, FileText, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, Search, ArrowLeft, LogOut, LogIn, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
+import EmployeeSummary from "@/components/EmployeeSummary";
+import ApprovalOverview from "@/components/ApprovalOverview";
+import { useAuth } from "@/contexts/AuthContext";
 
 const formTypeLabels: Record<string, string> = {
   leave: "Gate Pass",
@@ -16,7 +19,7 @@ const formTypeLabels: Record<string, string> = {
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
+      return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
     case "on_leave":
       return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">On Leave</Badge>;
     case "approved_manco":
@@ -24,7 +27,7 @@ const statusBadge = (status: string) => {
     case "approved_hos":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
+      return <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "pending":
     default:
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOS</Badge>;
@@ -45,6 +48,7 @@ const getInitialColor = (name: string) => {
 };
 
 const SecurityDashboard = () => {
+  const { user } = useAuth();
   const { submissions, updateSubmissionStatus, isLoading, refreshSubmissions } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
@@ -119,6 +123,7 @@ const SecurityDashboard = () => {
     inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
   };
+  const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
 
   const refNoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -143,11 +148,29 @@ const SecurityDashboard = () => {
   const handleAction = async (id: string, newStatus: SubmissionStatus, logData: any) => {
     const currentData = selectedSubmission?.data || {};
     const updatedSecurityLog = { ...(currentData.securityLog || {}), ...logData };
+    const reviewerData = newStatus === "on_leave"
+      ? {
+          securityExitReviewedByName: user?.name || "Security Guard",
+          securityExitReviewedById: user?.id || null,
+          securityExitReviewedAt: new Date().toISOString(),
+        }
+      : newStatus === "approved"
+        ? {
+            securityEntryReviewedByName: user?.name || "Security Guard",
+            securityEntryReviewedById: user?.id || null,
+            securityEntryReviewedAt: new Date().toISOString(),
+          }
+        : {
+            securityReviewedByName: user?.name || "Security Guard",
+            securityReviewedById: user?.id || null,
+            securityReviewedAt: new Date().toISOString(),
+          };
     
     const success = await updateSubmissionStatus(id, newStatus, { 
       securityLog: updatedSecurityLog,
       remarks: logData?.remarks || securityLog.remarks,
-      rejectedStage: newStatus === "rejected" ? "admin" : undefined
+      rejectedStage: newStatus === "rejected" ? "admin" : undefined,
+      ...reviewerData,
     });
     if (success) {
       toast.success(`Submission status updated to "${newStatus.replace('_', ' ')}".`);
@@ -163,26 +186,29 @@ const SecurityDashboard = () => {
       await updateSubmissionStatus(sub.id, "rejected", {
       remarks: remarks,
         rejectedStage: "admin", // Using 'admin' to signify rejection by a guard/admin role
+        securityReviewedByName: user?.name || "Security Guard",
+        securityReviewedById: user?.id || null,
+        securityReviewedAt: new Date().toISOString(),
       });
       toast.success("Gate Pass has been rejected.");
       setSelectedSubmission(null);
   };
   const renderLeaveDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
-    const passType = sub.data.purposeType === 'company' ? 'Company Business / Urusan Syarikat' : 'Personal Matter / Urusan Peribadi';
+    const passType = sub.data.purposeType === 'company' ? 'Company Business' : 'Personal Matter';
 
     return (
       <>
-        <p className="text-xs font-bold text-primary print:text-black uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50 print:bg-transparent print:p-0 print:border-none print:rounded-none print:mb-6">
-          <p className="text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-sm text-muted-foreground mb-1">Staff ID: {sub.data.employeeInfo?.staffNo || sub.submittedBy}</p>
-          <p className="text-sm text-muted-foreground mb-1">Department: {sub.department}</p>
-          <p className="text-sm text-muted-foreground mb-3">Position: {sub.data.employeeInfo?.position || sub.data.position || "—"}</p>
-        </div>
+        <EmployeeSummary
+          name={sub.employeeName}
+          staffId={sub.data.employeeInfo?.staffNo || sub.submittedBy}
+          department={sub.department}
+          position={sub.data.employeeInfo?.position || sub.data.position || "—"}
+          className="mb-5 [&>div]:bg-background print:mb-6"
+        />
 
-        <p className="text-xs font-bold text-primary print:text-black uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
-        <div className="bg-muted/30 rounded-xl divide-y divide-border/50 mb-8 border border-border/50 print:bg-transparent print:border-gray-300 print:rounded-none">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary print:text-black">Submission Summary</p>
+        <div className="mb-5 divide-y divide-border/50 rounded-xl border border-border/60 bg-background shadow-sm print:rounded-none print:border-gray-300 print:bg-transparent print:shadow-none">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Ref No</span>
             <div className="sm:col-span-2 text-left">
@@ -191,39 +217,39 @@ const SecurityDashboard = () => {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type / Jenis Pas</span>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{passType}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Reason / Sebab</span>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Reason</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
-            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.hosName || sub.data.hos || "—"}</div>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time Out</span>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeOut || "—"}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
-            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.hodName || sub.data.hod || "—"}</div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
-            <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.mancoMemberName || "—"}</div>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time In</span>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeIn || "—"}</div>
           </div>
           {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
             <>
+              {sub.data.securityLog.vehicleNo?.trim() && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Vehicle No.</span>
+                  <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.vehicleNo}</div>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut ? sub.data.securityLog.actualTimeOut.split(' ')[1] : '—'}</div>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut || '—'}</div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn ? sub.data.securityLog.actualTimeIn.split(' ')[1] : '—'}</div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Vehicle No.</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.vehicleNo || '—'}</div>
-              </div>
+              {sub.data.securityLog.actualTimeIn && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
+                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
+                  <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn}</div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -246,9 +272,10 @@ const SecurityDashboard = () => {
     const isOnLeave = selectedSubmission.status === "on_leave";
 
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto animate-in fade-in-5 print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
-          <button onClick={() => setSelectedSubmission(null)} className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
+      <div className="min-h-full bg-muted/30 print:bg-white">
+      <div className="mx-auto max-w-5xl animate-in fade-in-5 slide-in-from-bottom-2 p-4 duration-300 sm:p-6 lg:p-7 print:max-w-none print:w-full print:bg-white print:p-8 print:text-black">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <button onClick={() => setSelectedSubmission(null)} className="group inline-flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary/10 hover:shadow-sm">
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to list
           </button>
           {activeTab === 'history' && (
@@ -274,7 +301,7 @@ const SecurityDashboard = () => {
           )}
         </div>
 
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6 lg:p-8 dark:bg-card print:border-none print:bg-white print:p-0 print:shadow-none">
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-3 shadow-sm sm:p-4 lg:p-5 print:rounded-none print:border-none print:bg-white print:p-0 print:text-black print:shadow-none">
         {/* Print Header */}
         <div className="hidden print:flex items-start justify-between mb-8 border-b-2 border-black pb-6">
           <div className="flex items-center">
@@ -293,16 +320,16 @@ const SecurityDashboard = () => {
         {renderLeaveDetail(selectedSubmission)}
 
         {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-6 print:bg-transparent print:border-gray-300 print:rounded-none ${
+          <div className={`mb-4 rounded-xl border p-3.5 print:rounded-none print:border-gray-300 print:bg-transparent ${
             selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'
           }`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Approver Remarks / Ulasan Pelulus</p>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Approver Remarks</p>
             <p className="text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
           </div>
         )}
 
         {!(canApprove || isOnLeave) && !["pending", "approved_hos"].includes(selectedSubmission.status) && (
-          <div className="p-4 rounded-xl text-center print:hidden bg-muted/30">
+          <div className="rounded-xl border border-border/60 bg-background p-3.5 text-center shadow-sm print:hidden">
             <p className="text-sm text-muted-foreground font-medium">
               {selectedSubmission.status === "approved" ? "This Gate Pass has been completed." :
                selectedSubmission.status === "rejected" ? "This Gate Pass was rejected." :
@@ -312,8 +339,8 @@ const SecurityDashboard = () => {
         )}
 
         {["pending", "approved_hos"].includes(selectedSubmission.status) && (
-          <div className="p-4 bg-muted/30 rounded-xl text-center print:hidden">
-            <div className="flex flex-col items-center justify-center gap-4">
+          <div className="rounded-xl border border-border/60 bg-background p-4 text-center shadow-sm print:hidden">
+            <div className="flex flex-col items-center justify-center gap-3">
               <p className="text-sm text-muted-foreground font-medium">
                 {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
                  "Pending HOD approval."}
@@ -333,10 +360,10 @@ const SecurityDashboard = () => {
         )}
 
         {canApprove && (
-          <div className="card-elevated p-6 mt-6">
-            <h3 className="font-bold text-foreground text-lg mb-4">Log Employee Exit</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+          <div className="mt-4 rounded-xl border border-border/60 bg-background p-4 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-5">
+            <h3 className="mb-3 text-base font-bold text-foreground sm:text-lg">Log Employee Exit</h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label className="text-xs font-semibold text-primary">Actual Time Out</Label>
                   <Input type="time" value={securityLog.actualTimeOut} onChange={e => setSecurityLog(p => ({...p, actualTimeOut: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" required />
@@ -347,17 +374,17 @@ const SecurityDashboard = () => {
                 </div>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
-                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..." className="h-11 mt-1" />
+                <Label className="text-xs font-semibold text-primary">Remarks</Label>
+                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Enter remarks if any..." className="h-11 mt-1" />
               </div>
-              <div className="flex gap-4 pt-4 border-t border-border">
-                <button onClick={() => handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors">REJECT</button>
+              <div className="flex flex-col-reverse gap-3 border-t border-border pt-3 sm:flex-row">
+                <button onClick={() => handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 rounded-xl bg-destructive px-6 py-3 text-center font-bold text-white transition-all hover:bg-destructive/90 active:scale-[0.99]">REJECT</button>
                 <button onClick={() => {
                   const timePart = securityLog.actualTimeOut; // HH:MM from time input
                   const datePart = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
                   const fullDateTime = `${datePart} ${timePart}`;
                   handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: fullDateTime, vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
-                }} className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-center hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" disabled={!securityLog.actualTimeOut}>
+                }} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-center font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" disabled={!securityLog.actualTimeOut}>
                   <LogOut className="h-4 w-4" /> CONFIRM EXIT
                 </button>
               </div>
@@ -366,35 +393,27 @@ const SecurityDashboard = () => {
         )}
 
         {isOnLeave && (
-          <div className="card-elevated p-6 mt-6">
-            <h3 className="font-bold text-foreground text-lg mb-4">Log Employee Entry</h3>
-            <div className="space-y-4">
-              <div className="bg-muted/20 p-3 sm:p-4 rounded-lg border border-border/50 flex mb-2">
-                <div className="flex-1 border-r border-border/50 pr-3 sm:pr-4">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider">LOGGED OUT AT</p>
-                  <p className="text-xs sm:text-sm font-semibold text-foreground mt-0.5">{selectedSubmission.data.securityLog?.actualTimeOut || 'N/A'}</p>
-                </div>
-                <div className="flex-1 pl-3 sm:pl-4">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider">VEHICLE NO.</p>
-                  <p className="text-xs sm:text-sm font-semibold text-foreground mt-0.5">{selectedSubmission.data.securityLog?.vehicleNo || 'N/A'}</p>
-                </div>
-              </div>
+          <div className="mt-4 rounded-xl border border-border/60 bg-background p-4 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-5">
+            <h3 className="mb-3 text-base font-bold text-foreground sm:text-lg">Log Employee Entry</h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
               <div>
                 <Label className="text-xs font-semibold text-primary">Actual Time In</Label>
                 <Input type="time" value={securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)} onChange={e => setSecurityLog(p => ({...p, actualTimeIn: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" />
               </div>
               <div>
-                <Label className="text-xs font-semibold text-primary">Remarks / Ulasan</Label>
-                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..." className="h-11 mt-1" />
+                <Label className="text-xs font-semibold text-primary">Remarks</Label>
+                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Enter remarks if any..." className="h-11 mt-1" />
               </div>
-              <div className="pt-4 border-t border-border">
+              </div>
+              <div className="border-t border-border pt-3">
                 <button 
                   onClick={() => {
                     const timePart = securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5);
                     const timeInWithDate = `${new Date().toLocaleDateString('en-GB')} ${timePart}`;
                     handleAction(selectedSubmission.id, "approved", { actualTimeIn: timeInWithDate, remarks: securityLog.remarks });
                   }} 
-                  className="w-full px-6 py-3 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#57D51B] px-6 py-3 text-center font-bold text-white transition-all hover:bg-[#49BD16] active:scale-[0.99]"
                 >
                   <LogIn className="h-4 w-4" /> CONFIRM ENTRY & COMPLETE
                 </button>
@@ -403,11 +422,14 @@ const SecurityDashboard = () => {
           </div>
         )}
 
+        <ApprovalOverview submission={selectedSubmission} />
+
         {/* Print Footer */}
         <div className="hidden print:block mt-12 text-center text-xs text-gray-400">
           <p>This is computer generated and no signature is required.</p>
         </div>
         </div>
+      </div>
       </div>
     );
   }
@@ -415,78 +437,58 @@ const SecurityDashboard = () => {
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Security Dashboard / Papan Pemuka Keselamatan</h1>
+        <h1 className="text-2xl font-bold text-foreground">Security Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">Review and approve all incoming Gate Pass requests.</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card-elevated border-l-4 border-l-blue-500 p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Total Submissions</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-400">
-              <FileText className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-foreground">{stats.total > 0 ? `${stats.total}` : "0"}</p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-amber-500 p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Action Required</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-foreground">{stats.actionRequired}</p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-indigo-500 p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Currently On Leave</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-400">
-              <LogOut className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-foreground">{stats.onLeave}</p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-emerald-500 p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Approval Rate</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-              <CheckCircle className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-foreground">{stats.approvalRate}%</p>
-        </div>
-      </div>
-
       {/* Action Tabs */}
-      <div className="card-elevated p-4 sm:p-5 mb-4">
-        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Gate Passes</p>
-        <div className="flex w-full sm:w-fit items-center overflow-x-auto no-scrollbar rounded-lg border border-border bg-muted/40 p-1">
-          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "action_required" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+      <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+        <p className="mb-3 text-sm font-bold text-foreground">Filter Gate Passes</p>
+        <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
+          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "action_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             Action Required
             {stats.actionRequired > 0 && (
-              <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.actionRequired}</Badge>
+              <Badge className="h-6 min-w-6 justify-center border-0 bg-red-500 px-1.5 text-xs text-white hover:bg-red-500">{stats.actionRequired}</Badge>
             )}
           </button>
-          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-          <button onClick={() => { setActiveTab("on_leave"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "on_leave" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+          <button onClick={() => { setActiveTab("on_leave"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "on_leave" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             On Leave
             {stats.onLeave > 0 && (
-              <Badge className="h-5 min-w-5 justify-center border-0 bg-indigo-500 px-1.5 text-[10px] text-white hover:bg-indigo-500">{stats.onLeave}</Badge>
+              <Badge className="h-6 min-w-6 justify-center border-0 bg-indigo-500 px-1.5 text-xs text-white hover:bg-indigo-500">{stats.onLeave}</Badge>
             )}
           </button>
-          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "in_progress" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             In Progress
             {stats.inProgress > 0 && (
-              <Badge className="h-5 min-w-5 justify-center border-0 bg-amber-500 px-1.5 text-[10px] text-white hover:bg-amber-500">{stats.inProgress}</Badge>
+              <Badge className="h-6 min-w-6 justify-center border-0 bg-muted-foreground/20 px-1.5 text-xs text-muted-foreground hover:bg-muted-foreground/20">{stats.inProgress}</Badge>
             )}
           </button>
-          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "history" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             History
           </button>
+        </div>
+        <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:shrink-0">
+          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Action Required</p>
+            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.actionRequired}</p>
+          </div>
+          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">On Leave</p>
+            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.onLeave}</p>
+          </div>
+          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Approval Rate</p>
+            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.approvalRate}%</p>
+          </div>
+          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Total</p>
+            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.total}</p>
+          </div>
+        </div>
         </div>
       </div>
 
@@ -496,12 +498,12 @@ const SecurityDashboard = () => {
           {activeTab === 'history' ? (
             <div>
               <h2 className="text-lg font-bold text-foreground">Submission History</h2>
-              <div className="flex bg-muted p-1 rounded-lg w-fit mt-2">
+              <div className="mt-2 flex w-fit rounded-lg bg-muted p-1">
                 {(['approved', 'rejected'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => { setHistoryFilter(tab); setIsViewAll(false); }}
-                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    className={`min-h-10 rounded-md px-4 py-2 text-sm font-bold transition-all ${
                       historyFilter === tab
                         ? "bg-background shadow-sm text-primary"
                         : "text-muted-foreground hover:text-foreground"
@@ -513,15 +515,15 @@ const SecurityDashboard = () => {
               </div>
             </div>
           ) : (
-            <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
+            <h2 className="text-lg font-bold text-foreground">Recent Submissions</h2>
           )}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search by name, date, or type..." 
+              placeholder="Search reference number or employee..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
-              className="pl-9 w-full sm:w-72 h-9 text-sm" 
+              className="h-11 w-full pl-9 text-sm sm:w-80" 
             />
           </div>
         </div>
@@ -533,19 +535,22 @@ const SecurityDashboard = () => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto sm:block">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">ID</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Reference Number</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Status / Status</TableHead>
+                  {activeTab === "on_leave" && (
+                    <TableHead className="text-xs font-bold uppercase tracking-wider">Actual Time Out</TableHead>
+                  )}
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-            {(isViewAll ? tabFiltered : tabFiltered.slice(0, 10)).map((sub) => {
+            {visibleSubmissions.map((sub) => {
               const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
               return (
                 <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
@@ -568,12 +573,17 @@ const SecurityDashboard = () => {
                         <span className="text-xs text-muted-foreground/80">{new Date(sub.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                       </div>
                     </TableCell>
+                    {activeTab === "on_leave" && (
+                      <TableCell className="whitespace-nowrap text-sm font-semibold text-foreground">
+                        {sub.data.securityLog?.actualTimeOut || "—"}
+                      </TableCell>
+                    )}
                     <TableCell>{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
                       <button
                         onClick={() => setSelectedSubmission(sub)}
-                        className={`rounded-lg px-3 py-2 text-xs sm:text-sm font-bold transition-colors print:hidden ${
-                          sub.status === "approved_manco" || activeTab === "in_progress" || activeTab === "history"
+                        className={`min-h-11 min-w-[8rem] rounded-lg px-5 py-2.5 text-[15px] font-bold transition-all hover:shadow-sm active:scale-[0.98] print:hidden ${
+                          sub.status === "approved_manco" || sub.status === "on_leave" || activeTab === "in_progress" || activeTab === "history"
                             ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
                             : "text-foreground hover:bg-muted hover:text-primary"
                         }`}
@@ -586,6 +596,46 @@ const SecurityDashboard = () => {
             })}
               </TableBody>
             </Table>
+            </div>
+            <div className="divide-y divide-border/60 sm:hidden">
+              {visibleSubmissions.map(sub => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setSelectedSubmission(sub)}
+                  className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${
+                    activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
+                  }`}
+                >
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
+                      <p className="mt-0.5 text-xs font-medium text-primary">{generateRefNo(sub)}</p>
+                    </div>
+                    {statusBadge(sub.status)}
+                  </div>
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0 text-xs text-muted-foreground">
+                      <p>{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</p>
+                      <p className="text-[11px] text-muted-foreground/80">
+                        {new Date(sub.submittedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                      </p>
+                      {activeTab === "on_leave" && (
+                        <p className="mt-1 font-semibold text-foreground">
+                          Time out: {sub.data.securityLog?.actualTimeOut || "—"}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`flex min-h-11 shrink-0 items-center rounded-lg px-4 py-2.5 text-sm font-bold shadow-sm ${
+                      ["approved_manco", "on_leave"].includes(sub.status)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-primary/10 text-primary"
+                    }`}>
+                      {sub.status === "approved_manco" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>

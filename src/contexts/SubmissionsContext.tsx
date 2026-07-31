@@ -17,6 +17,7 @@ export type SubmissionStatus =
   | "completed"
   | "awaiting_confirmation"
   | "reopened"
+  | "voided"
   | "pending_finance_review";
 export type FormType = "car_rental" | "leave" | "claim" | "ppe_request" | "inventory_addition" | "waste_inventory" | "mixing_chemical_stages" | "final_discharge" | string;
 
@@ -45,6 +46,8 @@ export interface CarInfo {
   photosOut?: Record<string, string | null>;
   petrolCardOut?: boolean;
   petrolCardSerialOut?: string | null;
+  activeSubmissionId?: string | null;
+  activeSubmissionRefNo?: string | null;
   history?: any[];
   type?: string;
   imageUrl?: string;
@@ -71,6 +74,8 @@ type CarHistoryEntry = {
   photosIn: Record<string, string | null>;
   petrolCardOut?: boolean;
   petrolCardSerialOut?: string | null;
+  submissionId?: string | null;
+  submissionRefNo?: string | null;
 };
 
 interface SubmissionsContextType {
@@ -82,8 +87,10 @@ interface SubmissionsContextType {
   addSubmission: (sub: Omit<Submission, "id" | "submittedAt">) => Promise<boolean>;
   updateSubmissionStatus: (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>) => Promise<boolean>;
   updateSubmission: (id: string, dataToMerge?: Record<string, any>, status?: SubmissionStatus) => Promise<boolean>;
+  voidSubmission: (id: string, reason: string) => Promise<boolean>;
+  permanentlyDeleteSubmission: (id: string, reason: string) => Promise<boolean>;
   checkInCar: (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => Promise<boolean>;
-  checkOutCar: (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut?: boolean, petrolCardSerialOut?: string) => Promise<boolean>;
+  checkOutCar: (carId: string, submissionId: string, submissionRefNo: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut?: boolean, petrolCardSerialOut?: string) => Promise<boolean>;
   addCar: (car: CarInfo) => Promise<boolean>;
   deleteCar: (carId: string) => void;
   updateCar: (carId: string, updates: Partial<CarInfo>) => Promise<boolean>;
@@ -339,6 +346,40 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     return await updateSubmission(id, dataToMerge, status);
   }, [updateSubmission]);
 
+  const voidSubmission = useCallback(async (id: string, reason: string): Promise<boolean> => {
+    const { error } = await supabase.rpc("void_submission", { p_submission_id: id, p_reason: reason.trim() });
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+    await refreshSubmissions();
+    return true;
+  }, [refreshSubmissions]);
+
+  const permanentlyDeleteSubmission = useCallback(async (id: string, reason: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("permanently_delete_submission", { p_submission_id: id, p_reason: reason.trim() });
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+
+    const values = [data?.attachment, ...(Array.isArray(data?.attachments) ? data.attachments : [])]
+      .filter((value): value is string => typeof value === "string");
+    const marker = "/form-attachments/";
+    const paths = values.flatMap(value => {
+      const markerIndex = value.indexOf(marker);
+      if (markerIndex < 0) return [];
+      return [decodeURIComponent(value.slice(markerIndex + marker.length).split("?")[0])];
+    });
+    if (paths.length > 0) {
+      const { error: storageError } = await supabase.storage.from("form-attachments").remove([...new Set(paths)]);
+      if (storageError) console.warn("Submission deleted, but some attachments could not be removed:", storageError.message);
+    }
+
+    setSubmissions(previous => previous.filter(submission => submission.id !== id));
+    return true;
+  }, []);
+
 const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLevelIn: string, remarks: string, photosIn: Record<string, string | null>, dateTimeIn: string) => {
     const carToCheckIn = cars.find(c => c.id === carId);
     if (!carToCheckIn) {
@@ -364,6 +405,8 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       photosIn: photosIn,
       petrolCardOut: carToCheckIn.petrolCardOut,
       petrolCardSerialOut: carToCheckIn.petrolCardSerialOut,
+      submissionId: carToCheckIn.activeSubmissionId,
+      submissionRefNo: carToCheckIn.activeSubmissionRefNo,
     };
 
     const updatedHistory = [newHistoryEntry, ...(carToCheckIn.history || [])];
@@ -378,6 +421,8 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       photosOut: null,
       petrolCardOut: null,
       petrolCardSerialOut: null,
+      activeSubmissionId: null,
+      activeSubmissionRefNo: null,
       currentFuelLevel: fuelLevelIn,
       history: updatedHistory,
     };
@@ -402,12 +447,22 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       return false;
     } else {
       setCars(prev => prev.map(c => c.id === carId ? { ...c, ...(data as CarInfo), currentFuelLevel: fuelLevelIn } : c));
+      if (carToCheckIn.activeSubmissionId) {
+        await updateSubmissionStatus(carToCheckIn.activeSubmissionId, "completed", {
+          carCheckoutStatus: "returned",
+          assignedCarId: carId,
+          assignedCarModel: carToCheckIn.model,
+          assignedCarPlateNumber: carToCheckIn.plateNumber,
+          checkedInAt: dateTimeIn,
+        });
+      }
       return true;
     }
-  }, [cars]); // Added `cars` here so the function always has the latest list!
+  }, [cars, updateSubmissionStatus]); // Keep the exact booking lifecycle synchronized with the vehicle.
 
-  const checkOutCar = useCallback(async (carId: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut = false, petrolCardSerialOut?: string) => {
-    const updates = { status: "checked_out" as const, lastCheckedOutBy: employeeName, lastCheckedOutAt: dateTimeOut || new Date().toISOString(), mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut, petrolCardOut, petrolCardSerialOut: petrolCardOut ? petrolCardSerialOut : null };
+  const checkOutCar = useCallback(async (carId: string, submissionId: string, submissionRefNo: string, employeeName: string, mileage?: string, fuelLevel?: string, remarksOut?: string, photosOut?: Record<string, string | null>, dateTimeOut?: string, petrolCardOut = false, petrolCardSerialOut?: string) => {
+    const checkedOutAt = dateTimeOut || new Date().toISOString();
+    const updates = { status: "checked_out" as const, activeSubmissionId: submissionId, activeSubmissionRefNo: submissionRefNo, lastCheckedOutBy: employeeName, lastCheckedOutAt: checkedOutAt, mileageOut: mileage, fuelLevelOut: fuelLevel, remarksOut: remarksOut, photosOut: photosOut, petrolCardOut, petrolCardSerialOut: petrolCardOut ? petrolCardSerialOut : null };
     const { data, error } = await supabase.from('cars').update(updates).eq('id', carId).eq('status', 'available').select().maybeSingle();
     if (error) {
       console.error("Error checking out car:", error);
@@ -418,9 +473,16 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
       return false;
     } else {
       setCars(prev => prev.map(c => c.id === carId ? { ...c, ...(data as CarInfo) } : c));
+      await updateSubmissionStatus(submissionId, "approved", {
+        carCheckoutStatus: "checked_out",
+        assignedCarId: carId,
+        assignedCarModel: (data as CarInfo).model,
+        assignedCarPlateNumber: (data as CarInfo).plateNumber,
+        checkedOutAt,
+      });
       return true;
     }
-  }, []);
+  }, [updateSubmissionStatus]);
 
   const addCar = useCallback(async (newCar: CarInfo) => {
     const { error } = await supabase.from('cars').insert([newCar]);
@@ -500,6 +562,7 @@ const checkInCar = useCallback(async (carId: string, mileageIn: string, fuelLeve
   return (
     <SubmissionsContext.Provider value={{ 
       submissions, refNoMap, cars, isLoading, refreshSubmissions, addSubmission, updateSubmissionStatus, updateSubmission,
+      voidSubmission, permanentlyDeleteSubmission,
       checkInCar, checkOutCar, addCar, deleteCar, updateCar,
       announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement
     }}>

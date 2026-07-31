@@ -275,6 +275,26 @@ const ProfilePage = () => {
     }
   };
 
+  const passwordMeetsMinimum = password.newPassword.length >= 6;
+  const confirmationEntered = password.confirmPassword.length > 0;
+  const passwordsMatch = confirmationEntered && password.newPassword === password.confirmPassword;
+  const passwordStrengthScore = password.newPassword
+    ? [
+        passwordMeetsMinimum,
+        password.newPassword.length >= 10,
+        /[A-Z]/.test(password.newPassword) && /[a-z]/.test(password.newPassword),
+        /\d/.test(password.newPassword) || /[^A-Za-z0-9]/.test(password.newPassword),
+      ].filter(Boolean).length
+    : 0;
+  const passwordStrength =
+    passwordStrengthScore <= 1
+      ? { label: "Weak", color: "bg-destructive", textColor: "text-destructive" }
+      : passwordStrengthScore <= 2
+        ? { label: "Fair", color: "bg-amber-500", textColor: "text-amber-600 dark:text-amber-400" }
+        : passwordStrengthScore === 3
+          ? { label: "Good", color: "bg-cyan-500", textColor: "text-cyan-600 dark:text-cyan-400" }
+          : { label: "Strong", color: "bg-emerald-500", textColor: "text-emerald-600 dark:text-emerald-400" };
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-5">
@@ -293,9 +313,9 @@ const ProfilePage = () => {
               </button>
               
               <div className="flex items-start sm:items-center justify-between gap-4 mb-8">
-                <div className="flex items-center gap-5">
-                <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-amber-400 p-1 shadow-lg shadow-primary/20">
-                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-background text-2xl font-bold text-primary dark:border-background">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+                <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-cyan-400 p-0.5 shadow-lg shadow-primary/15 sm:h-24 sm:w-24">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-muted/70 text-2xl font-bold text-primary dark:border-background">
                   {user?.avatar ? (
                     <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -311,7 +331,7 @@ const ProfilePage = () => {
                   </div>
                 </div>
                 
-                <button onClick={() => setIsEditing(true)} className="sm:hidden flex items-center justify-center p-2.5 bg-muted/60 text-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors border border-border/50 shadow-sm shrink-0 mt-1" title="Edit Profile">
+                <button onClick={() => setIsEditing(true)} className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/60 text-foreground shadow-sm transition-colors hover:bg-primary/10 hover:text-primary sm:hidden" title="Edit Profile" aria-label="Edit profile">
                   <Pencil className="h-4 w-4" />
                 </button>
               </div>
@@ -327,7 +347,7 @@ const ProfilePage = () => {
                 <div className="md:col-span-2 border-b border-border/60 pb-2 pt-1">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Employment & Contact</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Staff ID</p>
                   <p className="text-sm font-medium text-foreground flex items-center gap-2"><IdCard className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.employeeId || <span className="text-muted-foreground italic">Not set</span>}</p>
                 </div>
@@ -372,16 +392,18 @@ const ProfilePage = () => {
                 </div>
                 
                 <div className="flex items-center gap-5 mb-6">
-                  <div className="relative group w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xl font-bold shadow-md overflow-hidden flex-shrink-0 border-[3px] border-primary/20">
-                    {previewUrl ? (
-                      <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      getInitials(profile.name)
-                    )}
-                    <label className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-[2px]">
-                      <Camera className="h-6 w-6" />
-                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={isProfileSaving} />
-                    </label>
+                  <div className="group flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-cyan-400 p-0.5 shadow-lg shadow-primary/15">
+                    <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-muted/70 text-2xl font-bold text-primary dark:border-background">
+                      {previewUrl ? (
+                        <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        getInitials(profile.name)
+                      )}
+                      <label className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/40 text-white opacity-0 backdrop-blur-[2px] transition-opacity group-hover:opacity-100">
+                        <Camera className="h-6 w-6" />
+                        <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={isProfileSaving} />
+                      </label>
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Profile Photo</p>
@@ -456,12 +478,19 @@ const ProfilePage = () => {
         </div>
 
         {/* Right side: Password form */}
-        <div className="xl:sticky xl:top-6 xl:self-start">
+        <div className={`${isEditing ? "hidden xl:block" : ""} xl:sticky xl:top-6 xl:self-start`}>
           <form onSubmit={handlePasswordSubmit}>
             <div className="card-elevated p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <KeyRound className="h-5 w-5 text-primary" />
-                <h2 className="font-bold text-foreground text-lg">Change Password</h2>
+              <div className="flex items-start gap-3 mb-5">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-foreground text-lg">Change Password</h2>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    Use a secure password you do not use elsewhere.
+                  </p>
+                </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-1.5">
@@ -491,7 +520,28 @@ const ProfilePage = () => {
                       {visiblePasswords.next ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Use at least 6 characters.</p>
+                  {password.newPassword && (
+                    <div className="space-y-1.5 pt-1" aria-live="polite">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Password strength</span>
+                        <span className={`font-semibold ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                        {[1, 2, 3, 4].map(level => (
+                          <span
+                            key={level}
+                            className={`h-1.5 rounded-full transition-colors ${
+                              level <= passwordStrengthScore ? passwordStrength.color : "bg-muted"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className={`flex items-center gap-1.5 text-xs ${passwordMeetsMinimum ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${passwordMeetsMinimum ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
+                    At least 6 characters
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Confirm New Password <span className="text-destructive">*</span></Label>
@@ -501,6 +551,19 @@ const ProfilePage = () => {
                       {visiblePasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {confirmationEntered && (
+                    <p
+                      className={`flex items-center gap-1.5 text-xs font-medium ${
+                        passwordsMatch
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-destructive"
+                      }`}
+                      aria-live="polite"
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${passwordsMatch ? "bg-emerald-500" : "bg-destructive"}`} />
+                      {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="mt-6 border-t border-border pt-4 flex justify-end">

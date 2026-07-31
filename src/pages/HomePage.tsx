@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers } from "@/contexts/UsersContext";
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
-import { Users, DollarSign, FileText, CheckCircle, XCircle, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog } from "lucide-react";
+import { Users, DollarSign, FileText, FileCheck2, XCircle, FileX2, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/supabase";
 
@@ -216,15 +216,99 @@ const HomePage = () => {
       )}
       {/* User Profile Card */}
       <div className="relative mb-8 overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-lg shadow-primary/5">
-        {/* Decorative background elements */}
-        <div className="absolute -top-16 -right-16 w-48 h-48 border-2 border-primary/10 rounded-full opacity-50" />
-        <div className="absolute -top-10 -right-10 w-32 h-32 border border-primary/10 rounded-full opacity-75" />
+        {/* Digital network background */}
+        <svg aria-hidden="true" viewBox="0 0 1200 330" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block" fill="none">
+          <defs>
+            <linearGradient id="profile-network-line" x1="0" y1="0" x2="1200" y2="250" gradientUnits="userSpaceOnUse">
+              <stop stopColor="hsl(var(--primary))" stopOpacity="0.24" />
+              <stop offset="0.38" stopColor="hsl(var(--primary))" stopOpacity="0.11" />
+              <stop offset="1" stopColor="hsl(var(--primary))" stopOpacity="0.045" />
+            </linearGradient>
+            <filter id="profile-network-node-glow" x="-200%" y="-200%" width="500%" height="500%">
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g stroke="url(#profile-network-line)" strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
+            <path d="M0 82L36 44L82 67L51 118L94 151L56 192L113 218L157 176L188 222" />
+            <path d="M36 44L51 118M82 67L51 118L94 151M56 192L94 151L113 218M113 218L157 176" />
+            <path d="M82 67L132 31L171 73L142 126L201 145L229 96L278 124L322 75L367 112" />
+            <path d="M132 31L142 126M171 73L142 126L201 145M201 145L229 96L278 124M229 96L322 75M278 124L322 75L367 112" />
+            <path d="M157 176L217 204L278 172L337 211L403 177L464 219L530 184L596 226" />
+            <path d="M188 222L217 204M278 124L278 172M337 211L367 112M403 177L367 112M464 219L495 145M530 184L495 145" />
+            <path d="M367 112L432 82L495 145L575 91L660 46L735 88L815 57L892 110L977 72L1058 134L1198 88" />
+            <path d="M495 145L552 190L628 166L684 220L756 174L826 205L914 154L1004 198L1092 151L1198 188" />
+            <path d="M432 82L403 177M495 145L530 184M575 91L628 166M660 46L684 220M735 88L756 174M815 57L826 205M892 110L914 154M977 72L1004 198M1058 134L1092 151" />
+            <path d="M0 247L72 216L143 259L214 226L288 270L361 232L438 275L514 236L606 286L684 220L781 268L826 205L934 276L1004 198L1109 253L1198 188" opacity="0.42" />
+            <path d="M217 278L301 246L381 285L464 248L548 292L644 259L733 304L834 264L947 306L1042 270L1134 299" opacity="0.5" />
+          </g>
+          <g className="fill-cyan-600 dark:fill-cyan-300">
+            <circle cx="36" cy="44" r="1.7" opacity="0.45" />
+            <circle cx="82" cy="67" r="2.2" opacity="0.7" filter="url(#profile-network-node-glow)" />
+            <circle cx="51" cy="118" r="1.8" opacity="0.55" />
+            <circle cx="94" cy="151" r="2.4" opacity="0.75" filter="url(#profile-network-node-glow)" />
+            <circle cx="56" cy="192" r="1.5" opacity="0.4" />
+            <circle cx="113" cy="218" r="1.8" opacity="0.5" />
+            <circle cx="132" cy="31" r="1.5" opacity="0.4" />
+            <circle cx="171" cy="73" r="2" opacity="0.6" />
+            <circle cx="142" cy="126" r="2.2" opacity="0.65" />
+            <circle cx="201" cy="145" r="1.8" opacity="0.5" />
+            <circle cx="229" cy="96" r="1.6" opacity="0.42" />
+            <circle cx="278" cy="124" r="1.8" opacity="0.45" />
+            <circle cx="322" cy="75" r="1.5" opacity="0.35" />
+            <circle cx="367" cy="112" r="1.8" opacity="0.4" />
+            <circle cx="403" cy="177" r="1.4" opacity="0.3" />
+            <circle cx="495" cy="145" r="1.7" opacity="0.35" />
+            <circle cx="575" cy="91" r="1.4" opacity="0.25" />
+            <circle cx="660" cy="46" r="1.5" opacity="0.27" />
+            <circle cx="684" cy="220" r="1.7" opacity="0.3" />
+            <circle cx="756" cy="174" r="1.4" opacity="0.22" />
+            <circle cx="815" cy="57" r="1.6" opacity="0.26" />
+            <circle cx="914" cy="154" r="1.4" opacity="0.2" />
+            <circle cx="1004" cy="198" r="1.6" opacity="0.23" />
+            <circle cx="1058" cy="134" r="1.4" opacity="0.2" />
+            <circle cx="1109" cy="253" r="1.5" opacity="0.21" />
+            <circle cx="143" cy="259" r="1.3" opacity="0.2" />
+            <circle cx="288" cy="270" r="1.4" opacity="0.22" />
+            <circle cx="438" cy="275" r="1.3" opacity="0.19" />
+            <circle cx="592" cy="281" r="1.4" opacity="0.21" />
+            <circle cx="751" cy="286" r="1.3" opacity="0.18" />
+            <circle cx="913" cy="289" r="1.4" opacity="0.2" />
+            <circle cx="1083" cy="294" r="1.3" opacity="0.17" />
+          </g>
+        </svg>
+        <svg aria-hidden="true" viewBox="0 0 360 620" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full sm:hidden" fill="none">
+          <g stroke="hsl(var(--primary))" strokeOpacity="0.13" strokeWidth="0.7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
+            <path d="M0 74L38 35L81 61L52 113L97 146L61 190L112 219L154 181L198 224L246 188L302 229L359 197" />
+            <path d="M38 35L52 113M81 61L52 113L97 146M61 190L97 146L112 219M112 219L154 181M154 181L198 224M198 224L246 188M246 188L302 229" />
+            <path d="M0 362L54 322L108 369L166 331L222 383L283 342L360 391" opacity="0.55" />
+            <path d="M0 438L51 407L105 449L161 414L218 458L278 421L360 466" opacity="0.42" />
+            <path d="M18 515L78 474L142 526L207 482L271 538L344 493" opacity="0.35" />
+          </g>
+          <g className="fill-cyan-600 dark:fill-cyan-300">
+            <circle cx="38" cy="35" r="1.6" opacity="0.35" />
+            <circle cx="81" cy="61" r="2" opacity="0.55" />
+            <circle cx="52" cy="113" r="1.8" opacity="0.45" />
+            <circle cx="97" cy="146" r="2.2" opacity="0.6" />
+            <circle cx="61" cy="190" r="1.5" opacity="0.32" />
+            <circle cx="112" cy="219" r="1.7" opacity="0.38" />
+            <circle cx="198" cy="224" r="1.5" opacity="0.28" />
+            <circle cx="54" cy="322" r="1.4" opacity="0.22" />
+            <circle cx="166" cy="331" r="1.5" opacity="0.24" />
+            <circle cx="283" cy="342" r="1.4" opacity="0.2" />
+            <circle cx="105" cy="449" r="1.3" opacity="0.2" />
+            <circle cx="218" cy="458" r="1.4" opacity="0.22" />
+            <circle cx="278" cy="421" r="1.3" opacity="0.18" />
+            <circle cx="142" cy="526" r="1.4" opacity="0.18" />
+            <circle cx="271" cy="538" r="1.3" opacity="0.16" />
+          </g>
+        </svg>
 
         {/* Main content, positioned above the decorative elements */}
         <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
           <div className="relative shrink-0 pb-3">
-            <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-amber-400 p-1 shadow-xl shadow-primary/20">
-              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-background text-3xl font-bold text-primary dark:border-background">
+            <div className="relative z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full bg-gradient-to-br from-primary via-blue-500 to-cyan-400 p-0.5 shadow-lg shadow-primary/15">
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border-[1.5px] border-white bg-muted/70 text-3xl font-bold text-primary dark:border-background">
                 {user?.avatar ? (
                   <img src={user.avatar} alt={`${user?.name || "User"} profile`} className="h-full w-full object-cover" />
                 ) : (
@@ -232,7 +316,7 @@ const HomePage = () => {
                 )}
               </div>
             </div>
-            <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary shadow-md">
+            <div className="absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-background px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary shadow-md">
               <ShieldCheck className="h-3 w-3" />
               <span>{displayedRole}</span>
             </div>
@@ -254,27 +338,29 @@ const HomePage = () => {
         </div>
 
         {/* Submissions Overview Dashboard */}
-        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 mt-6 border-t border-border/50">
-          <div onClick={() => navigate("/submissions")} className="p-4 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-lg">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Total</p>
-              <p className="text-2xl font-bold text-foreground -mt-1">{stats.total}</p>
-            </div>
-          </div>
-          <div onClick={() => navigate("/submissions")} className="p-4 flex items-center gap-3 cursor-pointer hover:bg-emerald-500/10 transition-colors rounded-lg">
-            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <div>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Accepted</p>
-              <p className="text-2xl font-bold text-foreground -mt-1">{stats.accepted}</p>
-            </div>
-          </div>
-          <div onClick={() => navigate("/submissions")} className="p-4 flex items-center gap-3 cursor-pointer hover:bg-destructive/10 transition-colors rounded-lg">
-            <XCircle className="h-5 w-5 text-destructive dark:text-red-400" />
-            <div>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Rejected</p>
-              <p className="text-2xl font-bold text-foreground -mt-1">{stats.rejected}</p>
-            </div>
+        <div className="relative z-10 mt-5 flex justify-center sm:justify-end">
+          <div className="grid grid-cols-3 items-center divide-x divide-border/60">
+            <button type="button" onClick={() => navigate("/submissions")} aria-label="View total submissions" className="flex items-center gap-2 rounded-md border-l border-border/60 px-2 text-left transition-all duration-200 hover:-translate-y-px hover:bg-background/55 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 motion-reduce:transform-none motion-reduce:transition-none min-[360px]:px-3">
+              <FileText className="h-3.5 w-3.5 text-primary/75 max-[359px]:hidden" />
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Total</p>
+                <p className="text-lg font-bold leading-none tabular-nums text-foreground">{stats.total}</p>
+              </div>
+            </button>
+            <button type="button" onClick={() => navigate("/submissions")} aria-label="View accepted submissions" className="flex items-center gap-2 rounded-md px-2 text-left transition-all duration-200 hover:-translate-y-px hover:bg-background/55 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 motion-reduce:transform-none motion-reduce:transition-none min-[360px]:px-3">
+              <FileCheck2 className="h-3.5 w-3.5 text-emerald-600 max-[359px]:hidden dark:text-emerald-400" />
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Accepted</p>
+                <p className="text-lg font-bold leading-none tabular-nums text-foreground">{stats.accepted}</p>
+              </div>
+            </button>
+            <button type="button" onClick={() => navigate("/submissions")} aria-label="View rejected submissions" className="flex items-center gap-2 rounded-md px-2 text-left transition-all duration-200 hover:-translate-y-px hover:bg-background/55 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 motion-reduce:transform-none motion-reduce:transition-none min-[360px]:px-3">
+              <FileX2 className="h-3.5 w-3.5 text-destructive max-[359px]:hidden dark:text-red-400" />
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Rejected</p>
+                <p className="text-lg font-bold leading-none tabular-nums text-foreground">{stats.rejected}</p>
+              </div>
+            </button>
           </div>
         </div>
       </div>

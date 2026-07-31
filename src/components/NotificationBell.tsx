@@ -1,6 +1,18 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Check, Trash2, HandCoins, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import {
+  Bell,
+  Check,
+  Trash2,
+  HandCoins,
+  CheckCircle,
+  XCircle,
+  Clock3,
+  FileSearch,
+  Car,
+  Wrench,
+  ShieldCheck,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { getNotificationTarget } from "@/lib/notifications";
@@ -56,6 +68,30 @@ const getActionCopy = (notification: AppNotification) => {
       return { title: "Gate Pass Ready for Exit", message: `${employee}'s MANCO-approved Gate Pass is ready for Security.` };
     default:
       return { title: `${formLabel} Action`, message: `${employee}'s submission requires your action.` };
+  }
+};
+
+const getActionIcon = (notification: AppNotification) => {
+  const iconClassName = "h-4 w-4";
+
+  switch (notification.recipientType) {
+    case "finance_admin":
+      return notification.status === "approved_hof"
+        ? <HandCoins className={iconClassName} />
+        : <FileSearch className={iconClassName} />;
+    case "hr_admin":
+      return <Car className={iconClassName} />;
+    case "it_admin":
+      return <Wrench className={iconClassName} />;
+    case "security_guard":
+      return <ShieldCheck className={iconClassName} />;
+    case "hos":
+    case "hod":
+    case "manco_member":
+    case "head_of_purchasing":
+    case "head_of_finance":
+    default:
+      return <Clock3 className={iconClassName} />;
   }
 };
 
@@ -306,7 +342,7 @@ export function NotificationBell() {
                       >
                         <div className="flex items-start gap-3">
                           <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${notif.type === "action" ? "border border-border/60 bg-muted/70 text-muted-foreground shadow-sm backdrop-blur-sm" : notif.status === "rejected" ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
-                            {notif.type === "action" ? <AlertCircle className="h-4 w-4" /> : notif.status === "rejected" ? <XCircle className="h-4 w-4" /> : notif.status === "paid" ? <HandCoins className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                            {notif.type === "action" ? getActionIcon(notif) : notif.status === "rejected" ? <XCircle className="h-4 w-4" /> : notif.status === "paid" ? <HandCoins className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start gap-2">

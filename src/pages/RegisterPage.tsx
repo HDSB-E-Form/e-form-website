@@ -20,21 +20,25 @@ const RegisterPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
-  const passwordChecks = {
-    length: form.password.length >= 8,
-    lowercase: /[a-z]/.test(form.password),
-    uppercase: /[A-Z]/.test(form.password),
-    number: /\d/.test(form.password),
-    special: /[^A-Za-z0-9]/.test(form.password),
-  };
-  const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
-  const passwordStrength = form.password.length === 0
-    ? null
-    : passwordScore <= 2
-      ? { label: "Weak", color: "bg-destructive", text: "text-destructive", bars: 1 }
-      : passwordScore <= 4
-        ? { label: "Moderate", color: "bg-amber-500", text: "text-amber-600", bars: 2 }
-        : { label: "Strong", color: "bg-emerald-500", text: "text-emerald-600", bars: 3 };
+  const passwordMeetsMinimum = form.password.length >= 8;
+  const confirmationEntered = form.confirmPassword.length > 0;
+  const passwordsMatch = confirmationEntered && form.password === form.confirmPassword;
+  const passwordStrengthScore = form.password
+    ? [
+        passwordMeetsMinimum,
+        form.password.length >= 12,
+        /[A-Z]/.test(form.password) && /[a-z]/.test(form.password),
+        /\d/.test(form.password) || /[^A-Za-z0-9]/.test(form.password),
+      ].filter(Boolean).length
+    : 0;
+  const passwordStrength =
+    passwordStrengthScore <= 1
+      ? { label: "Weak", color: "bg-destructive", textColor: "text-destructive" }
+      : passwordStrengthScore <= 2
+        ? { label: "Fair", color: "bg-amber-500", textColor: "text-amber-600 dark:text-amber-400" }
+        : passwordStrengthScore === 3
+          ? { label: "Good", color: "bg-cyan-500", textColor: "text-cyan-600 dark:text-cyan-400" }
+          : { label: "Strong", color: "bg-emerald-500", textColor: "text-emerald-600 dark:text-emerald-400" };
 
   useEffect(() => {
     const wasDark = document.documentElement.classList.contains("dark");
@@ -43,7 +47,7 @@ const RegisterPage = () => {
     const fetchDepartments = async () => {
       const { data, error } = await supabase.from("departments").select("name").order("name");
       if (data) {
-        setDepartmentsList(data.map((d: any) => d.name));
+        setDepartmentsList(data.map(d => d.name));
       }
       if (error) setError("Unable to load departments. Please refresh and try again.");
       setIsLoadingDepartments(false);
@@ -174,24 +178,47 @@ const RegisterPage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="reg-password">Password <span className="text-destructive">*</span></Label>
                     <div className="relative"><LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="reg-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={e => handleChange("password", e.target.value)} placeholder="At least 8 characters" className="h-10 pl-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
+                    {form.password && (
+                      <div className="space-y-1.5 pt-1" aria-live="polite">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Password strength</span>
+                          <span className={`font-semibold ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                          {[1, 2, 3, 4].map(level => (
+                            <span
+                              key={level}
+                              className={`h-1.5 rounded-full transition-colors ${
+                                level <= passwordStrengthScore ? passwordStrength.color : "bg-muted"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <p className={`flex items-center gap-1.5 text-xs ${passwordMeetsMinimum ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${passwordMeetsMinimum ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
+                      At least 8 characters
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm Password <span className="text-destructive">*</span></Label>
                     <div className="relative"><LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input id="confirm-password" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password" value={form.confirmPassword} onChange={e => handleChange("confirmPassword", e.target.value)} placeholder="Confirm password" className="h-10 pl-10 pr-10 focus-visible:ring-blue-500 focus-visible:border-blue-500 transition-shadow" /><button type="button" aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"} onClick={() => setShowConfirmPassword(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showConfirmPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button></div>
+                    {confirmationEntered && (
+                      <p
+                        className={`flex items-center gap-1.5 text-xs font-medium ${
+                          passwordsMatch
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-destructive"
+                        }`}
+                        aria-live="polite"
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${passwordsMatch ? "bg-emerald-500" : "bg-destructive"}`} />
+                        {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {passwordStrength && (
-                  <div className="rounded-lg border border-border bg-muted/15 px-3 py-2" aria-live="polite">
-                    <div className="flex items-center gap-3">
-                      <p className="shrink-0 text-[11px] font-semibold text-foreground">Password strength</p>
-                      <div className="grid min-w-16 flex-1 grid-cols-3 gap-1">
-                        {[1, 2, 3].map(bar => <span key={bar} className={`h-1.5 rounded-full ${bar <= passwordStrength.bars ? passwordStrength.color : "bg-muted"}`} />)}
-                      </div>
-                      <p className={`shrink-0 text-[11px] font-bold ${passwordStrength.text}`}>{passwordStrength.label}</p>
-                    </div>
-                    <p className="mt-1 text-[10px] leading-4 text-muted-foreground">Use 8+ characters with uppercase, lowercase, number, and symbol.</p>
-                  </div>
-                )}
                 {error && <p className="text-destructive text-sm">{error}</p>}
                 <button 
                   type="submit" 

@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, User, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, Hash, MonitorCog } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -62,6 +62,7 @@ const securityNav = [
 const superAdminNav = [
   { title: "User Directory", url: "/admin/users", icon: Users },
   { title: "All Submissions", url: "/admin/submissions", icon: FileText },
+  { title: "System Settings", url: "/admin/settings", icon: Settings },
 ];
 
 const roleLabels: Record<UserRole, string> = {
@@ -103,15 +104,14 @@ const getAdminNav = (role?: UserRole) => {
 };
 
 export function AppSidebar() {
-  const { state, setOpenMobile } = useSidebar();
-  const collapsed = state === "collapsed";
+  const { state, setOpenMobile, isMobile } = useSidebar();
+  const collapsed = !isMobile && state === "collapsed";
   const { user, logout } = useAuth();
   const { submissions } = useSubmissions();
   const navigate = useNavigate(); 
   const { pathname } = useLocation();
 
   const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
-  const isSuperAdmin = user?.role === "super_admin";
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
@@ -244,6 +244,11 @@ export function AppSidebar() {
     navigate("/login");
   };
 
+  const handleNavigationClick = () => {
+    if (!isMobile) return;
+    window.setTimeout(() => setOpenMobile(false), 0);
+  };
+
   const getPendingCount = (item: { title: string; url: string }) => {
     if (item.url === "/admin/hr") return pendingCounts.hr;
     if (item.url === "/admin/finance") return pendingCounts.finance;
@@ -273,15 +278,21 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="gap-1">
               {mainNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title} className="h-9">
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-[15px] flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
-                      <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
+                  <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-8 rounded-lg p-0" : "h-11 rounded-xl p-0"}>
+                      <NavLink
+                        to={item.url}
+                        end
+                        onClick={handleNavigationClick}
+                        className={`relative flex h-full w-full touch-manipulation select-none items-center text-[14px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-8 justify-center rounded-lg border-0 p-0" : "min-h-11 rounded-xl border-l-2 border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`}
+                        activeClassName={collapsed ? "bg-sidebar-accent text-sidebar-primary font-semibold shadow-sm [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.08)] [&_svg]:text-sidebar-primary"}
+                      >
+                      <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 motion-reduce:transition-none ${collapsed ? '' : 'mr-3'}`} />
                         {!collapsed && (
-                          <div className="flex items-center gap-2">
-                            <span className="flex-1">{item.title}</span>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate">{item.title}</span>
                           </div>
                         )}
                     </NavLink>
@@ -296,19 +307,25 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Admin</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
+              <SidebarMenu className="gap-1">
                 {adminNav.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title} className="h-9">
-                      <NavLink to={item.url} end onClick={() => setOpenMobile?.(false)} className="relative hover:bg-sidebar-accent/50 text-[15px] flex items-center" activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary">
-                        <item.icon className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
+                    <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-8 rounded-lg p-0" : "h-11 rounded-xl p-0"}>
+                      <NavLink
+                        to={item.url}
+                        end
+                        onClick={handleNavigationClick}
+                        className={`relative flex h-full w-full touch-manipulation select-none items-center text-[14px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-8 justify-center rounded-lg border-0 p-0" : "min-h-11 rounded-xl border-l-2 border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`}
+                        activeClassName={collapsed ? "bg-sidebar-accent text-sidebar-primary font-semibold shadow-sm [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.08)] [&_svg]:text-sidebar-primary"}
+                      >
+                        <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 motion-reduce:transition-none ${collapsed ? '' : 'mr-3'}`} />
                         {collapsed && getPendingCount(item) > 0 && (
-                          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-label={`${getPendingCount(item)} pending items`} />
+                          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-label={`${getPendingCount(item)} pending items`} />
                         )}
                         {!collapsed && (
                           <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <span className="flex-1">{item.title}</span>
-                            {getPendingCount(item) > 0 && <Badge className="ml-auto h-5 min-w-5 rounded-full bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{getPendingCount(item)}</Badge>}
+                            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                            {getPendingCount(item) > 0 && <Badge className="ml-auto h-5 min-w-5 shrink-0 rounded-full border border-red-300/20 bg-red-500/90 px-1.5 text-[10px] font-semibold tabular-nums text-white shadow-sm hover:bg-red-500">{getPendingCount(item)}</Badge>}
                           </div>
                         )}
                       </NavLink>
@@ -319,18 +336,21 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className={collapsed ? "p-2" : "p-3"}>
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
-            <div className={`flex min-h-12 items-center py-1.5 text-sidebar-foreground ${collapsed ? "justify-center" : "px-2"}`}>
-              <Avatar className={`h-9 w-9 border border-white/20 ${collapsed ? "" : "mr-3"}`}>
-                <AvatarImage src={user?.avatar || undefined} alt={user?.name || "User profile"} className="object-cover" />
-                <AvatarFallback className="bg-sidebar-accent text-xs font-bold text-sidebar-foreground">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
+            <div className={`flex items-center rounded-xl border border-white/10 bg-sidebar-accent/20 text-sidebar-foreground ${collapsed ? "min-h-10 justify-center p-0" : "min-h-14 px-2.5 py-2"}`}>
+              <div className={`shrink-0 rounded-full bg-gradient-to-br from-sidebar-primary via-blue-400 to-cyan-300 p-[1.5px] shadow-sm shadow-sidebar-primary/20 ${collapsed ? "h-8 w-8" : "mr-3 h-9 w-9"}`}>
+                <Avatar className="h-full w-full border-0">
+                  <AvatarImage src={user?.avatar || undefined} alt={user?.name || "User profile"} className="object-cover" />
+                  <AvatarFallback className="bg-sidebar-accent text-xs font-bold text-sidebar-foreground">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-sm font-semibold">{user?.name || "User"}</span>
@@ -341,11 +361,10 @@ export function AppSidebar() {
               )}
             </div>
           </SidebarMenuItem>
-          <SidebarMenuItem aria-hidden="true" className="mx-2 my-1 border-t border-solid border-white/25" />
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign out" className="h-9">
-              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className="hover:bg-sidebar-accent/50 text-sidebar-foreground/80 hover:text-sidebar-foreground text-[15px]">
-                <LogOut className={`h-5 w-5 shrink-0 ${collapsed ? '' : 'mr-3'}`} />
+          <SidebarMenuItem className="mt-2">
+            <SidebarMenuButton asChild tooltip={collapsed ? "Sign out" : undefined} className={collapsed ? "mx-auto !size-8 rounded-lg p-0" : "!h-12 rounded-xl p-0"}>
+              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className={`flex w-full items-center text-[14px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-8 justify-center rounded-lg p-0" : "min-h-12 rounded-xl px-3 py-3"}`}>
+                <LogOut className={`h-[18px] w-[18px] shrink-0 ${collapsed ? '' : 'mr-3'}`} />
                 {!collapsed && <span>Sign out</span>}
               </button>
             </SidebarMenuButton>

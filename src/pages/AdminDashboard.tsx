@@ -3,12 +3,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, Printer, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
-import DashboardStatCard from "@/components/DashboardStatCard";
+import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
+import { Textarea } from "@/components/ui/textarea";
+import { appendApprovalRemark } from "@/lib/approvalRemarks";
+import EmployeeSummary from "@/components/EmployeeSummary";
+import ApprovalOverview from "@/components/ApprovalOverview";
+import VoidSubmissionControl from "@/components/VoidSubmissionControl";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -22,7 +27,7 @@ const formTypeLabels: Record<string, string> = {
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
+      return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
     case "approved_hof":
       return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
     case "approved_hop":
@@ -32,7 +37,11 @@ const statusBadge = (status: string) => {
     case "approved_hos":
       return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
     case "rejected":
-      return <Badge className="bg-destructive/15 text-destructive dark:text-red-400 border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
+      return <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
+    case "voided":
+      return <Badge className="border-0 bg-slate-500/15 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">Voided</Badge>;
+    case "completed":
+      return <Badge className="border-0 bg-[#57D51B] px-3 py-1 text-xs font-medium text-white hover:bg-[#57D51B]">Returned</Badge>;
     case "pending":
     default:
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOS</Badge>;
@@ -190,7 +199,7 @@ const AdminDashboard = () => {
   const tabFiltered = filtered.filter(s => {
     if (activeTab === "action_required") return s.status === "approved_hod";
     if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
-    if (activeTab === "history") return s.status === "approved" || s.status === "rejected";
+    if (activeTab === "history") return ["approved", "completed", "rejected", "voided"].includes(s.status);
     return true;
   });
 
@@ -200,6 +209,7 @@ const AdminDashboard = () => {
     inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
   };
+  const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
 
   const refNoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -234,6 +244,15 @@ const AdminDashboard = () => {
       remarks: remarks.trim(),
       rejectedStage: status === "rejected" ? "admin" : undefined,
       rejectedFromStatus: status === "rejected" ? currentSubmission?.status : undefined,
+      approvalRemarksHistory: appendApprovalRemark(currentSubmission?.data.approvalRemarksHistory, {
+        actorName: user?.name || "HR Admin",
+        actorRole: "HR Admin",
+        action: status === "rejected" ? "rejected" : "approved",
+        remark: remarks.trim(),
+      }),
+      hrAdminReviewedByName: user?.name || "HR Admin",
+      hrAdminReviewedById: user?.id || null,
+      hrAdminReviewedAt: new Date().toISOString(),
     };
     
     updateSubmissionStatus(id, status, updateData);
@@ -247,27 +266,31 @@ const AdminDashboard = () => {
 
     return (
       <>
-        <div className="flex items-center gap-3 mb-6">
+        <div className="mb-5 flex items-center justify-between gap-6">
+          <div className="flex min-w-0 items-center gap-3">
           <button onClick={() => { setSelectedSubmission(null); setRemarks(""); }} className="inline-flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 text-primary bg-primary/5 hover:bg-primary/10 hover:shadow-sm border border-primary/10 rounded-lg transition-all group">
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
           </button>
-          <h2 className="text-xl font-bold text-foreground">Review Submission / Semakan Permohonan</h2>
+          <h2 className="text-xl font-bold text-foreground">Review Submission</h2>
+          </div>
+          <VoidSubmissionControl submission={sub} onVoided={() => setSelectedSubmission(null)} variant="icon" />
         </div>
 
-        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">EMPLOYEE SUMMARY / MAKLUMAT PEKERJA</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50">
-          <p className="text-base sm:text-lg font-bold text-foreground">{sub.employeeName}</p>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1 mt-3">
-            Staff ID: {sub.data.staffId || sub.data.employeeInfo?.staffNo || sub.data.employeeInfo?.employeeNumber || sub.submittedBy || "—"}
-          </p>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">Department: {sub.department || "—"}</p>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-            Position: {sub.data.position || sub.data.employeeInfo?.position || "—"}
-          </p>
-        </div>
+        <EmployeeSummary
+          name={sub.employeeName}
+          staffId={sub.data.staffId || sub.data.employeeInfo?.staffNo || sub.data.employeeInfo?.employeeNumber || sub.submittedBy || "—"}
+          department={sub.department || "—"}
+          position={sub.data.position || sub.data.employeeInfo?.position || "—"}
+          additionalDetails={[
+            { label: "IC Number", value: sub.data.icNo },
+            { label: "Mobile Number", value: sub.data.mobileNumber },
+            { label: "Driving Licence Number", value: sub.data.drivingLicenseNo },
+          ]}
+          className="mb-5 [&>div]:bg-background"
+        />
 
-        <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">SUBMISSION SUMMARY / RINGKASAN PERMOHONAN</p>
-        <div className="bg-muted/30 rounded-xl p-5 mb-8 border border-border/50 space-y-0">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Submission Summary</p>
+        <div className="mb-5 space-y-0 rounded-xl border border-border/60 bg-background p-4 shadow-sm [&>div>div]:font-bold [&>div>span]:font-medium sm:p-5">
           <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start first:pt-0">
             <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Ref No</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{refNo}</div>
@@ -275,18 +298,6 @@ const AdminDashboard = () => {
 
           {sub.formType === 'car_rental' ? (
             <>
-              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">IC No.</span>
-                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.icNo || "—"}</div>
-              </div>
-              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Mobile Number</span>
-                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.mobileNumber || "—"}</div>
-              </div>
-              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License No.</span>
-                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.drivingLicenseNo || "—"}</div>
-              </div>
               <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Destination</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.destination || "—"}</div>
@@ -305,30 +316,30 @@ const AdminDashboard = () => {
                   {sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                 </div>
               </div>
-              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="hidden py-2 sm:py-4 border-b border-border/50 grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.hos || sub.data.hosName || "—"}</div>
               </div>
-              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+              <div className="hidden py-2 sm:py-4 border-b border-border/50 grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left break-words">{sub.data.hod || sub.data.hodName || "—"}</div>
               </div>
+
+              {sub.data.licenseAttachment && (
+                <div className="grid grid-cols-1 items-start gap-1 border-b border-border/50 py-2 sm:grid-cols-3 sm:gap-4 sm:py-4">
+                  <span className="mt-0.5 text-xs font-bold uppercase tracking-wider text-primary sm:text-sm">Driving Licence</span>
+                  <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline sm:col-span-2 sm:text-sm dark:text-blue-400 dark:hover:text-blue-300">
+                    <FileText className="h-4 w-4" /> View Licence
+                  </a>
+                </div>
+              )}
               
               {sub.data.passengers && sub.data.passengers.some((p: any) => p.name) && (
-                <div className="py-2 sm:py-4 border-b border-border/50 flex flex-col items-start gap-2">
+                <div className="flex flex-col items-start gap-2 py-2 sm:py-4">
                   <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold">Passengers</span>
                   <div className="w-full text-xs sm:text-sm font-medium text-foreground">
                     {renderValue(sub.data.passengers.filter((p: any) => p.name))}
                   </div>
-                </div>
-              )}
-
-              {sub.data.licenseAttachment && (
-                <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Driving License</span>
-                  <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2">
-                    <FileText className="h-4 w-4" /> View Document
-                  </a>
                 </div>
               )}
             </>
@@ -340,7 +351,7 @@ const AdminDashboard = () => {
                 if (key === 'companyDetails') formattedKey = 'Company Details';
                 if (key === 'personalDetails') formattedKey = 'Personal Details';
                 if (key === 'purposeType') formattedKey = 'Purpose Type';
-                if (key === 'licenseAttachment') formattedKey = 'Driving License Attachment';
+                if (key === 'licenseAttachment') formattedKey = 'Driving Licence Attachment';
 
                 if (value === null || value === undefined || value === "") return null;
                 if (Array.isArray(value) && value.length === 0) return null;
@@ -378,19 +389,15 @@ const AdminDashboard = () => {
     const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos";
 
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-        <div className="rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6 lg:p-8 dark:bg-card">
+      <div className="min-h-full bg-muted/30">
+      <div className="mx-auto max-w-5xl animate-in fade-in-5 slide-in-from-bottom-2 p-4 duration-300 sm:p-6 lg:p-7">
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-3 shadow-sm sm:p-4 lg:p-5">
         {isApprovalForm && renderFormDetails(selectedSubmission)}
 
-        {selectedSubmission.data.remarks && (
-          <div className={`p-4 rounded-xl border mb-6 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Previous Remarks / Ulasan Terdahulu</p>
-            <p className="text-xs sm:text-sm font-medium">"{selectedSubmission.data.remarks}"</p>
-          </div>
-        )}
+        <ApprovalRemarksHistory submission={selectedSubmission} />
 
         {isPending && !canApprove && isApprovalForm && (
-          <div className="p-4 bg-muted/30 rounded-xl text-center">
+          <div className="rounded-xl border border-border/60 bg-background p-4 text-center shadow-sm">
             <div className="flex flex-col items-center justify-center gap-4">
               <p className="text-sm text-muted-foreground font-medium">
                 {selectedSubmission.status === "pending" ? "Waiting for Head of Section (HOS) approval." :
@@ -399,11 +406,12 @@ const AdminDashboard = () => {
               </p>
               <div className="w-full max-w-md">
                 <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">HR Admin Action</p>
-                <Input
+                <Textarea
                   placeholder="Enter remarks if rejecting..."
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
-                  className="mb-3 h-11 bg-background"
+                  rows={3}
+                  className="mb-3 min-h-20 resize-y bg-background"
                 />
                 <button onClick={() => handleAction(selectedSubmission.id, "rejected")} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">REJECT SUBMISSION</button>
               </div>
@@ -413,26 +421,29 @@ const AdminDashboard = () => {
 
         {canApprove && isApprovalForm && (
           <>
-            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS / ULASAN</p>
-            <Input
-              placeholder="Please enter remarks if any / Sila masukkan ulasan jika ada..."
+            <div className="rounded-xl border border-border/60 bg-background p-4 shadow-sm sm:p-5">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">Remarks</p>
+            <Textarea
+              placeholder="Enter remarks if any..."
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
-              className="mb-8 h-12 bg-muted/20 text-base sm:text-sm"
+              rows={3}
+              className="mb-4 min-h-20 resize-y bg-muted/20 text-base sm:text-sm"
             />
             <div className="flex flex-row gap-3 sm:gap-4">
               <button
                 onClick={() => handleAction(selectedSubmission.id, "rejected")}
                 className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base"
               >
-                REJECT<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>TOLAK
+                REJECT
               </button>
               <button
                 onClick={() => handleAction(selectedSubmission.id, "approved")}
-                className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-emerald-500 text-white font-bold text-center hover:bg-emerald-600 transition-colors text-xs sm:text-base"
+                className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-[#57D51B] text-white font-bold text-center hover:bg-[#49BD16] transition-colors text-xs sm:text-base"
               >
-                APPROVE<br className="sm:hidden" /><span className="hidden sm:inline"> / </span>LULUS
+                APPROVE
               </button>
+            </div>
             </div>
           </>
         )}
@@ -444,7 +455,10 @@ const AdminDashboard = () => {
             </button>
           </div>
         )}
+
+        {isApprovalForm && <ApprovalOverview submission={selectedSubmission} />}
         </div>
+      </div>
       </div>
     );
   }
@@ -459,43 +473,56 @@ const AdminDashboard = () => {
       </div>
 
       <div className="animate-in slide-in-from-bottom-2 duration-700">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <DashboardStatCard label="Total Submissions" value={stats.total} icon={FileText} tone="blue" />
-            <DashboardStatCard label="Action Required" value={stats.actionRequired} icon={AlertCircle} tone="amber" />
-            <DashboardStatCard label="Approval Rate" value={`${stats.approvalRate}%`} icon={CheckCircle} tone="emerald" />
-          </div>
-
-          <div className="card-elevated p-4 sm:p-5 mb-4">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Approvals</p>
-            <div className="flex w-full sm:w-fit overflow-x-auto no-scrollbar rounded-lg border border-border/50 bg-muted/40 p-1">
-              <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "action_required" ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+          <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+            <p className="mb-3 text-sm font-bold text-foreground">Filter Approvals</p>
+            <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
+              <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "action_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
                 Action Required
                 {stats.actionRequired > 0 && (
-                  <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.actionRequired}</Badge>
+                  <Badge className="h-6 min-w-6 justify-center border-0 bg-red-500 px-1.5 text-xs text-white hover:bg-red-500">{stats.actionRequired}</Badge>
                 )}
               </button>
-              <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "in_progress" ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+              <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
                 In Progress
                 {stats.inProgress > 0 && (
-                  <Badge className="h-5 min-w-5 justify-center border-0 bg-amber-500 px-1.5 text-[10px] text-white hover:bg-amber-500">{stats.inProgress}</Badge>
+                  <Badge className="h-6 min-w-6 justify-center border-0 bg-muted-foreground/20 px-1.5 text-xs text-muted-foreground hover:bg-muted-foreground/20">{stats.inProgress}</Badge>
                 )}
               </button>
-              <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "history" ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}>
+              <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
                 History
               </button>
+            </div>
+            <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 xl:shrink-0">
+              <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Action Required</p>
+                <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.actionRequired}</p>
+              </div>
+              <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Approval Rate</p>
+                <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.approvalRate}%</p>
+              </div>
+              <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Total</p>
+                <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.total}</p>
+              </div>
+            </div>
             </div>
           </div>
 
           <div className="card-elevated overflow-hidden">
             <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-              <h2 className="text-lg font-bold text-foreground">Recent Submissions / Penyerahan Terkini</h2>
-              <div className="relative">
+              <h2 className="text-lg font-bold text-foreground">Recent Submissions</h2>
+              <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Search by employee name or date..." 
+                  placeholder="Search employee or date..." 
                   value={search} 
                   onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
-                  className="pl-9 w-full sm:w-72 h-9 text-base sm:text-sm" 
+                  className="h-11 w-full pl-9 text-sm sm:w-80" 
                 />
               </div>
             </div>
@@ -507,26 +534,26 @@ const AdminDashboard = () => {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="hidden overflow-x-auto sm:block">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/30 hover:bg-muted/40">
                         <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Ref No.</TableHead>
-                        <TableHead className="text-xs font-bold uppercase tracking-wider">Employee / Pekerja</TableHead>
-                        <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Submission Date</TableHead>
+                        <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Booking Date</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Status</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(isViewAll ? tabFiltered : tabFiltered.slice(0, 10)).map((sub) => {
+                      {visibleSubmissions.map((sub) => {
                         const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
                         return (
                           <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
                             <TableCell className="text-sm font-semibold text-primary whitespace-nowrap">{generateRefNo(sub)}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                {activeTab === "action_required" && <div className="w-1 h-10 rounded-full bg-primary" />}
                                 <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
                                   {avatarUrl ? (
                                     <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
@@ -541,13 +568,32 @@ const AdminDashboard = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-col items-start gap-1 whitespace-nowrap">
-                                <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                              <div className="flex flex-col items-start whitespace-nowrap">
+                                <span className="text-sm font-medium text-muted-foreground">
+                                  {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                                </span>
+                                <span className="mt-0.5 text-xs text-muted-foreground">
+                                  {new Date(sub.submittedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col items-start whitespace-nowrap">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {sub.data?.fromDate
+                                    ? new Date(sub.data.fromDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                                    : "—"}
+                                </span>
+                                {sub.data?.fromDate && (
+                                  <span className="mt-0.5 text-xs text-muted-foreground">
+                                    {new Date(sub.data.fromDate).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                  </span>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                             <TableCell className="text-center">
-                              <button onClick={() => setSelectedSubmission(sub)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 transition-colors whitespace-nowrap">
+                              <button onClick={() => setSelectedSubmission(sub)} className="min-h-11 min-w-[8rem] whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
                                 {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
                               </button>
                             </TableCell>
@@ -556,6 +602,35 @@ const AdminDashboard = () => {
                       })}
                     </TableBody>
                   </Table>
+                </div>
+                <div className="divide-y divide-border/60 sm:hidden">
+                  {visibleSubmissions.map(sub => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setSelectedSubmission(sub)}
+                      className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${
+                        activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
+                      }`}
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <p className="mt-0.5 text-xs font-medium text-primary">{generateRefNo(sub)}</p>
+                        </div>
+                        {statusBadge(sub.status)}
+                      </div>
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="text-xs text-muted-foreground">
+                          <p>Submitted: {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                          <p className="mt-1">Booking: {sub.data?.fromDate ? new Date(sub.data.fromDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}</p>
+                        </div>
+                        <span className="flex min-h-11 min-w-[7rem] shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm">
+                          {["pending", "approved_hos", "approved_hod"].includes(sub.status) ? "Review" : "Details"}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
                 <div className="flex items-center justify-between p-4 border-t border-border">
                   <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>

@@ -28,9 +28,11 @@ const ITApplicationRequestDetails = ({ submission, showEmployeeDetails = true }:
       {Object.entries(grouped).map(([module, moduleRights]) => <details key={module} className="group rounded-xl border border-border/70 bg-muted/10"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-bold text-foreground"><span>{module}</span><span className="flex shrink-0 items-center gap-2"><Badge className="border-0 bg-primary/10 text-primary">{moduleRights.length} rights</Badge><ChevronDown className="h-4 w-4 text-primary transition-transform group-open:rotate-180" /></span></summary><div className="space-y-2 border-t border-border/60 p-4">{moduleRights.map(right => <p key={right.id} className="text-sm text-foreground"><span className="mr-2 text-xs font-semibold text-muted-foreground">#{right.id}</span>{right.right}</p>)}</div></details>)}
     </div>}
 
+    {false && <>
     <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">Approval Routing</p>
     <Row label="Head of Section">{submission.data.hosName || "—"}</Row>
     <Row label="Head of Department">{submission.data.hodName || "—"}</Row>
+    </>}
   </div>;
 };
 
