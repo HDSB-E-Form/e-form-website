@@ -4,14 +4,13 @@ import { useSubmissions, type Submission, type SubmissionStatus } from "@/contex
 import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { renderValue } from "@/components/DataRenderer";
 import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
-import DashboardStatCard from "@/components/DashboardStatCard";
 import ApprovalOverview from "@/components/ApprovalOverview";
 import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
 import { Textarea } from "@/components/ui/textarea";
@@ -510,51 +509,49 @@ const ApproverDashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Approvals Dashboard</h1>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-        <DashboardStatCard label="Action Required" value={stats.actionRequired} icon={AlertCircle} tone="amber" />
-        <DashboardStatCard label="In Progress" value={stats.inProgress} icon={Clock} tone="indigo" />
-        <DashboardStatCard label="Resolved" value={stats.resolved} icon={CheckCircle} tone="emerald" />
-        <DashboardStatCard label="Total Assigned" value={stats.total} icon={FileText} tone="blue" />
-      </div>
-
-      <div className="card-elevated p-4 sm:p-5 mb-4">
-        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter Approvals</p>
-        <div className="flex w-full sm:w-fit max-w-full items-center overflow-x-auto no-scrollbar rounded-xl border border-black/25 bg-white/70 p-1.5 shadow-sm backdrop-blur-xl dark:border-white/25 dark:bg-white/10">
-          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "action_required" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+      <div className="animate-in slide-in-from-bottom-2 duration-700">
+      <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+        <p className="mb-3 text-sm font-bold text-foreground">Filter Approvals</p>
+        <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
+          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "action_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             Action Required
             {stats.actionRequired > 0 && (
-              <Badge className="h-5 min-w-5 justify-center border-0 bg-red-500 px-1.5 text-[10px] text-white hover:bg-red-500">{stats.actionRequired}</Badge>
+              <Badge className="h-6 min-w-6 justify-center border-0 bg-red-500 px-1.5 text-xs text-white hover:bg-red-500">{stats.actionRequired}</Badge>
             )}
           </button>
-          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "in_progress" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             In Progress
             {stats.inProgress > 0 && (
-              <Badge className="h-5 min-w-5 justify-center border-0 bg-amber-500 px-1.5 text-[10px] text-white hover:bg-amber-500">{stats.inProgress}</Badge>
+              <Badge className="h-6 min-w-6 justify-center border-0 bg-muted-foreground/20 px-1.5 text-xs text-muted-foreground hover:bg-muted-foreground/20">{stats.inProgress}</Badge>
             )}
           </button>
-          <span className="mx-2.5 h-6 w-px flex-shrink-0 bg-blue-900/55 dark:bg-blue-300/45" aria-hidden="true" />
-          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "history" ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/10"}`}>
+          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
             History
           </button>
+        </div>
+        <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:shrink-0">{[["Action Required", stats.actionRequired], ["In Progress", stats.inProgress], ["Resolved", stats.resolved], ["Total Assigned", stats.total]].map(([label, value]) => <div key={String(label)} className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm"><p className="text-[10px] font-semibold leading-tight text-muted-foreground">{label}</p><p className="mt-1 text-xl font-bold leading-none text-foreground">{value}</p></div>)}</div>
         </div>
       </div>
 
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Submissions</h2>
-          <div className="relative">
+          <h2 className="text-lg font-bold text-foreground">Recent Submissions</h2>
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Search by name, date, or type..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
-              className="pl-9 w-full sm:w-72 h-9 text-sm" 
+              className="h-11 w-full pl-9 text-sm sm:w-80"
             />
           </div>
         </div>
@@ -570,7 +567,7 @@ const ApproverDashboard = () => {
             <div className="hidden overflow-x-auto sm:block">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/30">
+                <TableRow className="bg-muted/30 hover:bg-muted/40">
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
@@ -614,7 +611,7 @@ const ApproverDashboard = () => {
                     </TableCell>
                     <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors whitespace-nowrap">
+                      <button onClick={() => setSelectedSubmission(sub)} className="min-h-11 min-w-[8rem] whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
                         View Details
                       </button>
                     </TableCell>
@@ -650,7 +647,7 @@ const ApproverDashboard = () => {
                       </span>
                     </span>
                   </div>
-                  <span className="mt-3 flex w-full items-center justify-center rounded-lg bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary">
+                  <span className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm">
                     {isActionRequiredForUser(sub) ? "Review" : "View Details"}
                   </span>
                 </button>
@@ -669,6 +666,7 @@ const ApproverDashboard = () => {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

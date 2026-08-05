@@ -1324,7 +1324,7 @@ const SuperAdminDashboard = () => {
 
       {/* Manage Permissions Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader className="pb-0">
             <SheetTitle className="text-xl font-bold text-foreground">Manage User</SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground pt-1">
@@ -1337,9 +1337,9 @@ const SuperAdminDashboard = () => {
           <div className="mt-6 space-y-6 px-1">
             <div>
               <p className="mb-3 text-xs font-bold tracking-wider text-primary">USER INFORMATION</p>
-              <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
-                <div className="flex items-center gap-3 border-b border-border/60 p-3.5">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold ${!selectedUser?.avatar ? getInitialColor(selectedUser?.name) : "bg-transparent"}`}>
+              <div className="relative overflow-hidden rounded-xl border border-border bg-muted/20">
+                <div className="flex items-center gap-3 border-b border-border/60 p-4 pr-24">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold ${!selectedUser?.avatar ? getInitialColor(selectedUser?.name) : "bg-transparent"}`}>
                     {selectedUser?.avatar ? <img src={selectedUser.avatar} alt={selectedUser.name} className="h-full w-full object-cover" /> : getInitials(selectedUser?.name)}
                   </div>
                   <div className="min-w-0">
@@ -1347,12 +1347,12 @@ const SuperAdminDashboard = () => {
                     <p className="truncate text-[11px] text-muted-foreground">{selectedUser?.email || "—"}</p>
                   </div>
                 </div>
-                <div className="border-b border-border/60 px-3.5 py-2">
+                <div className="absolute right-4 top-4">
                   <Badge className={`border-0 text-[9px] ${selectedUser?.status === "inactive" ? "bg-muted text-muted-foreground" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"}`}>
                     {selectedUser?.status === "inactive" ? "INACTIVE" : "ACTIVE"}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-3 p-3.5">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 p-4 min-[380px]:grid-cols-2">
                   {[
                     ["Staff ID", selectedUser?.employeeId],
                     ["Position", selectedUser?.position],
@@ -1360,8 +1360,8 @@ const SuperAdminDashboard = () => {
                     ["Phone", selectedUser?.phone],
                   ].map(([label, value]) => (
                     <div key={label} className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-                      <p className="mt-0.5 break-words text-[11px] font-semibold leading-snug text-foreground">{value || "—"}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+                      <p className="mt-1 break-words text-xs font-semibold leading-snug text-foreground">{value || "—"}</p>
                     </div>
                   ))}
                 </div>
@@ -1369,6 +1369,16 @@ const SuperAdminDashboard = () => {
             </div>
 
             <fieldset disabled={selectedUser?.status === "inactive"} className={`space-y-6 ${selectedUser?.status === "inactive" ? "opacity-65" : ""}`}>
+            <div>
+              <p className="mb-3 text-xs font-bold tracking-wider text-primary">DEPARTMENT</p>
+              <Select value={departmentsList.includes(editDepartment) ? editDepartment : undefined} onValueChange={setEditDepartment}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {departmentsList.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <p className="mb-3 text-xs font-bold tracking-wider text-primary">PRIMARY ROLE</p>
               <Select value={editRole} onValueChange={value => {
@@ -1381,12 +1391,12 @@ const SuperAdminDashboard = () => {
                   {ROLE_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{ROLE_OPTIONS.find(option => option.value === editRole)?.description}</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{ROLE_OPTIONS.find(option => option.value === editRole)?.description}</p>
             </div>
 
             <div>
               <p className="mb-1 text-xs font-bold tracking-wider text-primary">ADDITIONAL ACCESS</p>
-              <p className="mb-3 text-[11px] text-muted-foreground">A user may have multiple additional roles.</p>
+              <p className="mb-3 text-xs text-muted-foreground">A user may have multiple additional roles.</p>
               <Select onValueChange={(val) => {
                 if (val && !editSecondaryRoles.includes(val as UserRole)) {
                   setEditSecondaryRoles([...editSecondaryRoles, val as UserRole]);
@@ -1435,16 +1445,6 @@ const SuperAdminDashboard = () => {
             )}
 
             <fieldset disabled={selectedUser?.status === "inactive"} className={`space-y-6 ${selectedUser?.status === "inactive" ? "opacity-65" : ""}`}>
-            <div>
-              <p className="text-xs font-bold text-primary tracking-wider mb-3">CHANGE DEPARTMENT</p>
-              <Select value={departmentsList.includes(editDepartment) ? editDepartment : undefined} onValueChange={setEditDepartment}>
-                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {departmentsList.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
               <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Access Summary</p>
               <p className="mt-1 text-xs font-semibold leading-relaxed text-foreground">
@@ -1454,11 +1454,11 @@ const SuperAdminDashboard = () => {
             </div>
             </fieldset>
 
-            <div className="sticky bottom-0 z-10 -mx-1 flex gap-3 border-t border-border bg-background/95 px-1 pb-1 pt-4 backdrop-blur">
+            <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap gap-3 border-t border-border bg-background/95 px-1 pb-1 pt-4 backdrop-blur">
               <button
                 onClick={() => setSheetOpen(false)}
                 disabled={isSavingUser || isDeactivatingUser}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 min-w-28 flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {selectedUser?.status === "inactive" ? "Close" : "Cancel"}
               </button>
@@ -1466,7 +1466,7 @@ const SuperAdminDashboard = () => {
                 <button
                   onClick={handleReactivateUser}
                   disabled={isDeactivatingUser}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <UserRoundCheck className="h-4 w-4" />
                   {isDeactivatingUser ? "Reactivating..." : "Reactivate Account"}
@@ -1476,7 +1476,7 @@ const SuperAdminDashboard = () => {
                   <button
                     onClick={handleDeactivateUser}
                     disabled={isSavingUser || isDeactivatingUser || selectedUser?.id === currentUser?.id}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-destructive/30 px-3 py-2.5 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/30 px-3 py-2.5 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
                     title={selectedUser?.id === currentUser?.id ? "You cannot deactivate your own account" : "Deactivate Account"}
                   >
                     <UserX className="h-4 w-4" />
@@ -1485,7 +1485,7 @@ const SuperAdminDashboard = () => {
                   <button
                     onClick={handleSave}
                     disabled={isSavingUser || isDeactivatingUser || !hasUserChanges}
-                    className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="min-h-11 min-w-32 flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSavingUser ? "Saving..." : isDeactivatingUser ? "Deactivating..." : "Save Changes"}
                   </button>

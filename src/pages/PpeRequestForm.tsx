@@ -326,7 +326,7 @@ const PpeRequestForm = () => {
   };
 
   return (
-    <div className="px-4 py-6 sm:p-6 lg:p-8 max-w-7xl mx-auto print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto print:p-8 print:max-w-none print:w-full print:bg-white print:text-black">
       {/* Print Header */}
       <div className="hidden print:flex items-center mb-8 border-b-2 border-black pb-6">
         <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
@@ -348,19 +348,20 @@ const PpeRequestForm = () => {
         <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> {text("Back to HR Forms", "Kembali ke Borang HR")}
       </button>
 
-      <div className="mb-8 print:hidden">
-        <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">
+      <div className="mb-5 print:hidden">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
           {text("PPE | Uniform | Office Supplies Request", "Permohonan PPE | Uniform | Bekalan Pejabat")}
         </h1>
-        <p className="text-muted-foreground text-sm mt-1 uppercase tracking-wide">HICOM Diecastings Sdn Bhd</p>
+        <p className="mt-1 text-base font-medium text-primary">HICOM Diecastings Sdn Bhd</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Employee Details */}
         <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none print:mb-8">
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">01</span>
             <UserCheck className="h-5 w-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">
+            <h2 className="font-bold text-foreground text-base">
               {text("Employee Details", "Butiran Pekerja")}
             </h2>
           </div>
@@ -388,9 +389,10 @@ const PpeRequestForm = () => {
         {/* Request Category */}
         <div className="card-elevated p-6 print:p-0 print:shadow-none print:border-none">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-5 print:hidden">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">02</span>
               <Package className="h-5 w-5 text-primary" />
-              <h2 className="font-bold text-foreground text-sm">
+              <h2 className="font-bold text-foreground text-base">
                 {text("Request Details", "Butiran Permohonan")}
               </h2>
             </div>
@@ -658,7 +660,7 @@ const PpeRequestForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
+            className="btn-gold w-full sm:w-auto sm:min-w-64 px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300"
           >
             <Send className="h-4 w-4" />
             {isSubmitting ? text("Submitting...", "Sedang dihantar...") : text("Submit Record", "Hantar Rekod")}

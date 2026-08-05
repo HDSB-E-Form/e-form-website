@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@/contexts/types";
@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -36,6 +36,29 @@ const hrAdminNav = [
 
 const financeAdminNav = [
   { title: "Dashboard", url: "/admin/finance", icon: LayoutDashboard },
+];
+
+const formDepartments = [
+  { id: "hr", title: "Human Resources", icon: Users, forms: [
+    { title: "Company Car Request", url: "/hr/car-rental", icon: Car },
+    { title: "Gate Pass", url: "/hr/leave", icon: CalendarDays },
+    { title: "PPE | Uniform | Supply", url: "/hr/ppe-request", icon: Package },
+  ] },
+  { id: "finance", title: "Finance", icon: DollarSign, forms: [
+    { title: "Petty Cash Claim", url: "/finance/claim", icon: DollarSign },
+    { title: "Upload Receipt", url: "/finance/receipt-upload", icon: UploadCloud },
+  ] },
+  { id: "it", title: "IT Department", icon: MonitorCog, forms: [
+    { title: "CCTV Access Request", url: "/it/cctv-access-request", icon: Cctv },
+    { title: "IT Help Desk Ticket", url: "/it/help-desk", icon: Headphones },
+    { title: "IT Request – Admin", url: "/it/request-admin", icon: MonitorCog },
+    { title: "IT Request – Application", url: "/it/request-application", icon: MonitorCog },
+  ] },
+  { id: "safety", title: "Safety Department", icon: ShieldCheck, restricted: true, forms: [
+    { title: "Mixing & Chemical", url: "/safety/mixing", icon: Layers },
+    { title: "Final Discharge", url: "/safety/discharge", icon: Droplet },
+    { title: "Waste Calculator", url: "/safety/waste-inventory", icon: Scale },
+  ] },
 ];
 
 const itAdminNav = [
@@ -110,6 +133,12 @@ export function AppSidebar() {
   const { submissions } = useSubmissions();
   const navigate = useNavigate(); 
   const { pathname } = useLocation();
+  const currentFormDepartment = formDepartments.find(department => department.forms.some(form => pathname === form.url))?.id || null;
+  const [expandedDepartment, setExpandedDepartment] = useState<string | null>(currentFormDepartment);
+
+  useEffect(() => {
+    if (currentFormDepartment) setExpandedDepartment(currentFormDepartment);
+  }, [currentFormDepartment]);
 
   const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
   const isSecurityGuard = user?.role === "security_guard";
@@ -173,6 +202,7 @@ export function AppSidebar() {
     const uniqueNav = Array.from(new Map(combined.map(item => [item.url, item])).values());
     return uniqueNav;
   }, [user]);
+  const visibleFormDepartments = formDepartments.filter(department => !department.restricted || user?.role === "safety_admin" || user?.role === "super_admin" || user?.secondary_roles?.includes("safety_admin"));
 
   const visibleEmployeeNav = employeeNav.filter(item => {
     // Hide personal "My Submissions" for standard admin/manager roles to keep their sidebars clean
@@ -259,6 +289,7 @@ export function AppSidebar() {
     if (item.url === "/admin/approvals") return pendingCounts.approver;
     return 0;
   };
+  const displayPendingCount = (count: number) => count > 99 ? "99+" : count;
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 print:hidden">
@@ -279,17 +310,17 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {mainNav.map((item) => (
+              {(isAdmin ? mainNav : mainNav.filter(item => item.title === "Home")).map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-8 rounded-lg p-0" : "h-11 rounded-xl p-0"}>
+                  <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-10 rounded-xl p-0" : "h-11 rounded-xl p-0"}>
                       <NavLink
                         to={item.url}
                         end
                         onClick={handleNavigationClick}
-                        className={`relative flex h-full w-full touch-manipulation select-none items-center text-[14px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-8 justify-center rounded-lg border-0 p-0" : "min-h-11 rounded-xl border-l-2 border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`}
-                        activeClassName={collapsed ? "bg-sidebar-accent text-sidebar-primary font-semibold shadow-sm [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.08)] [&_svg]:text-sidebar-primary"}
+                        className={`relative flex h-full w-full touch-manipulation select-none items-center text-[15px] font-medium text-sidebar-foreground transition-colors duration-100 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-10 justify-center rounded-xl border-0 p-0" : "min-h-11 rounded-xl border-l-[3px] border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`}
+                        activeClassName={collapsed ? "bg-sidebar-accent/80 text-sidebar-primary font-semibold ring-1 ring-sidebar-primary/15 [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold [&_svg]:text-sidebar-primary"}
                       >
-                      <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 motion-reduce:transition-none ${collapsed ? '' : 'mr-3'}`} />
+                      <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-100 motion-reduce:transition-none ${collapsed ? '' : 'mr-3'}`} />
                         {!collapsed && (
                           <div className="flex min-w-0 flex-1 items-center gap-2">
                             <span className="min-w-0 flex-1 truncate">{item.title}</span>
@@ -303,6 +334,58 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {!isAdmin && <SidebarGroup className="-mt-2 pt-0">
+          <SidebarGroupContent>
+            {collapsed ? (
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip="Forms" className="mx-auto !size-10 rounded-xl p-0" onClick={() => { navigate("/home"); handleNavigationClick(); }}>
+                    <FileText className="h-5 w-5 text-sidebar-foreground" />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            ) : (
+              <div className="space-y-1">
+                {visibleFormDepartments.map(department => {
+                  const isOpen = expandedDepartment === department.id;
+                  const containsActiveForm = department.forms.some(form => pathname === form.url);
+                  return <div key={department.id}>
+                    <button type="button" onClick={() => setExpandedDepartment(current => current === department.id ? null : department.id)} aria-expanded={isOpen} className={`flex min-h-11 w-full items-center rounded-xl border-l-[3px] px-3 py-2.5 text-left text-[15px] font-medium transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary ${containsActiveForm ? "border-sidebar-primary bg-sidebar-primary/10 text-sidebar-primary" : "border-transparent text-sidebar-foreground hover:bg-sidebar-accent/50"}`}>
+                      <department.icon className={`mr-3 h-5 w-5 shrink-0 ${containsActiveForm ? "text-sidebar-primary" : ""}`} />
+                      <span className="min-w-0 flex-1 truncate">{department.title}</span>
+                      <ChevronRight className={`ml-2 h-4 w-4 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`} />
+                    </button>
+                    {isOpen && <div className="ml-5 mt-1 space-y-0.5 border-l border-sidebar-border/80 pl-2">
+                      {department.forms.map(form => <NavLink key={form.url} to={form.url} end onClick={handleNavigationClick} className="flex min-h-10 items-center rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-foreground/75 transition-colors duration-100 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary" activeClassName="bg-sidebar-primary/15 font-semibold text-sidebar-primary [&_svg]:text-sidebar-primary">
+                        <form.icon className="mr-2.5 h-4 w-4 shrink-0" />
+                        <span className="truncate">{form.title}</span>
+                      </NavLink>)}
+                    </div>}
+                  </div>;
+                })}
+              </div>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>}
+
+        {!isAdmin && <SidebarGroup className="-mt-1 pt-0">
+          <SidebarGroupLabel className="h-6 text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1">
+              {mainNav.filter(item => item.title !== "Home").map(item => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-10 rounded-xl p-0" : "h-11 rounded-xl p-0"}>
+                    <NavLink to={item.url} end onClick={handleNavigationClick} className={`relative flex h-full w-full touch-manipulation select-none items-center text-[15px] font-medium text-sidebar-foreground transition-colors duration-100 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-10 justify-center rounded-xl border-0 p-0" : "min-h-11 rounded-xl border-l-[3px] border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`} activeClassName={collapsed ? "bg-sidebar-accent/80 text-sidebar-primary font-semibold ring-1 ring-sidebar-primary/15 [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold [&_svg]:text-sidebar-primary"}>
+                      <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-100 ${collapsed ? "" : "mr-3"}`} />
+                      {!collapsed && <span className="min-w-0 flex-1 truncate">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>}
+
         {isAdmin && adminNav.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-foreground/65 font-semibold uppercase tracking-wider text-[11px]">Admin</SidebarGroupLabel>
@@ -310,22 +393,22 @@ export function AppSidebar() {
               <SidebarMenu className="gap-1">
                 {adminNav.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-8 rounded-lg p-0" : "h-11 rounded-xl p-0"}>
+                    <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "mx-auto !size-10 rounded-xl p-0" : "h-11 rounded-xl p-0"}>
                       <NavLink
                         to={item.url}
                         end
                         onClick={handleNavigationClick}
-                        className={`relative flex h-full w-full touch-manipulation select-none items-center text-[14px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-8 justify-center rounded-lg border-0 p-0" : "min-h-11 rounded-xl border-l-2 border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`}
-                        activeClassName={collapsed ? "bg-sidebar-accent text-sidebar-primary font-semibold shadow-sm [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.08)] [&_svg]:text-sidebar-primary"}
+                        className={`relative flex h-full w-full touch-manipulation select-none items-center text-[15px] font-medium text-sidebar-foreground transition-colors duration-100 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-10 justify-center rounded-xl border-0 p-0" : "min-h-11 rounded-xl border-l-[3px] border-transparent px-3 py-2.5 hover:border-sidebar-primary/30"}`}
+                        activeClassName={collapsed ? "bg-sidebar-accent/80 text-sidebar-primary font-semibold ring-1 ring-sidebar-primary/15 [&_svg]:text-sidebar-primary" : "border-sidebar-primary bg-gradient-to-r from-sidebar-primary/20 via-sidebar-primary/10 to-transparent text-sidebar-primary font-semibold [&_svg]:text-sidebar-primary"}
                       >
-                        <item.icon className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 motion-reduce:transition-none ${collapsed ? '' : 'mr-3'}`} />
+                        <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-100 motion-reduce:transition-none ${collapsed ? '' : 'mr-3'}`} />
                         {collapsed && getPendingCount(item) > 0 && (
                           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-label={`${getPendingCount(item)} pending items`} />
                         )}
                         {!collapsed && (
                           <div className="flex min-w-0 flex-1 items-center gap-2">
                             <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                            {getPendingCount(item) > 0 && <Badge className="ml-auto h-5 min-w-5 shrink-0 rounded-full border border-red-300/20 bg-red-500/90 px-1.5 text-[10px] font-semibold tabular-nums text-white shadow-sm hover:bg-red-500">{getPendingCount(item)}</Badge>}
+                            {getPendingCount(item) > 0 && <Badge className="ml-auto h-5 min-w-5 shrink-0 rounded-full border border-red-300/20 bg-red-500/90 px-1.5 text-[10px] font-semibold tabular-nums text-white shadow-sm hover:bg-red-500">{displayPendingCount(getPendingCount(item))}</Badge>}
                           </div>
                         )}
                       </NavLink>
@@ -362,9 +445,9 @@ export function AppSidebar() {
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem className="mt-2">
-            <SidebarMenuButton asChild tooltip={collapsed ? "Sign out" : undefined} className={collapsed ? "mx-auto !size-8 rounded-lg p-0" : "!h-12 rounded-xl p-0"}>
-              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className={`flex w-full items-center text-[14px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-8 justify-center rounded-lg p-0" : "min-h-12 rounded-xl px-3 py-3"}`}>
-                <LogOut className={`h-[18px] w-[18px] shrink-0 ${collapsed ? '' : 'mr-3'}`} />
+            <SidebarMenuButton asChild tooltip={collapsed ? "Sign out" : undefined} className={collapsed ? "mx-auto !size-10 rounded-xl p-0" : "!h-12 rounded-xl p-0"}>
+              <button onClick={() => { handleLogout(); setOpenMobile?.(false); }} className={`group/signout flex w-full items-center text-[15px] font-medium text-sidebar-foreground transition-all duration-200 hover:bg-red-500/15 hover:text-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar motion-reduce:transition-none ${collapsed ? "min-h-10 justify-center rounded-xl p-0" : "min-h-12 rounded-xl px-3 py-3"}`}>
+                <LogOut className={`h-5 w-5 shrink-0 text-sidebar-foreground transition-colors group-hover/signout:text-red-200 ${collapsed ? '' : 'mr-3'}`} />
                 {!collapsed && <span>Sign out</span>}
               </button>
             </SidebarMenuButton>

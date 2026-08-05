@@ -16,6 +16,7 @@ import DashboardStatCard from "@/components/DashboardStatCard";
 import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalOverview from "@/components/ApprovalOverview";
+import EmployeeSummary from "@/components/EmployeeSummary";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -286,6 +287,20 @@ const MySubmissions = () => {
   };
 
   if (selectedSubmission) {
+    const employeeStaffId = selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || user?.employeeId || "—";
+    const employeePosition = selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || user?.position || "—";
+    const employeeAdditionalDetails = selectedSubmission.formType === 'car_rental'
+      ? [
+          { label: "IC No.", value: selectedSubmission.data.icNo },
+          { label: "Mobile Number", value: selectedSubmission.data.mobileNumber },
+          { label: "Driving License No.", value: selectedSubmission.data.drivingLicenseNo },
+        ]
+      : selectedSubmission.formType === 'it_help_desk'
+        ? [
+            { label: "Contact Email", value: selectedSubmission.data.contactEmail },
+            { label: "Superior Email", value: selectedSubmission.data.superiorEmail },
+          ]
+        : [];
     const overall = getOverallStatus(selectedSubmission);
     
     const rejectedStage = selectedSubmission.data.rejectedStage;
@@ -376,6 +391,7 @@ const MySubmissions = () => {
           </div>
         )}
 
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-3 shadow-sm sm:p-4 lg:p-5 print:rounded-none print:border-none print:bg-white print:p-0 print:shadow-none">
         {/* Print Header */}
         <div className="hidden print:flex items-center mb-8 border-b-2 border-black pb-6">
           <img src={logo} alt="HICOM Diecasting" className="h-14 w-auto object-contain mr-6" />
@@ -385,13 +401,29 @@ const MySubmissions = () => {
           </div>
         </div>
 
-        <div className="card-elevated p-4 sm:p-6 print:border-none print:shadow-none print:p-0">
+        <EmployeeSummary
+          name={selectedSubmission.employeeName}
+          staffId={employeeStaffId}
+          department={selectedSubmission.department || "—"}
+          position={employeePosition}
+          additionalDetails={employeeAdditionalDetails}
+          className="mb-5 [&>div]:bg-background print:mb-6"
+        />
+
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary print:text-black">
+          {selectedSubmission.formType === 'it_help_desk' ? 'Ticket Summary' : 'Submission Summary'}
+        </p>
+
+        <div className="card-elevated bg-background p-4 sm:p-6 print:border-none print:bg-white print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
                 {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType}
               </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground print:text-gray-600 mt-1">Ref: {generateRefNo(selectedSubmission)}</p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm print:text-gray-600">
+                <span>Ref: {generateRefNo(selectedSubmission)}</span>
+                {selectedSubmission.formType === "it_help_desk" && <><span aria-hidden="true">•</span><span>Submitted {new Date(selectedSubmission.submittedAt).toLocaleString("en-GB")}</span></>}
+              </div>
             </div>
             <div className="flex items-center gap-2 print:hidden">
               <div className={`w-16 h-2 rounded-full ${overall.color}`} />
@@ -400,11 +432,7 @@ const MySubmissions = () => {
           </div>
 
           <div className="mb-6 sm:mb-8">
-            {selectedSubmission.formType === 'cctv_access_request' && (
-              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Employee Information</p>
-            )}
-            {/* IT request forms render employee fields together in their dedicated detail blocks. */}
-            {!['it_admin_request', 'it_application_request'].includes(selectedSubmission.formType) && (
+            {false && (
               <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
@@ -413,12 +441,36 @@ const MySubmissions = () => {
               </div>
             )}
             
-            {selectedSubmission.formType === 'cctv_access_request' ? (
-              <>
+            {selectedSubmission.formType === 'it_help_desk' ? (
+              <div className="space-y-5 [&>section:first-child]:hidden">
+                <section className="rounded-xl border border-border/70 bg-muted/10 p-4 sm:p-5">
+                  <p className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Requester</p>
+                  <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                    {[
+                      ['Employee', selectedSubmission.employeeName],
+                      ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || '—'],
+                      ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || '—'],
+                      ['Department', selectedSubmission.department || '—'],
+                      ['Contact Email', selectedSubmission.data.contactEmail || '—'],
+                      ['Superior Email', selectedSubmission.data.superiorEmail || '—'],
+                    ].map(([label, value]) => <div key={String(label)} className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wider text-primary print:text-gray-500">{label}</p><p className="mt-1 break-words text-sm font-semibold text-foreground print:text-black">{value}</p></div>)}
+                  </div>
+                </section>
+
+                <section className="overflow-hidden rounded-xl border border-border/70">
+                  <div className="flex flex-col gap-3 border-b border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+                    <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Issue / Request Type</p><p className="mt-1 text-sm font-bold leading-relaxed text-foreground">{selectedSubmission.data.issueType || '—'}</p></div>
+                    <Badge className={`w-fit shrink-0 border-0 ${selectedSubmission.data.urgency === "High" ? "bg-red-500/15 text-red-700 dark:text-red-400" : selectedSubmission.data.urgency === "Medium" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-sky-500/15 text-sky-700 dark:text-sky-400"}`}>{selectedSubmission.data.urgency || 'Unknown'} urgency</Badge>
+                  </div>
+                  <div className="p-4 sm:p-5"><p className="text-xs font-bold uppercase tracking-wider text-primary print:text-gray-500">Issue Description</p><p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-foreground print:text-black">{selectedSubmission.data.issueExplanation || '—'}</p></div>
+                </section>
+              </div>
+            ) : selectedSubmission.formType === 'cctv_access_request' ? (
+              <div className="contents [&>div:nth-child(-n+3)]:hidden">
                 {[
-                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || 'â€”'],
-                  ['Department', selectedSubmission.department || 'â€”'],
-                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || 'â€”'],
+                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || '—'],
+                  ['Department', selectedSubmission.department || '—'],
+                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || '—'],
                 ].map(([label, value]) => (
                   <div key={String(label)} className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                     <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
@@ -429,25 +481,25 @@ const MySubmissions = () => {
                 <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Request Details</p>
                 {[
                   ['Type of Request', renderValue(selectedSubmission.data.requestTypes)],
-                  ['Camera Location', selectedSubmission.data.cameraLocation || 'â€”'],
-                  ['Purpose of Access', selectedSubmission.data.purpose || 'â€”'],
-                  ['From Date & Time', selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
-                  ['To Date & Time', selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
-                  ['Head of Section', selectedSubmission.data.hosName || selectedSubmission.data.hos || 'â€”'],
-                  ['Head of Department', selectedSubmission.data.hodName || selectedSubmission.data.hod || 'â€”'],
+                  ['Camera Location', selectedSubmission.data.cameraLocation || '—'],
+                  ['Purpose of Access', selectedSubmission.data.purpose || '—'],
+                  ['From Date & Time', selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'],
+                  ['To Date & Time', selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'],
+                  ['Head of Section', selectedSubmission.data.hosName || selectedSubmission.data.hos || '—'],
+                  ['Head of Department', selectedSubmission.data.hodName || selectedSubmission.data.hod || '—'],
                 ].map(([label, value]) => (
                   <div key={String(label)} className={`${["Head of Section", "Head of Department"].includes(String(label)) ? "hidden" : "grid"} py-2 sm:py-4 border-b border-border print:border-gray-300 grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0`}>
                     <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
                     <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
                   </div>
                 ))}
-              </>
-            ) : selectedSubmission.formType === 'it_admin_request' ? (
-              <ITAdminRequestDetails submission={selectedSubmission} />
+              </div>
+            ) : ['it_admin_request', 'it_facilities_requisition'].includes(selectedSubmission.formType) ? (
+              <ITAdminRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />
             ) : selectedSubmission.formType === 'it_application_request' ? (
-              <ITApplicationRequestDetails submission={selectedSubmission} />
+              <ITApplicationRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />
             ) : selectedSubmission.formType === 'car_rental' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+6)]:hidden">
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
@@ -507,9 +559,9 @@ const MySubmissions = () => {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             ) : selectedSubmission.formType === 'leave' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+3)]:hidden">
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-3 gap-4 items-start">
                   <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
                   <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.submittedBy || "—"}</div>
@@ -560,9 +612,9 @@ const MySubmissions = () => {
                   <span className="text-xs text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
                   <div className="text-sm font-medium text-foreground print:text-black text-left break-words col-span-2">{selectedSubmission.data.mancoMemberName || "—"}</div>
                 </div>
-              </>
+              </div>
             ) : selectedSubmission.formType === 'claim' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+2)]:hidden">
                 <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
@@ -602,10 +654,10 @@ const MySubmissions = () => {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
-                <div className="py-2 sm:py-4 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
+                <div className="hidden">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Position</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
                     {selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—"}
@@ -613,7 +665,7 @@ const MySubmissions = () => {
                 </div>
                 
                 {Object.entries(selectedSubmission.data)
-                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hopName', 'hofName', 'financeCode', 'amountReceived'].includes(key) && !isHiddenUserDetailField(key) && !/^\d+$/.test(key))
+                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'staffId', 'icNo', 'mobileNumber', 'employeeInfo', 'claimRows', 'totalAmount', 'hosName', 'hodName', 'hosUserId', 'hodUserId', 'hopName', 'hopUserId', 'hofName', 'hofUserId', 'mancoMemberName', 'mancoMemberUserId', 'financeCode', 'amountReceived'].includes(key) && !isHiddenUserDetailField(key) && !/^\d+$/.test(key))
                   .map(([key, value]) => {
                     let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                     if (key === 'hosName') formattedKey = 'Head of Section';
@@ -696,31 +748,26 @@ const MySubmissions = () => {
 
           </div>
 
-          {selectedSubmission.data.remarks && (
+          {selectedSubmission.data.remarks && (selectedSubmission.formType !== "it_help_desk" || selectedSubmission.status === "rejected") && (
             <div className={`p-3 sm:p-4 rounded-xl border mb-8 print:border-gray-300 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
               <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Remarks / Ulasan</p>
               <p className="text-xs sm:text-sm font-medium print:text-black">"{selectedSubmission.data.remarks}"</p>
             </div>
           )}
 
-          {["it_help_desk", "it_admin_request", "it_application_request", "it_facilities_requisition"].includes(selectedSubmission.formType) && selectedSubmission.status === "awaiting_confirmation" && (
+          {["it_help_desk", "it_admin_request", "it_application_request", "it_facilities_requisition"].includes(selectedSubmission.formType) && (selectedSubmission.status === "awaiting_confirmation" || Boolean(selectedSubmission.data.resolvedAt)) && (
             <div className="mb-8 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 sm:p-5 print:hidden">
               <div className="flex items-start gap-3">
                 <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-foreground">IT has provided an update</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Please review IT's response before this request is completed.</p>
+                  <h3 className="font-bold text-foreground">{selectedSubmission.status === "awaiting_confirmation" ? "IT has provided an update" : "IT Resolution"}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{selectedSubmission.status === "awaiting_confirmation" ? "Please review IT's response before this request is completed." : "Resolution details recorded for this ticket."}</p>
                   <div className="mt-4 rounded-lg border border-border/60 bg-background/70 p-4">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">IT response / remarks</p>
                     <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-foreground">{selectedSubmission.data.resolutionSummary || "No IT response provided."}</p>
                     <p className="mt-3 text-xs text-muted-foreground">Resolved by {selectedSubmission.data.resolvedBy || "IT Admin"}{selectedSubmission.data.resolvedAt ? ` on ${new Date(selectedSubmission.data.resolvedAt).toLocaleString("en-GB")}` : ""}</p>
                   </div>
-                  <label htmlFor="resolution-response" className="mt-4 block text-sm font-semibold text-foreground">Your remarks</label>
-                  <textarea id="resolution-response" value={resolutionResponse} onChange={event => setResolutionResponse(event.target.value)} rows={3} placeholder="Required when returning the request to IT..." className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
-                  <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(false)} className="rounded-lg border border-amber-500 px-5 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50">Return to IT</button>
-                    <button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(true)} className="btn-gold rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-50">{isRespondingToResolution ? "Submitting..." : "Accept IT Update"}</button>
-                  </div>
+                  {selectedSubmission.status === "awaiting_confirmation" && <><label htmlFor="resolution-response" className="mt-4 block text-sm font-semibold text-foreground">Your remarks</label><textarea id="resolution-response" value={resolutionResponse} onChange={event => setResolutionResponse(event.target.value)} rows={3} placeholder="Required when returning the request to IT..." className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" /><div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(false)} className="rounded-lg border border-amber-500 px-5 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50">Return to IT</button><button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(true)} className="btn-gold rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-50">{isRespondingToResolution ? "Submitting..." : "Accept IT Update"}</button></div></>}
                 </div>
               </div>
             </div>
@@ -798,15 +845,32 @@ const MySubmissions = () => {
           )}
           </div>
 
-          {selectedSubmission.formType !== "it_help_desk" && (
-            <ApprovalOverview submission={selectedSubmission} />
-          )}
-
           {/* Print Footer */}
           <div className="hidden print:block mt-12 text-center text-xs text-gray-400">
             <p>This is computer generated and no signature is required.</p>
           </div>
-        </div> {/* This was the closing div for the main modal content */}
+        </div>
+
+        {selectedSubmission.formType !== "it_help_desk" ? (
+          <ApprovalOverview submission={selectedSubmission} />
+        ) : (
+          <section className="mt-5 print:hidden">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Ticket Progress</p>
+            <div className="grid grid-cols-1 gap-2 rounded-xl border border-border/50 bg-muted/20 p-2 sm:grid-cols-3 sm:p-3">
+              {[
+                { name: "Submitted to IT", done: true, label: "RECEIVED" },
+                { name: "IT Resolution", done: ["awaiting_confirmation", "completed"].includes(selectedSubmission.status), label: selectedSubmission.status === "reopened" ? "REOPENED" : "RESOLVED" },
+                { name: "Employee Confirmation", done: selectedSubmission.status === "completed", label: "CONFIRMED" },
+              ].map(stage => (
+                <div key={stage.name} className="flex min-h-20 flex-col items-center justify-between rounded-lg border border-border/60 bg-background p-3 text-center">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{stage.name}</p>
+                  <Badge className={`border-0 text-[10px] font-bold ${stage.done ? "bg-[#57D51B] text-white hover:bg-[#57D51B]" : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>{stage.done ? stage.label : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "REOPENED" : "PENDING"}</Badge>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        </div>
       </div>
     );
   }

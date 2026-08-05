@@ -217,7 +217,14 @@ const HomePage = () => {
       {/* User Profile Card */}
       <div className="relative mb-8 overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-lg shadow-primary/5">
         {/* Digital network background */}
-        <svg aria-hidden="true" viewBox="0 0 1200 330" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 hidden h-full w-full sm:block" fill="none">
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 620 330"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute left-0 top-0 hidden h-full w-[62%] sm:block"
+          style={{ maskImage: "linear-gradient(to right, black 0%, black 72%, transparent 100%)", WebkitMaskImage: "linear-gradient(to right, black 0%, black 72%, transparent 100%)" }}
+          fill="none"
+        >
           <defs>
             <linearGradient id="profile-network-line" x1="0" y1="0" x2="1200" y2="250" gradientUnits="userSpaceOnUse">
               <stop stopColor="hsl(var(--primary))" stopOpacity="0.24" />
@@ -236,11 +243,9 @@ const HomePage = () => {
             <path d="M132 31L142 126M171 73L142 126L201 145M201 145L229 96L278 124M229 96L322 75M278 124L322 75L367 112" />
             <path d="M157 176L217 204L278 172L337 211L403 177L464 219L530 184L596 226" />
             <path d="M188 222L217 204M278 124L278 172M337 211L367 112M403 177L367 112M464 219L495 145M530 184L495 145" />
-            <path d="M367 112L432 82L495 145L575 91L660 46L735 88L815 57L892 110L977 72L1058 134L1198 88" />
-            <path d="M495 145L552 190L628 166L684 220L756 174L826 205L914 154L1004 198L1092 151L1198 188" />
-            <path d="M432 82L403 177M495 145L530 184M575 91L628 166M660 46L684 220M735 88L756 174M815 57L826 205M892 110L914 154M977 72L1004 198M1058 134L1092 151" />
-            <path d="M0 247L72 216L143 259L214 226L288 270L361 232L438 275L514 236L606 286L684 220L781 268L826 205L934 276L1004 198L1109 253L1198 188" opacity="0.42" />
-            <path d="M217 278L301 246L381 285L464 248L548 292L644 259L733 304L834 264L947 306L1042 270L1134 299" opacity="0.5" />
+            <path d="M367 112L432 82L495 145L403 177L367 112M432 82L403 177M495 145L536 112L575 91L612 138L530 184L495 145M536 112L612 138M575 91L660 46L704 112L612 138M612 138L628 166L684 220L704 112M660 46L704 112L735 88" />
+            <path d="M735 88L782 135L756 174L704 112M782 135L815 57L862 98L826 205L782 135M756 174L826 205M862 98L892 110L948 122L914 154L862 98M914 154L826 205M892 110L977 72L1032 88L948 122M948 122L1004 198L914 154M1032 88L1058 134L1092 151L1004 198M1032 88L1128 126L1058 134M1128 126L1198 88L1198 188L1092 151L1128 126" />
+            <path d="M157 176L214 226L278 172L337 211L403 177M214 226L288 270L361 232L403 177M278 172L361 232M361 232L438 275L514 236L530 184M438 275L548 292L606 286L628 166M514 236L606 286L684 220M684 220L733 304L781 268L756 174M781 268L834 264L826 205M834 264L934 276L914 154M934 276L1004 198L1042 270L1092 151M1042 270L1134 299L1198 188" opacity="0.48" />
           </g>
           <g className="fill-cyan-600 dark:fill-cyan-300">
             <circle cx="36" cy="44" r="1.7" opacity="0.45" />
@@ -258,15 +263,27 @@ const HomePage = () => {
             <circle cx="322" cy="75" r="1.5" opacity="0.35" />
             <circle cx="367" cy="112" r="1.8" opacity="0.4" />
             <circle cx="403" cy="177" r="1.4" opacity="0.3" />
+            <circle cx="432" cy="82" r="1.5" opacity="0.3" />
             <circle cx="495" cy="145" r="1.7" opacity="0.35" />
+            <circle cx="536" cy="112" r="1.3" opacity="0.24" />
             <circle cx="575" cy="91" r="1.4" opacity="0.25" />
+            <circle cx="612" cy="138" r="1.7" opacity="0.32" />
             <circle cx="660" cy="46" r="1.5" opacity="0.27" />
             <circle cx="684" cy="220" r="1.7" opacity="0.3" />
+            <circle cx="704" cy="112" r="1.4" opacity="0.25" />
+            <circle cx="735" cy="88" r="1.3" opacity="0.22" />
             <circle cx="756" cy="174" r="1.4" opacity="0.22" />
+            <circle cx="782" cy="135" r="1.6" opacity="0.27" />
             <circle cx="815" cy="57" r="1.6" opacity="0.26" />
+            <circle cx="826" cy="205" r="1.4" opacity="0.22" />
+            <circle cx="862" cy="98" r="1.7" opacity="0.28" />
             <circle cx="914" cy="154" r="1.4" opacity="0.2" />
+            <circle cx="948" cy="122" r="1.5" opacity="0.23" />
             <circle cx="1004" cy="198" r="1.6" opacity="0.23" />
+            <circle cx="1032" cy="88" r="1.4" opacity="0.2" />
             <circle cx="1058" cy="134" r="1.4" opacity="0.2" />
+            <circle cx="1092" cy="151" r="1.5" opacity="0.2" />
+            <circle cx="1128" cy="126" r="1.3" opacity="0.18" />
             <circle cx="1109" cy="253" r="1.5" opacity="0.21" />
             <circle cx="143" cy="259" r="1.3" opacity="0.2" />
             <circle cx="288" cy="270" r="1.4" opacity="0.22" />
@@ -277,7 +294,14 @@ const HomePage = () => {
             <circle cx="1083" cy="294" r="1.3" opacity="0.17" />
           </g>
         </svg>
-        <svg aria-hidden="true" viewBox="0 0 360 620" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full sm:hidden" fill="none">
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 360 360"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute left-0 top-0 h-[58%] w-full sm:hidden"
+          style={{ maskImage: "linear-gradient(to bottom, black 0%, black 72%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 72%, transparent 100%)" }}
+          fill="none"
+        >
           <g stroke="hsl(var(--primary))" strokeOpacity="0.13" strokeWidth="0.7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
             <path d="M0 74L38 35L81 61L52 113L97 146L61 190L112 219L154 181L198 224L246 188L302 229L359 197" />
             <path d="M38 35L52 113M81 61L52 113L97 146M61 190L97 146L112 219M112 219L154 181M154 181L198 224M198 224L246 188M246 188L302 229" />

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
+import { getGatePassTimeOut, getPersonalGatePassElapsed, PersonalGatePassBadge } from "@/components/PersonalGatePassTracker";
 import EmployeeSummary from "@/components/EmployeeSummary";
 import ApprovalOverview from "@/components/ApprovalOverview";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +22,7 @@ const statusBadge = (status: string) => {
     case "approved":
       return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-xs font-medium px-3 py-1">Approved</Badge>;
     case "on_leave":
-      return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">On Leave</Badge>;
+      return <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-0 text-xs font-medium px-3 py-1">Currently Out</Badge>;
     case "approved_manco":
       return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Ready for Exit</Badge>;
     case "approved_hos":
@@ -63,6 +64,13 @@ const SecurityDashboard = () => {
     vehicleNo: "",
     remarks: "",
   });
+  const [trackingNow, setTrackingNow] = useState(Date.now());
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTrackingNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (selectedSubmission) {
@@ -82,17 +90,29 @@ const SecurityDashboard = () => {
     refreshSubmissions();
   }, [refreshSubmissions]);
 
+  const refNoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+    submissions.filter(s => !excludedForms.includes(s.formType)).sort((a, b) => {
+      const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+      return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
+    }).forEach((submission, index) => map.set(submission.id, `HDSB-${String(index + 1).padStart(4, "0")}`));
+    return map;
+  }, [submissions]);
+
+  const generateRefNo = (sub: Submission) => sub.data?.refNo || refNoMap.get(sub.id) || `GP-${sub.id.slice(-4)}`;
+
   // Security guard only sees leave forms
   const filtered = submissions
     .filter(s => s.formType === "leave")
     .filter(s => {
       if (!search) return true;
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       const dateStr1 = new Date(s.submittedAt).toLocaleDateString("en-CA");
       const dateStr2 = new Date(s.submittedAt).toLocaleDateString("en-GB");
       const typeStr = (formTypeLabels[s.formType] || s.formType).toLowerCase();
       return (s.employeeName || '').toLowerCase().includes(q) || 
-             (s.id || '').toLowerCase().includes(q) ||
+             generateRefNo(s).toLowerCase().includes(q) ||
              (s.department || '').toLowerCase().includes(q) ||
              (typeStr || '').toLowerCase().includes(q) ||
              (dateStr1 || '').includes(q) ||
@@ -121,31 +141,13 @@ const SecurityDashboard = () => {
     actionRequired: filtered.filter(s => s.status === "approved_manco").length,
     onLeave: filtered.filter(s => s.status === "on_leave").length,
     inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
-    approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
+    overdue: filtered.filter(s => getPersonalGatePassElapsed(s, trackingNow)?.overdue).length,
   };
   const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-    const standardForms = submissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => {
-        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-      });
-    standardForms.forEach((s, idx) => {
-      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
-    });
-    return map;
-  }, [submissions]);
-
-  const generateRefNo = (sub: Submission) => {
-    if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
-  };
-
   const handleAction = async (id: string, newStatus: SubmissionStatus, logData: any) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
     const currentData = selectedSubmission?.data || {};
     const updatedSecurityLog = { ...(currentData.securityLog || {}), ...logData };
     const reviewerData = newStatus === "on_leave"
@@ -166,16 +168,20 @@ const SecurityDashboard = () => {
             securityReviewedAt: new Date().toISOString(),
           };
     
-    const success = await updateSubmissionStatus(id, newStatus, { 
-      securityLog: updatedSecurityLog,
-      remarks: logData?.remarks || securityLog.remarks,
-      rejectedStage: newStatus === "rejected" ? "admin" : undefined,
-      ...reviewerData,
-    });
-    if (success) {
-      toast.success(`Submission status updated to "${newStatus.replace('_', ' ')}".`);
+    try {
+      const success = await updateSubmissionStatus(id, newStatus, {
+        securityLog: updatedSecurityLog,
+        remarks: logData?.remarks || securityLog.remarks,
+        rejectedStage: newStatus === "rejected" ? "admin" : undefined,
+        ...reviewerData,
+      });
+      if (success) {
+        toast.success(newStatus === "on_leave" ? "Employee exit recorded successfully." : newStatus === "approved" ? "Employee return recorded successfully." : "Gate Pass updated successfully.");
+        setSelectedSubmission(null);
+      }
+    } finally {
+      setIsProcessing(false);
     }
-    setSelectedSubmission(null);
   };
 
   const handleReject = async (sub: Submission) => {
@@ -183,15 +189,49 @@ const SecurityDashboard = () => {
       toast.error("Please provide a reason for rejection in the remarks field.");
       return;
     }
-      await updateSubmissionStatus(sub.id, "rejected", {
-      remarks: remarks,
+    if (isProcessing) return;
+    setIsProcessing(true);
+    const success = await updateSubmissionStatus(sub.id, "rejected", {
+      remarks: remarks.trim(),
         rejectedStage: "admin", // Using 'admin' to signify rejection by a guard/admin role
         securityReviewedByName: user?.name || "Security Guard",
         securityReviewedById: user?.id || null,
         securityReviewedAt: new Date().toISOString(),
       });
+    setIsProcessing(false);
+    if (success) {
       toast.success("Gate Pass has been rejected.");
       setSelectedSubmission(null);
+    }
+  };
+
+  const timestampForToday = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    const timestamp = new Date();
+    timestamp.setHours(hours, minutes, 0, 0);
+    return timestamp;
+  };
+
+  const handleConfirmExit = () => {
+    if (!selectedSubmission || !securityLog.actualTimeOut) return;
+    const exitTime = timestampForToday(securityLog.actualTimeOut);
+    const friendlyTime = exitTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    if (!window.confirm(`Confirm that ${selectedSubmission.employeeName} left at ${friendlyTime}?`)) return;
+    void handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: exitTime.toISOString(), vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
+  };
+
+  const handleConfirmEntry = () => {
+    if (!selectedSubmission) return;
+    const time = securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5);
+    const entryTime = timestampForToday(time);
+    const exitTime = getGatePassTimeOut(selectedSubmission);
+    if (exitTime !== null && entryTime.getTime() < exitTime) {
+      toast.error("Return time cannot be earlier than the recorded exit time.");
+      return;
+    }
+    const friendlyTime = entryTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    if (!window.confirm(`Confirm that ${selectedSubmission.employeeName} returned at ${friendlyTime}?`)) return;
+    void handleAction(selectedSubmission.id, "approved", { actualTimeIn: entryTime.toISOString(), remarks: securityLog.remarks });
   };
   const renderLeaveDetail = (sub: Submission) => {
     const refNo = generateRefNo(sub);
@@ -201,7 +241,7 @@ const SecurityDashboard = () => {
       <>
         <EmployeeSummary
           name={sub.employeeName}
-          staffId={sub.data.employeeInfo?.staffNo || sub.submittedBy}
+          staffId={sub.data.staffId || sub.data.employeeInfo?.staffNo || sub.data.employeeInfo?.employeeNumber || "—"}
           department={sub.department}
           position={sub.data.employeeInfo?.position || sub.data.position || "—"}
           className="mb-5 [&>div]:bg-background print:mb-6"
@@ -225,11 +265,11 @@ const SecurityDashboard = () => {
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time Out</span>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time Out</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeOut || "—"}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time In</span>
+            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time In</span>
             <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeIn || "—"}</div>
           </div>
           {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
@@ -242,12 +282,12 @@ const SecurityDashboard = () => {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut || '—'}</div>
+                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"}</div>
               </div>
               {sub.data.securityLog.actualTimeIn && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
-                  <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn}</div>
+                  <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{new Date(sub.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}</div>
                 </div>
               )}
             </>
@@ -319,6 +359,13 @@ const SecurityDashboard = () => {
 
         {renderLeaveDetail(selectedSubmission)}
 
+        {isOnLeave && selectedSubmission.data.purposeType === "personal" && (
+          <div className={`mb-4 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${getPersonalGatePassElapsed(selectedSubmission, trackingNow)?.overdue ? "border-red-500/30 bg-red-500/10" : "border-amber-500/30 bg-amber-500/10"}`}>
+            <div><p className="text-xs font-bold uppercase tracking-wider text-foreground">Personal Matter Movement</p><p className="mt-1 text-sm text-muted-foreground">Timer started when Security recorded the employee's actual exit.</p></div>
+            <PersonalGatePassBadge submission={selectedSubmission} now={trackingNow} />
+          </div>
+        )}
+
         {selectedSubmission.data.remarks && (
           <div className={`mb-4 rounded-xl border p-3.5 print:rounded-none print:border-gray-300 print:bg-transparent ${
             selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'
@@ -353,7 +400,7 @@ const SecurityDashboard = () => {
                   onChange={e => setRemarks(e.target.value)}
                   className="mb-3 h-11 bg-background"
                 />
-                <button onClick={() => handleReject(selectedSubmission)} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">REJECT SUBMISSION</button>
+                <button disabled={isProcessing} onClick={() => handleReject(selectedSubmission)} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm disabled:cursor-not-allowed disabled:opacity-60">{isProcessing ? "SAVING..." : "REJECT SUBMISSION"}</button>
               </div>
             </div>
           </div>
@@ -378,14 +425,9 @@ const SecurityDashboard = () => {
                 <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Enter remarks if any..." className="h-11 mt-1" />
               </div>
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-3 sm:flex-row">
-                <button onClick={() => handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 rounded-xl bg-destructive px-6 py-3 text-center font-bold text-white transition-all hover:bg-destructive/90 active:scale-[0.99]">REJECT</button>
-                <button onClick={() => {
-                  const timePart = securityLog.actualTimeOut; // HH:MM from time input
-                  const datePart = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
-                  const fullDateTime = `${datePart} ${timePart}`;
-                  handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: fullDateTime, vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
-                }} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-center font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" disabled={!securityLog.actualTimeOut}>
-                  <LogOut className="h-4 w-4" /> CONFIRM EXIT
+                <button disabled={isProcessing} onClick={() => void handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 rounded-xl bg-destructive px-6 py-3 text-center font-bold text-white transition-all hover:bg-destructive/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60">REJECT</button>
+                <button onClick={handleConfirmExit} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-center font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" disabled={!securityLog.actualTimeOut || isProcessing}>
+                  <LogOut className="h-4 w-4" /> {isProcessing ? "SAVING..." : "CONFIRM EXIT"}
                 </button>
               </div>
             </div>
@@ -408,14 +450,11 @@ const SecurityDashboard = () => {
               </div>
               <div className="border-t border-border pt-3">
                 <button 
-                  onClick={() => {
-                    const timePart = securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5);
-                    const timeInWithDate = `${new Date().toLocaleDateString('en-GB')} ${timePart}`;
-                    handleAction(selectedSubmission.id, "approved", { actualTimeIn: timeInWithDate, remarks: securityLog.remarks });
-                  }} 
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#57D51B] px-6 py-3 text-center font-bold text-white transition-all hover:bg-[#49BD16] active:scale-[0.99]"
+                  onClick={handleConfirmEntry}
+                  disabled={isProcessing}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#57D51B] px-6 py-3 text-center font-bold text-white transition-all hover:bg-[#49BD16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <LogIn className="h-4 w-4" /> CONFIRM ENTRY & COMPLETE
+                  <LogIn className="h-4 w-4" /> {isProcessing ? "SAVING..." : "CONFIRM ENTRY & COMPLETE"}
                 </button>
               </div>
             </div>
@@ -438,7 +477,7 @@ const SecurityDashboard = () => {
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Security Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Review and approve all incoming Gate Pass requests.</p>
+        <p className="text-muted-foreground text-sm mt-1">Review Gate Passes and record employee exits and returns.</p>
       </div>
 
       {/* Action Tabs */}
@@ -454,7 +493,7 @@ const SecurityDashboard = () => {
             )}
           </button>
           <button onClick={() => { setActiveTab("on_leave"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "on_leave" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            On Leave
+            Currently Out
             {stats.onLeave > 0 && (
               <Badge className="h-6 min-w-6 justify-center border-0 bg-indigo-500 px-1.5 text-xs text-white hover:bg-indigo-500">{stats.onLeave}</Badge>
             )}
@@ -477,12 +516,12 @@ const SecurityDashboard = () => {
             <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.actionRequired}</p>
           </div>
           <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">On Leave</p>
+            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Currently Out</p>
             <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.onLeave}</p>
           </div>
           <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Approval Rate</p>
-            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.approvalRate}%</p>
+            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Over 2 Hours</p>
+            <p className={`mt-1 text-xl font-bold leading-none ${stats.overdue > 0 ? "text-red-600 dark:text-red-400" : "text-foreground"}`}>{stats.overdue}</p>
           </div>
           <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
             <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Total</p>
@@ -543,7 +582,7 @@ const SecurityDashboard = () => {
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
                   {activeTab === "on_leave" && (
-                    <TableHead className="text-xs font-bold uppercase tracking-wider">Actual Time Out</TableHead>
+                    <TableHead className="text-xs font-bold uppercase tracking-wider">Exit Time / Duration</TableHead>
                   )}
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
@@ -553,7 +592,7 @@ const SecurityDashboard = () => {
             {visibleSubmissions.map((sub) => {
               const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
               return (
-                <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
+                <TableRow key={sub.id} className={`${getPersonalGatePassElapsed(sub, trackingNow)?.overdue ? "bg-red-500/10 hover:bg-red-500/15" : activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
                     <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -575,7 +614,8 @@ const SecurityDashboard = () => {
                     </TableCell>
                     {activeTab === "on_leave" && (
                       <TableCell className="whitespace-nowrap text-sm font-semibold text-foreground">
-                        {sub.data.securityLog?.actualTimeOut || "—"}
+                        <p>{getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB") : "—"}</p>
+                        <div className="mt-1.5"><PersonalGatePassBadge submission={sub} now={trackingNow} /></div>
                       </TableCell>
                     )}
                     <TableCell>{statusBadge(sub.status)}</TableCell>
@@ -604,7 +644,7 @@ const SecurityDashboard = () => {
                   type="button"
                   onClick={() => setSelectedSubmission(sub)}
                   className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${
-                    activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
+                    getPersonalGatePassElapsed(sub, trackingNow)?.overdue ? "bg-red-500/10" : activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
                   }`}
                 >
                   <div className="mb-2 flex items-start justify-between gap-3">
@@ -621,9 +661,7 @@ const SecurityDashboard = () => {
                         {new Date(sub.submittedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
                       </p>
                       {activeTab === "on_leave" && (
-                        <p className="mt-1 font-semibold text-foreground">
-                          Time out: {sub.data.securityLog?.actualTimeOut || "—"}
-                        </p>
+                        <div className="mt-2"><PersonalGatePassBadge submission={sub} now={trackingNow} /></div>
                       )}
                     </div>
                     <span className={`flex min-h-11 shrink-0 items-center rounded-lg px-4 py-2.5 text-sm font-bold shadow-sm ${

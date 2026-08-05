@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { appendApprovalRemark } from "@/lib/approvalRemarks";
 import EmployeeSummary from "@/components/EmployeeSummary";
 import ApprovalOverview from "@/components/ApprovalOverview";
+import { getGatePassTimeOut, getPersonalGatePassElapsed, PersonalGatePassBadge } from "@/components/PersonalGatePassTracker";
 import VoidSubmissionControl from "@/components/VoidSubmissionControl";
 
 const formTypeLabels: Record<string, string> = {
@@ -169,6 +170,12 @@ const AdminDashboard = () => {
   const [remarks, setRemarks] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
   const [isViewAll, setIsViewAll] = useState(false);
+  const [trackingNow, setTrackingNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTrackingNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     refreshSubmissions();
@@ -210,6 +217,7 @@ const AdminDashboard = () => {
     approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
   };
   const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
+  const activePersonalGatePasses = submissions.filter(submission => getPersonalGatePassElapsed(submission, trackingNow));
 
   const refNoMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -512,6 +520,22 @@ const AdminDashboard = () => {
             </div>
             </div>
           </div>
+
+          {activePersonalGatePasses.length > 0 && (
+            <div className="card-elevated mb-4 overflow-hidden border-border/60">
+              <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3 sm:px-5">
+                <div><h2 className="text-sm font-bold text-foreground">Personal Gate Pass Tracking</h2><p className="mt-0.5 text-xs text-muted-foreground">Live from the actual exit time recorded by Security.</p></div>
+                <Badge className="shrink-0 border-0 bg-primary/10 text-primary">{activePersonalGatePasses.length} currently out</Badge>
+              </div>
+              <div className="divide-y divide-border/60">
+                {activePersonalGatePasses.map(submission => {
+                  const overdue = getPersonalGatePassElapsed(submission, trackingNow)?.overdue;
+                  const timeOut = getGatePassTimeOut(submission);
+                  return <div key={submission.id} className={`flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 ${overdue ? "bg-red-500/10" : "bg-background"}`}><div className="min-w-0"><p className="truncate text-sm font-bold text-foreground">{submission.employeeName}</p><p className="mt-0.5 text-xs text-muted-foreground">{submission.department} · Out {timeOut !== null ? new Date(timeOut).toLocaleString("en-GB") : "—"}</p></div><PersonalGatePassBadge submission={submission} now={trackingNow} /></div>;
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="card-elevated overflow-hidden">
             <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">

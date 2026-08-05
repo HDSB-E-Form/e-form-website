@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import type { Submission } from "@/contexts/SubmissionsContext";
 
-type ApprovalStageState = "approved" | "rejected" | "pending" | "skipped" | "out" | "completed";
+type ApprovalStageState = "approved" | "rejected" | "pending" | "skipped" | "not_applicable" | "out" | "completed";
 
 interface ApprovalStage {
   role: string;
@@ -18,6 +18,8 @@ const stageBadge = (state: ApprovalStageState) => {
       return <Badge className={`${base} bg-destructive text-destructive-foreground hover:bg-destructive`}>REJECTED</Badge>;
     case "skipped":
       return <Badge className={`${base} whitespace-nowrap bg-[#57D51B] text-white hover:bg-[#57D51B]`}>AUTO-APPROVED</Badge>;
+    case "not_applicable":
+      return <Badge className={`${base} bg-muted text-muted-foreground`}>N/A</Badge>;
     case "out":
       return <Badge className={`${base} bg-indigo-500 text-white hover:bg-indigo-500`}>OUT</Badge>;
     case "completed":
@@ -49,10 +51,11 @@ const getApprovalStages = (submission: Submission): ApprovalStage[] => {
     completed = false,
   ): ApprovalStageState => {
     if (rejected) return "rejected";
+    if (isRejected && !done) return "not_applicable";
     if (skipped) return "skipped";
     if (completed) return "completed";
     if (done) return "approved";
-    return isRejected ? "skipped" : "pending";
+    return "pending";
   };
 
   if (formType === "claim") {
@@ -92,7 +95,7 @@ const getApprovalStages = (submission: Submission): ApprovalStage[] => {
       {
         role: "Security Entry",
         approver: data.securityEntryReviewedByName || (returned ? data.securityReviewedByName : null) || "Security Guard",
-        state: returned ? "completed" : status === "on_leave" ? "out" : isRejected ? "skipped" : "pending",
+        state: returned ? "completed" : status === "on_leave" ? "out" : isRejected ? "not_applicable" : "pending",
       },
     ];
   }

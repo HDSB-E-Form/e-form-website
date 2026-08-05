@@ -13,6 +13,8 @@ import logo from "@/assets/logo.png";
 import { renderValue } from "@/components/DataRenderer";
 import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
+import ApprovalOverview from "@/components/ApprovalOverview";
+import EmployeeSummary from "@/components/EmployeeSummary";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -21,7 +23,9 @@ const formTypeLabels: Record<string, string> = {
   ppe_request: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
   it_help_desk: "IT Help Desk Ticket",
+  it_admin_request: "IT Request Form (Admin)",
   it_application_request: "IT Request Form (Application)",
+  it_facilities_requisition: "IT Facilities Requisition Form",
 };
 
 const statusBadgeBase = "border-0 whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-wider px-2 sm:px-3 py-0.5 sm:py-1";
@@ -259,6 +263,41 @@ const AllSubmissionsPage = () => {
   };
 
   if (selectedSubmission) {
+    const usesSeparatedEmployeeSummary = ['car_rental', 'claim', 'leave', 'cctv_access_request', 'it_help_desk', 'it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(selectedSubmission.formType);
+    const employeeStaffId = selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || "—";
+    const employeePosition = selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—";
+    const attachmentUrls = (selectedSubmission.data.attachments?.length
+      ? selectedSubmission.data.attachments
+      : [selectedSubmission.data.attachment, selectedSubmission.data.licenseAttachment].filter(Boolean)) as string[];
+    const submissionAttachments = attachmentUrls.length > 0 ? (
+      <div className="grid grid-cols-1 items-start gap-2 border-b border-border py-3 sm:grid-cols-3 sm:gap-4 print:hidden">
+        <span className="text-xs font-bold uppercase tracking-wider text-primary">Attachments</span>
+        <div className="flex flex-wrap gap-2 sm:col-span-2">
+          {attachmentUrls.map((url, index) => (
+            <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300">
+              <FileText className="h-3.5 w-3.5" /> Attachment {index + 1}
+            </a>
+          ))}
+        </div>
+      </div>
+    ) : null;
+    const helpDeskProgress = selectedSubmission.formType === 'it_help_desk' ? (
+      <section className="mt-5 print:hidden">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Ticket Progress</p>
+        <div className="grid grid-cols-1 gap-2 rounded-xl border border-border/50 bg-muted/20 p-2 sm:grid-cols-3 sm:p-3">
+          {[
+            { name: "Submitted to IT", done: true, label: "RECEIVED" },
+            { name: "IT Resolution", done: ["awaiting_confirmation", "completed"].includes(selectedSubmission.status), label: selectedSubmission.status === "reopened" ? "REOPENED" : "RESOLVED" },
+            { name: "Employee Confirmation", done: selectedSubmission.status === "completed", label: "CONFIRMED" },
+          ].map(stage => (
+            <div key={stage.name} className="flex min-h-20 flex-col items-center justify-between rounded-lg border border-border/60 bg-background p-3 text-center">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{stage.name}</p>
+              <Badge className={`border-0 text-[10px] font-bold ${stage.done ? "bg-[#57D51B] text-white hover:bg-[#57D51B]" : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>{stage.done ? stage.label : selectedSubmission.status === "reopened" && stage.name === "IT Resolution" ? "REOPENED" : "PENDING"}</Badge>
+            </div>
+          ))}
+        </div>
+      </section>
+    ) : null;
     const rejectedStage = selectedSubmission.data.rejectedStage || (selectedSubmission.status === "rejected" ? "hos" : null);
     const rejectedFromStatus = selectedSubmission.data.rejectedFromStatus;
     const financeRejectionReached = (statuses: string[]) => rejectedStage === "finance_review" &&
@@ -360,6 +399,7 @@ const AllSubmissionsPage = () => {
           </button>
         </div>
 
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-3 shadow-sm sm:p-4 lg:p-5 print:rounded-none print:border-none print:bg-white print:p-0 print:text-black print:shadow-none">
         {/* Print Header */}
         <div className="hidden print:flex items-start justify-between mb-8 border-b-2 border-black pb-6">
           <div className="flex items-center">
@@ -375,7 +415,28 @@ const AllSubmissionsPage = () => {
           </div>
         </div>
 
-        <div className="card-elevated p-4 sm:p-6 print:border-none print:shadow-none print:p-0">
+        {usesSeparatedEmployeeSummary && (
+          <EmployeeSummary
+            name={selectedSubmission.employeeName}
+            staffId={employeeStaffId}
+            department={selectedSubmission.department || "—"}
+            position={employeePosition}
+            additionalDetails={selectedSubmission.formType === 'car_rental' ? [
+              { label: "IC No.", value: selectedSubmission.data.icNo },
+              { label: "Mobile Number", value: selectedSubmission.data.mobileNumber },
+              { label: "Driving License No.", value: selectedSubmission.data.drivingLicenseNo },
+            ] : []}
+            className="mb-5 [&>div]:bg-background print:mb-6"
+          />
+        )}
+
+        {usesSeparatedEmployeeSummary && (
+          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary print:text-black">
+            {selectedSubmission.formType === 'it_help_desk' ? 'Ticket Summary' : 'Submission Summary'}
+          </p>
+        )}
+
+        <div className="card-elevated bg-background p-4 sm:p-6 print:border-none print:bg-white print:shadow-none print:p-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 print:mb-8">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground print:text-black">
@@ -388,11 +449,8 @@ const AllSubmissionsPage = () => {
             </div>
           </div>
 
-          <div className="mb-8">
-            {['cctv_access_request', 'it_help_desk', 'car_rental', 'claim', 'leave'].includes(selectedSubmission.formType) && (
-              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Employee Information</p>
-            )}
-            {!['it_admin_request', 'it_application_request'].includes(selectedSubmission.formType) && (
+          <div className={selectedSubmission.formType === 'leave' ? "mb-0" : "mb-8"}>
+            {!usesSeparatedEmployeeSummary && (
               <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Employee Name</span>
                 <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
@@ -402,11 +460,11 @@ const AllSubmissionsPage = () => {
             )}
             
             {selectedSubmission.formType === 'cctv_access_request' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+3)]:hidden">
                 {[
-                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || 'â€”'],
-                  ['Department', selectedSubmission.department || 'â€”'],
-                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || 'â€”'],
+                  ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || '—'],
+                  ['Department', selectedSubmission.department || '—'],
+                  ['Position', selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || '—'],
                 ].map(([label, value]) => (
                   <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                     <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
@@ -417,25 +475,23 @@ const AllSubmissionsPage = () => {
                 <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Request Details</p>
                 {[
                   ['Type of Request', renderValue(selectedSubmission.data.requestTypes)],
-                  ['Camera Location', selectedSubmission.data.cameraLocation || 'â€”'],
-                  ['Purpose of Access', selectedSubmission.data.purpose || 'â€”'],
-                  ['From Date & Time', selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
-                  ['To Date & Time', selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'â€”'],
-                  ['Head of Section', selectedSubmission.data.hosName || selectedSubmission.data.hos || 'â€”'],
-                  ['Head of Department', selectedSubmission.data.hodName || selectedSubmission.data.hod || 'â€”'],
+                  ['Camera Location', selectedSubmission.data.cameraLocation || '—'],
+                  ['Purpose of Access', selectedSubmission.data.purpose || '—'],
+                  ['From Date & Time', selectedSubmission.data.fromDateTime ? new Date(selectedSubmission.data.fromDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'],
+                  ['To Date & Time', selectedSubmission.data.toDateTime ? new Date(selectedSubmission.data.toDateTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '—'],
                 ].map(([label, value]) => (
                   <div key={String(label)} className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start last:border-b-0">
                     <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">{label}</span>
                     <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{value}</div>
                   </div>
                 ))}
-              </>
-            ) : selectedSubmission.formType === 'it_admin_request' ? (
-              <ITAdminRequestDetails submission={selectedSubmission} />
+              </div>
+            ) : ['it_admin_request', 'it_facilities_requisition'].includes(selectedSubmission.formType) ? (
+              <ITAdminRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />
             ) : selectedSubmission.formType === 'it_application_request' ? (
-              <ITApplicationRequestDetails submission={selectedSubmission} />
+              <ITApplicationRequestDetails submission={selectedSubmission} showEmployeeDetails={false} />
             ) : selectedSubmission.formType === 'it_help_desk' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+3)]:hidden">
                 {[
                   ['Staff ID', selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.employeeNumber || '—'],
                   ['Department', selectedSubmission.department || '—'],
@@ -481,9 +537,9 @@ const AllSubmissionsPage = () => {
                     ))}
                   </>
                 )}
-              </>
+              </div>
             ) : selectedSubmission.formType === 'car_rental' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+6)]:hidden">
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
@@ -527,16 +583,7 @@ const AllSubmissionsPage = () => {
                     {selectedSubmission.data.fromDate ? new Date(selectedSubmission.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {selectedSubmission.data.toDate ? new Date(selectedSubmission.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                   </div>
                 </div>
-                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hos || selectedSubmission.data.hosName || "—"}</div>
-                </div>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hod || selectedSubmission.data.hodName || "—"}</div>
-                </div>
-                
+                {submissionAttachments}
                 {selectedSubmission.data.passengers && selectedSubmission.data.passengers.some((p: any) => p.name) && (
                   <div className="py-2 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
                     <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Passengers</span>
@@ -545,9 +592,9 @@ const AllSubmissionsPage = () => {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             ) : selectedSubmission.formType === 'leave' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+3)]:hidden">
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.staffNo || "—"}</div>
@@ -591,22 +638,9 @@ const AllSubmissionsPage = () => {
                     {selectedSubmission.data.estimatedTime?.timeIn || "—"}
                   </div>
                 </div>
-                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hosName || selectedSubmission.data.hos || "—"}</div>
-                </div>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.hodName || selectedSubmission.data.hod || "—"}</div>
-                </div>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.mancoMemberName || "—"}</div>
-                </div>
-              </>
+              </div>
             ) : selectedSubmission.formType === 'claim' ? (
-              <>
+              <div className="contents [&>div:nth-child(-n+2)]:hidden">
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Staff ID</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.employeeNumber || "—"}</div>
@@ -619,6 +653,7 @@ const AllSubmissionsPage = () => {
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Department Code</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">{selectedSubmission.data.employeeInfo?.departmentCode || "—"}</div>
                 </div>
+                {submissionAttachments}
                 <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Claim Details</p>
                 <div className="py-2 border-b border-border print:border-gray-300 flex flex-col items-start gap-2">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold">Expense Items</span>
@@ -630,17 +665,7 @@ const AllSubmissionsPage = () => {
                     <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount?.toFixed(2) || "0.00"}</p>
                   </div>
                 </div>
-                <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground print:mt-4">Approval Routing</p>
-                <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Approvers</span>
-                  <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                    HOS: {selectedSubmission.data.hosName || "—"}<br/>
-                    HOD: {selectedSubmission.data.hodName || "—"}<br/>
-                    HOP: {selectedSubmission.data.hopName || "—"}<br/>
-                    HOF: {selectedSubmission.data.hofName || "—"}
-                  </div>
-                </div>
-              </>
+              </div>
             ) : (
               <>
                 <div className="bg-muted/30 rounded-xl p-4 my-4 border border-border/50">
@@ -656,7 +681,7 @@ const AllSubmissionsPage = () => {
                   </div>
                 </div>
                 {Object.entries(selectedSubmission.data)
-                  .filter(([key]) => !['name', 'hos', 'hod', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'attachments', 'attachment', 'totalAmount'].includes(key) && !/^\d+$/.test(key))
+                  .filter(([key]) => !['name', 'hos', 'hod', 'hosName', 'hodName', 'hosUserId', 'hodUserId', 'hopName', 'hopUserId', 'hofName', 'hofUserId', 'mancoMemberName', 'mancoMemberUserId', 'remarks', 'avatar', 'licenseAttachment', 'securityLog', 'position', 'attachments', 'attachment', 'totalAmount'].includes(key) && !/^\d+$/.test(key))
                   .map(([key, value]) => {
                     let formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
                     if (key === 'hosName') formattedKey = 'Head of Section';
@@ -699,7 +724,7 @@ const AllSubmissionsPage = () => {
           </div>
         )}
 
-        {(selectedSubmission.data.attachments?.length > 0 || selectedSubmission.data.attachment || selectedSubmission.data.licenseAttachment) && (
+        {!['car_rental', 'claim'].includes(selectedSubmission.formType) && (selectedSubmission.data.attachments?.length > 0 || selectedSubmission.data.attachment || selectedSubmission.data.licenseAttachment) && (
           <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start print:hidden">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Attachments</span>
             <div className="sm:col-span-2 print:col-span-2 flex flex-col gap-2">
@@ -722,6 +747,7 @@ const AllSubmissionsPage = () => {
             </div>
           )}
 
+          <div className="hidden">
           {selectedSubmission.formType === 'it_help_desk' ? (
             <div className="grid grid-cols-1 gap-2 rounded-lg bg-muted/30 p-3 sm:grid-cols-3 sm:p-4 print:hidden">
               {[
@@ -799,11 +825,18 @@ const AllSubmissionsPage = () => {
             </div>
           </div>
           )}
+          </div>
 
           {/* Print Footer */}
           <div className="hidden print:block mt-12 text-center text-xs text-gray-400">
             <p>This is computer generated and no signature is required.</p>
           </div>
+        </div>
+
+        {selectedSubmission.formType !== 'it_help_desk' && (
+          <ApprovalOverview submission={selectedSubmission} />
+        )}
+        {helpDeskProgress}
         </div>
       </div>
     );
