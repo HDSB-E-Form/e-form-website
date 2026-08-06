@@ -8,6 +8,8 @@ import logo from "@/assets/logo.png";
 import bgImage from "@/assets/digital.jpg";
 import { Loader2 } from "lucide-react";
 
+const OTP_PATTERN = /^\d{6}$/;
+
 function Slot(props: SlotProps) {
   return (
     <div
@@ -48,7 +50,9 @@ const VerifyOtpPage = () => {
     try { return JSON.parse(sessionStorage.getItem("hdsb_pending_registration") || "null"); } catch { return null; }
   })();
   const registrationData = location.state || storedRegistration;
-  const email = registrationData?.email;
+  const email = typeof registrationData?.email === "string"
+    ? registrationData.email.trim().toLowerCase()
+    : "";
   const [isResending, setIsResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
@@ -73,64 +77,64 @@ const VerifyOtpPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (otp.length !== 6) {
+    if (!OTP_PATTERN.test(otp)) {
       setError("Please enter the complete 6-digit code.");
       return;
     }
     setIsVerifying(true);
 
-    const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-      email: email,
-      token: otp,
-      type: 'signup',
-    });
+    try {
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: "signup",
+      });
 
-    if (verifyError) {
-      setError(verifyError.message);
-      toast.error(verifyError.message);
-      setIsVerifying(false);
-    } else {
-      // OTP is correct, now create the user profile in the public.users table
-      if (verifyData.user) {
+      if (verifyError) throw verifyError;
+      if (!verifyData.user) throw new Error("Could not verify the user account. Please request a new code and try again.");
+
+      // The database confirmation trigger normally creates this profile. Keep
+      // an authenticated fallback so older deployments can still complete the
+      // registration flow after the OTP has been accepted.
+      const { data: existingProfile, error: profileLookupError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", verifyData.user.id)
+        .maybeSingle();
+
+      if (profileLookupError) throw profileLookupError;
+
+      if (!existingProfile) {
         const metadata = verifyData.user.user_metadata || {};
-        const profileData = registrationData || {
-          email: verifyData.user.email,
-          name: metadata.name,
-          employeeId: metadata.employeeId,
-          department: metadata.department,
-          phone: metadata.phone,
-          position: metadata.position,
-        };
-        if (!profileData?.name || !profileData?.employeeId || !profileData?.department) {
-          setError("Email verification succeeded, but required profile information is missing. Please contact an administrator.");
-          setIsVerifying(false);
-          return;
+        if (!metadata.name || !metadata.employeeId || !metadata.department) {
+          throw new Error("Email verification succeeded, but the verified account is missing required profile information. Please contact an administrator.");
         }
 
-        const { data: existingProfile } = await supabase.from('users').select('id').eq('id', verifyData.user.id).maybeSingle();
-        const { error: profileError } = existingProfile ? { error: null } : await supabase.from('users').insert({
+        const { error: profileError } = await supabase.from("users").insert({
           id: verifyData.user.id,
-          email: profileData.email || verifyData.user.email,
-          name: profileData.name,
-          employeeId: profileData.employeeId,
-          department: profileData.department,
-          phone: profileData.phone || "",
-          position: profileData.position || "",
-          role: 'employee', // Default role
+          email: verifyData.user.email || email,
+          name: String(metadata.name).trim(),
+          employeeId: String(metadata.employeeId).trim(),
+          department: String(metadata.department).trim(),
+          phone: String(metadata.phone || "").trim(),
+          position: String(metadata.position || "").trim(),
+          role: "employee",
+          status: "active",
         });
-
-        if (profileError) {
-          setError(`Verification successful, but failed to create profile: ${profileError.message}`);
-          toast.error(`Verification successful, but failed to create profile: ${profileError.message}`);
-        } else {
-          sessionStorage.removeItem("hdsb_pending_registration");
-          toast.success("Email confirmed successfully! You can now log in.");
-          navigate("/login");
-        }
-      } else {
-        setError("Could not verify the user account. Please try again.");
-        toast.error("Could not verify the user account. Please try again.");
+        if (profileError) throw profileError;
       }
+
+      sessionStorage.removeItem("hdsb_pending_registration");
+      await supabase.auth.signOut();
+      toast.success("Email confirmed and account registered successfully. You can now log in.");
+      navigate("/login", { replace: true });
+    } catch (verificationError: unknown) {
+      const message = verificationError instanceof Error
+        ? verificationError.message
+        : "Unable to verify the code. Please try again.";
+      setError(message);
+      toast.error(message);
+    } finally {
       setIsVerifying(false);
     }
   };
@@ -170,8 +174,10 @@ const VerifyOtpPage = () => {
             <div className="flex justify-center">
               <OTPInput
                 maxLength={6}
+                pattern="[0-9]*"
+                inputMode="numeric"
                 value={otp}
-                onChange={setOtp}
+                onChange={value => setOtp(value.replace(/\D/g, "").slice(0, 6))}
                 containerClassName="group flex items-center has-[:disabled]:opacity-30"
                 render={({ slots }) => (
                   <>
