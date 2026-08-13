@@ -1,91 +1,249 @@
-// 1. These CORS headers are REQUIRED for React to communicate with the function
+import { createClient } from "@supabase/supabase-js";
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+type AppUser = { id: string; name: string | null; email: string | null };
+type Submission = {
+  id: string;
+  formType: string;
+  status: string;
+  submittedAt: string;
+  submittedBy: string;
+  employeeName: string;
+  data: Record<string, unknown> | null;
+};
+
+type NotificationTarget = {
+  eventType: string;
+  audience: "approver" | "submitter";
+  userIds?: string[];
+  role?: string;
+  subject: string;
+  heading: string;
+};
+
+const formLabels: Record<string, string> = {
+  car_rental: "Company Vehicle Request",
+  leave: "Gate Pass",
+  claim: "Petty Cash Claim",
+  cctv_access_request: "CCTV Access Request",
+  it_help_desk: "IT Help Desk Request",
+  it_admin_request: "IT Administration Request",
+  it_application_request: "IT Application Request",
+  it_facilities_requisition: "IT Facilities Requisition",
+  ppe_request: "PPE / Uniform / Office Supplies Request",
+  ppe_purchase: "PPE / Uniform Purchase",
+};
+
+const IT_FORMS = new Set([
+  "cctv_access_request",
+  "it_help_desk",
+  "it_admin_request",
+  "it_application_request",
+  "it_facilities_requisition",
+]);
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...corsHeaders, "Content-Type": "application/json" },
+});
+
+const escapeHtml = (value: unknown) => String(value ?? "")
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;")
+  .replaceAll('"', "&quot;")
+  .replaceAll("'", "&#039;");
+
+const selectedUserId = (data: Record<string, unknown>, key: string) => {
+  const value = data[key];
+  return typeof value === "string" && value.trim() ? value : null;
+};
+
+function getTarget(submission: Submission): NotificationTarget | null {
+  const data = submission.data ?? {};
+  const label = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
+  const selected = (key: string, stage: string): NotificationTarget | null => {
+    const id = selectedUserId(data, key);
+    return id ? {
+      eventType: `approval_required_${stage}`,
+      audience: "approver",
+      userIds: [id],
+      subject: `Action required: ${label}`,
+      heading: "A submission requires your approval",
+    } : null;
+  };
+  const role = (roleName: string, stage: string): NotificationTarget => ({
+    eventType: `action_required_${stage}`,
+    audience: "approver",
+    role: roleName,
+    subject: `Action required: ${label}`,
+    heading: "A submission requires your attention",
+  });
+  const submitter = (eventType: string, subject: string, heading: string): NotificationTarget => ({
+    eventType,
+    audience: "submitter",
+    userIds: [submission.submittedBy],
+    subject,
+    heading,
+  });
+
+  switch (submission.status) {
+    case "pending":
+      if (submission.formType === "it_help_desk") return role("it_admin", "it");
+      return selected("hosUserId", "hos");
+    case "approved_hos":
+      return selected("hodUserId", "hod");
+    case "approved_hod":
+      if (submission.formType === "leave") return selected("mancoMemberUserId", "manco");
+      if (submission.formType === "claim") return selected("hopUserId", "purchasing");
+      if (submission.formType === "car_rental") return role("hr_admin", "hr");
+      if (IT_FORMS.has(submission.formType)) return role("it_admin", "it");
+      return null;
+    case "pending_finance_review":
+      return submission.formType === "claim" ? role("finance_admin", "finance_review") : null;
+    case "approved_hop":
+      return submission.formType === "claim" ? selected("hofUserId", "finance_approval") : null;
+    case "approved_hof":
+      return submission.formType === "claim" ? role("finance_admin", "payment") : null;
+    case "approved_manco":
+      return submission.formType === "leave" ? role("security_guard", "security") : null;
+    case "reopened":
+      return IT_FORMS.has(submission.formType) ? role("it_admin", "it_reopened") : null;
+    case "awaiting_confirmation":
+      return submitter("employee_confirmation_required", `Please review: ${label}`, "Your confirmation is required");
+    case "paid":
+      return submission.formType === "claim"
+        ? submitter("payment_acknowledgement_required", `Payment processed: ${label}`, "Your payment acknowledgement is required")
+        : null;
+    case "approved":
+      return submitter("submission_approved", `Approved: ${label}`, "Your submission has been approved");
+    case "rejected":
+      return submitter("submission_rejected", `Rejected: ${label}`, "Your submission has been rejected");
+    default:
+      return null;
+  }
+}
+
+function emailHtml(submission: Submission, target: NotificationTarget, appUrl: string) {
+  const formLabel = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
+  const reference = submission.data?.refNo ?? submission.id;
+  const systemUrl = `${appUrl.replace(/\/$/, "")}/login`;
+  return `<!doctype html>
+  <html><body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#172033">
+    <div style="max-width:600px;margin:0 auto;padding:32px 16px">
+      <div style="background:#fff;border:1px solid #e4e8ee;border-radius:14px;overflow:hidden">
+        <div style="background:#003366;padding:22px 28px;color:#fff"><strong style="font-size:18px">HDSB E-Form System</strong></div>
+        <div style="padding:28px">
+          <h1 style="font-size:22px;margin:0 0 22px;color:#003366">${escapeHtml(target.heading)}</h1>
+          <table role="presentation" style="width:100%;border-collapse:collapse;font-size:15px">
+            <tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">Submitter</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(submission.employeeName)}</td></tr>
+            <tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">Form type</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(formLabel)}</td></tr>
+            <tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">Reference number</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(reference)}</td></tr>
+          </table>
+          <div style="margin-top:28px;text-align:center"><a href="${escapeHtml(systemUrl)}" style="display:inline-block;background:#003366;color:#fff;text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:700">Open HDSB E-Form System</a></div>
+        </div>
+      </div>
+      <p style="text-align:center;color:#98a2b3;font-size:12px;margin:16px 0">This is an automated system notification.</p>
+    </div>
+  </body></html>`;
 }
 
 Deno.serve(async (req) => {
-  console.log(`0. Incoming request: ${req.method}`);
-
-  // 2. Handle the Preflight Request from the browser
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    console.log("1. Edge Function triggered!");
-    
-    // 3. Extract the data sent from your React forms
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL");
+    const appUrl = Deno.env.get("APP_URL");
+    if (!supabaseUrl || !anonKey || !serviceKey || !resendKey || !fromEmail || !appUrl) {
+      throw new Error("Missing required Edge Function secrets");
+    }
+
+    const authorization = req.headers.get("Authorization");
+    if (!authorization) return json({ error: "Unauthorized" }, 401);
+    const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData.user) return json({ error: "Unauthorized" }, 401);
+
     const body = await req.json();
-    console.log("2. Received data:", JSON.stringify(body));
-    const { to, subject, employeeName, formType, url, amount } = body;
+    const submissionId = typeof body?.submissionId === "string" ? body.submissionId : "";
+    if (!submissionId) return json({ error: "submissionId is required" }, 400);
 
-    // 4. Get the secure API key
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    if (!RESEND_API_KEY) {
-      console.error("❌ ERROR: RESEND_API_KEY is missing from Supabase secrets!");
-      throw new Error("Missing RESEND_API_KEY secret")
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    const { data: rawSubmission, error: submissionError } = await admin
+      .from("submissions").select("id, formType, status, submittedAt, submittedBy, employeeName, data")
+      .eq("id", submissionId).single();
+    if (submissionError || !rawSubmission) return json({ error: "Submission not found" }, 404);
+    const submission = rawSubmission as Submission;
+    const target = getTarget(submission);
+    if (!target) return json({ sent: 0, skipped: "No email is required for this workflow state" });
+
+    let recipients: AppUser[] = [];
+    if (target.userIds?.length) {
+      const { data } = await admin.from("users").select("id, name, email").in("id", target.userIds).eq("status", "active");
+      recipients = (data ?? []) as AppUser[];
+    } else if (target.role) {
+      const { data } = await admin.from("users").select("id, name, email").eq("status", "active")
+        .or(`role.eq.${target.role},secondary_roles.cs.{${target.role}}`);
+      recipients = (data ?? []) as AppUser[];
+    }
+    recipients = recipients.filter((user) => Boolean(user.email));
+    if (!recipients.length) return json({ sent: 0, skipped: "No active recipient with an email address was found" });
+
+    const stateChangedAt = String(submission.data?.lastUpdatedAt ?? submission.submittedAt);
+    const eventKey = `${target.eventType}:${stateChangedAt}`;
+    let sent = 0;
+    const errors: string[] = [];
+
+    for (const recipient of recipients) {
+      const { data: existing } = await admin.from("submission_email_deliveries")
+        .select("id, status").eq("submission_id", submission.id).eq("event_key", eventKey)
+        .eq("recipient_user_id", recipient.id).maybeSingle();
+      if (existing?.status === "sent") continue;
+
+      const delivery = existing ?? (await admin.from("submission_email_deliveries").insert({
+        submission_id: submission.id,
+        event_key: eventKey,
+        event_type: target.eventType,
+        recipient_user_id: recipient.id,
+        recipient_email: recipient.email,
+        status: "processing",
+      }).select("id, status").single()).data;
+      if (!delivery) continue;
+
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [recipient.email],
+          subject: target.subject,
+          html: emailHtml(submission, target, appUrl),
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        await admin.from("submission_email_deliveries").update({ status: "sent", provider_message_id: result.id, sent_at: new Date().toISOString(), error_message: null }).eq("id", delivery.id);
+        sent += 1;
+      } else {
+        const message = String(result?.message ?? "Email provider rejected the message");
+        await admin.from("submission_email_deliveries").update({ status: "failed", error_message: message }).eq("id", delivery.id);
+        errors.push(`${recipient.id}: ${message}`);
+      }
     }
 
-    console.log(`3. Attempting to send email to: ${to}`);
-    // 5. Send the email using Resend
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`
-      },
-      body: JSON.stringify({
-        from: 'HDSB System <onboarding@resend.dev>', // Resend's default testing email
-        to: to, // The array of HOS/HOD/Admin emails
-        subject: subject,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #003366;">New Form Submission</h2>
-            <p>A new <strong>${formType}</strong> has been submitted and requires your attention.</p>
-            
-            <table style="width: 100%; text-align: left; margin-top: 20px; border-collapse: collapse;">
-              <tr><th style="padding: 8px 0; border-bottom: 1px solid #eee;">Employee:</th><td style="border-bottom: 1px solid #eee;">${employeeName}</td></tr>
-              <tr><th style="padding: 8px 0; border-bottom: 1px solid #eee;">Form Type:</th><td style="border-bottom: 1px solid #eee;">${formType}</td></tr>
-              ${amount ? `<tr><th style="padding: 8px 0; border-bottom: 1px solid #eee;">Total Amount:</th><td style="border-bottom: 1px solid #eee;">RM ${amount}</td></tr>` : ''}
-            </table>
-
-            <div style="margin-top: 30px;">
-              <a href="${url}/login" style="background-color: #003366; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-                Log In to Review
-              </a>
-            </div>
-            
-            <p style="margin-top: 30px; font-size: 12px; color: #666;">
-              HICOM DIECASTINGS GATE SYSTEM V2.4
-            </p>
-          </div>
-        `
-      })
-    })
-
-    const data = await res.json()
-    
-    if (!res.ok) {
-      console.error("❌ ERROR from Resend API:", JSON.stringify(data));
-      throw new Error(`Resend Error: ${data.message || 'Unknown error'}`);
-    }
-
-    console.log("✅ 4. Email sent successfully!", JSON.stringify(data));
-
-    // 6. Return success
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    })
-
-  } catch (error: any) {
-    console.error("❌ CATCH BLOCK ERROR:", error.message);
-    // 7. Return error
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    return json({ sent, failed: errors.length, errors });
+  } catch (error) {
+    console.error("send-notification failed", error);
+    return json({ error: error instanceof Error ? error.message : "Unexpected error" }, 500);
   }
-})
+});

@@ -108,6 +108,17 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const sendWorkflowNotification = useCallback(async (submissionId: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("send-notification", {
+        body: { submissionId },
+      });
+      if (error) console.warn("Submission saved, but its email notification could not be sent:", error.message);
+    } catch (error) {
+      console.warn("Submission saved, but its email notification could not be sent:", error);
+    }
+  }, []);
+
   const refreshSubmissions = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -305,10 +316,11 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       return false;
     } else if (data) {
       setSubmissions(prev => [data[0] as Submission, ...prev]);
+      void sendWorkflowNotification(data[0].id);
       return true;
     }
     return false;
-  }, [submissions]);
+  }, [submissions, sendWorkflowNotification]);
 
   const updateSubmission = useCallback(async (id: string, dataToMerge?: Record<string, any>, status?: SubmissionStatus): Promise<boolean> => {
     const currentSub = submissions.find(s => s.id === id);
@@ -339,8 +351,9 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     }
 
     setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: status ?? s.status, data: updatedData } : s));
+    if (status && status !== currentSub.status) void sendWorkflowNotification(id);
     return true;
-  }, [submissions]);
+  }, [submissions, sendWorkflowNotification]);
 
   const updateSubmissionStatus = useCallback(async (id: string, status: SubmissionStatus, dataToMerge?: Record<string, any>): Promise<boolean> => {
     return await updateSubmission(id, dataToMerge, status);

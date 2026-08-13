@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 // ADDED: "Save" icon to the lucide-react imports
@@ -43,6 +44,51 @@ interface HomePosterConfig {
   url: string | null;
   version?: string;
 }
+
+const DEFAULT_HOME_POSTER_CONFIG: HomePosterConfig = { enabled: false, url: null };
+
+const fetchAdminUsers = async (): Promise<FirestoreUser[]> => {
+  const { data, error } = await supabase.from("users").select("*").order("name");
+  if (error) throw error;
+
+  return (data || []).map((doc: any) => ({
+    id: doc.id,
+    name: doc.name,
+    email: doc.email,
+    employeeId: doc.employeeId,
+    department: doc.department,
+    position: doc.position,
+    phone: doc.phone,
+    role: doc.role || "employee",
+    createdAt: doc.createdAt || doc.created_at
+      ? new Date(doc.createdAt || doc.created_at)
+      : undefined,
+    is_head_of_finance: doc.is_head_of_finance || false,
+    avatar: doc.avatar,
+    secondary_roles: doc.secondary_roles || [],
+    status: doc.status || "active",
+    deactivatedAt: doc.deactivated_at ? new Date(doc.deactivated_at) : undefined,
+    deactivatedBy: doc.deactivated_by || undefined,
+    deactivatedByName: doc.deactivated_by_name || undefined,
+    reactivatedAt: doc.reactivated_at ? new Date(doc.reactivated_at) : undefined,
+  }));
+};
+
+const fetchDepartmentNames = async (): Promise<string[]> => {
+  const { data, error } = await supabase.from("departments").select("name").order("name");
+  if (error) throw error;
+  return (data || []).map((d: any) => d.name);
+};
+
+const fetchHomePosterConfig = async (): Promise<HomePosterConfig> => {
+  const { data, error } = await supabase
+    .from("safety_dashboard_settings")
+    .select("value")
+    .eq("key", "home_poster")
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.value as HomePosterConfig) || DEFAULT_HOME_POSTER_CONFIG;
+};
 
 const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string; icon: any }> = [
   { value: "employee", label: "Employee", description: "Standard submission access", icon: User },
@@ -164,14 +210,39 @@ const SuperAdminDashboard = () => {
   const [searchParams] = useSearchParams();
   const { updateUser, refreshUsers } = useUsers();
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useSubmissions();
+  const queryClient = useQueryClient();
+  const {
+    data: users = [],
+    isLoading: isUsersLoading,
+    error: usersError,
+  } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
+  const {
+    data: departmentsList = [],
+    isLoading: isDepartmentsLoading,
+  } = useQuery({ queryKey: ["departments"], queryFn: fetchDepartmentNames });
+  const { data: homePosterConfig = DEFAULT_HOME_POSTER_CONFIG, error: posterError } = useQuery({
+    queryKey: ["home-poster-config"],
+    queryFn: fetchHomePosterConfig,
+  });
+  const isLoading = isUsersLoading || isDepartmentsLoading;
+
+  useEffect(() => {
+    if (usersError) {
+      console.error("Error fetching users:", usersError);
+      toast.error("Failed to load users");
+    }
+  }, [usersError]);
+
+  useEffect(() => {
+    if (posterError) console.error("Could not load Home poster settings:", posterError);
+  }, [posterError]);
+
   const isSettingsPage = pathname === "/admin/settings";
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [registrationDateFilter, setRegistrationDateFilter] = useState("all");
   const [directoryView, setDirectoryView] = useState<"active" | "inactive">("active");
-  const [users, setUsers] = useState<FirestoreUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<FirestoreUser | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editRole, setEditRole] = useState<UserRole>("employee");
@@ -185,11 +256,9 @@ const SuperAdminDashboard = () => {
   const [exportEndDate, setExportEndDate] = useState("");
   const [exportUserScope, setExportUserScope] = useState<"all" | "active" | "inactive">("all");
   const [isHomePosterOpen, setIsHomePosterOpen] = useState(false);
-  const [homePosterConfig, setHomePosterConfig] = useState<HomePosterConfig>({ enabled: false, url: null });
   const [isUploadingHomePoster, setIsUploadingHomePoster] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
-  const [departmentsList, setDepartmentsList] = useState<string[]>([]);
   const [isAnnouncementsOpen, setIsAnnouncementsOpen] = useState(false);
   const [isITFacilitiesOpen, setIsITFacilitiesOpen] = useState(false);
   const [isITApplicationOptionsOpen, setIsITApplicationOptionsOpen] = useState(false);
@@ -210,69 +279,6 @@ const SuperAdminDashboard = () => {
     if (panel === "poster") setIsHomePosterOpen(true);
     if (panel === "announcements") setIsAnnouncementsOpen(true);
   }, [searchParams]);
-
-  // Fetch users from Firestore
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        
-        const { data: deptData } = await supabase.from("departments").select("name").order("name");
-        if (deptData) {
-          setDepartmentsList(deptData.map((d: any) => d.name));
-        }
-
-        const { data, error } = await supabase.from("users").select("*").order("name");
-        if (error) throw error;
-
-        const fetchedUsers: FirestoreUser[] = (data || []).map((doc: any) => ({
-          id: doc.id,
-          name: doc.name,
-          email: doc.email,
-          employeeId: doc.employeeId,
-          department: doc.department,
-          position: doc.position,
-          phone: doc.phone,
-          role: doc.role || "employee",
-          createdAt: doc.createdAt || doc.created_at
-            ? new Date(doc.createdAt || doc.created_at)
-            : undefined,
-          is_head_of_finance: doc.is_head_of_finance || false,
-          avatar: doc.avatar,
-          secondary_roles: doc.secondary_roles || [],
-          status: doc.status || "active",
-          deactivatedAt: doc.deactivated_at ? new Date(doc.deactivated_at) : undefined,
-          deactivatedBy: doc.deactivated_by || undefined,
-          deactivatedByName: doc.deactivated_by_name || undefined,
-          reactivatedAt: doc.reactivated_at ? new Date(doc.reactivated_at) : undefined,
-        }));
-
-        setUsers(fetchedUsers);
-      } catch (error) {
-        console.error("Error fetching users:", error);
-        toast.error("Failed to load users");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    void supabase
-      .from("safety_dashboard_settings")
-      .select("value")
-      .eq("key", "home_poster")
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("Could not load Home poster settings:", error);
-          return;
-        }
-        if (data?.value) setHomePosterConfig(data.value as HomePosterConfig);
-      });
-  }, []);
 
   const filtered = users.filter(u => {
     if ((u.status || "active") !== directoryView) return false;
@@ -418,7 +424,7 @@ const SuperAdminDashboard = () => {
 
   const saveHomePosterConfig = async (nextConfig: HomePosterConfig) => {
     const previousConfig = homePosterConfig;
-    setHomePosterConfig(nextConfig);
+    queryClient.setQueryData<HomePosterConfig>(["home-poster-config"], nextConfig);
     const { error } = await supabase.from("safety_dashboard_settings").upsert({
       key: "home_poster",
       value: nextConfig,
@@ -426,7 +432,7 @@ const SuperAdminDashboard = () => {
       updated_at: new Date().toISOString(),
     });
     if (error) {
-      setHomePosterConfig(previousConfig);
+      queryClient.setQueryData<HomePosterConfig>(["home-poster-config"], previousConfig);
       toast.error(`Failed to save Home poster settings: ${error.message}`);
       return false;
     }
@@ -557,7 +563,8 @@ const SuperAdminDashboard = () => {
       }]);
       if (auditError) console.error("Permission audit log could not be written:", auditError);
 
-      setUsers(current => current.map(person => person.id === selectedUser.id ? { ...person, ...updates, secondary_roles: updates.secondary_roles.filter(role => role !== editRole) } : person));
+      queryClient.setQueryData<FirestoreUser[]>(["admin-users"], current =>
+        (current || []).map(person => person.id === selectedUser.id ? { ...person, ...updates, secondary_roles: updates.secondary_roles.filter(role => role !== editRole) } : person));
       setSheetOpen(false);
       toast.success(`${selectedUser.name}'s role updated successfully`);
     } catch (error: any) {
@@ -603,7 +610,7 @@ const SuperAdminDashboard = () => {
       }]);
       if (auditError) console.error("Deactivation audit log could not be written:", auditError);
 
-      setUsers(current => current.map(person => person.id === selectedUser.id ? {
+      queryClient.setQueryData<FirestoreUser[]>(["admin-users"], current => (current || []).map(person => person.id === selectedUser.id ? {
         ...person,
         status: "inactive",
         deactivatedAt: new Date(deactivatedAt),
@@ -652,7 +659,7 @@ const SuperAdminDashboard = () => {
       }]);
       if (auditError) console.error("Reactivation audit log could not be written:", auditError);
 
-      setUsers(current => current.map(person => person.id === selectedUser.id ? {
+      queryClient.setQueryData<FirestoreUser[]>(["admin-users"], current => (current || []).map(person => person.id === selectedUser.id ? {
         ...person,
         status: "active",
         reactivatedAt: new Date(reactivatedAt),
@@ -683,8 +690,8 @@ const SuperAdminDashboard = () => {
     try {
       const { error } = await supabase.from("departments").insert([{ name: cleanName }]);
       if (error) throw error;
-      
-      setDepartmentsList([...departmentsList, cleanName].sort());
+
+      queryClient.setQueryData<string[]>(["departments"], current => [...(current || []), cleanName].sort());
       toast.success(`Department "${cleanName}" added successfully`);
       setNewDeptName("");
     } catch (err: any) {
@@ -708,8 +715,8 @@ const SuperAdminDashboard = () => {
 
       const { error } = await supabase.from("departments").delete().eq("name", deptName);
       if (error) throw error;
-      
-      setDepartmentsList(departmentsList.filter(d => d !== deptName));
+
+      queryClient.setQueryData<string[]>(["departments"], current => (current || []).filter(d => d !== deptName));
       toast.success(`Department "${deptName}" deleted successfully`);
     } catch (err: any) {
       console.error("Error deleting department:", err);
@@ -735,14 +742,14 @@ const SuperAdminDashboard = () => {
       const { error: departmentError } = await supabase.from("departments").update({ name: cleanName }).eq("name", currentName);
       if (departmentError) throw departmentError;
 
-      const { error: usersError } = await supabase.from("users").update({ department: cleanName }).eq("department", currentName);
-      if (usersError) {
+      const { error: usersUpdateError } = await supabase.from("users").update({ department: cleanName }).eq("department", currentName);
+      if (usersUpdateError) {
         await supabase.from("departments").update({ name: currentName }).eq("name", cleanName);
-        throw usersError;
+        throw usersUpdateError;
       }
 
-      setDepartmentsList(current => current.map(name => name === currentName ? cleanName : name).sort());
-      setUsers(current => current.map(user => user.department === currentName ? { ...user, department: cleanName } : user));
+      queryClient.setQueryData<string[]>(["departments"], current => (current || []).map(name => name === currentName ? cleanName : name).sort());
+      queryClient.setQueryData<FirestoreUser[]>(["admin-users"], current => (current || []).map(user => user.department === currentName ? { ...user, department: cleanName } : user));
       setEditingDepartment(null);
       setEditingDepartmentName("");
       toast.success(`Department renamed to "${cleanName}"`);

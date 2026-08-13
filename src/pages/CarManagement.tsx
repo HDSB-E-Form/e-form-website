@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useSubmissions, type CarInfo, type Submission } from "@/contexts/SubmissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Car, CheckCircle, ArrowRightLeft, Info, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera } from "lucide-react";
+import { Car, CheckCircle, ArrowRightLeft, Info, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -206,7 +206,7 @@ const CarManagement = () => {
             <p className="text-[11px] font-semibold text-muted-foreground">In Use</p>
             <p className="mt-0.5 text-xl font-bold leading-none text-foreground">{checkedOut.length}</p>
           </div>
-        <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="col-span-2 flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border/60 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/25 hover:shadow active:scale-[0.98] sm:w-auto">
+        <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="col-span-2 flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98] sm:w-auto">
           <Plus className="h-4 w-4" />
           Add New Car
         </button>
@@ -876,6 +876,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
 
 /* ─── Booking History Modal ─── */
 function BookingHistoryModal({ history, onClose, onImageClick }: { history: AggregatedHistoryEntry[]; onClose: () => void; onImageClick: (url: string) => void }) {
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -913,25 +914,25 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="vehicle-history-title">
-      <div className="card-elevated p-4 sm:p-6 w-full max-w-6xl max-h-[92vh] overflow-hidden relative animate-in fade-in-90 slide-in-from-bottom-10 flex flex-col" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} aria-label="Close vehicle usage history" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted">
-          <XCircle className="h-5 w-5" />
-        </button>
-        <div className="border-b border-border pb-4 mb-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="card-elevated flex max-h-[92vh] w-full max-w-6xl animate-in flex-col overflow-hidden p-4 fade-in-90 slide-in-from-bottom-10 sm:p-6" onClick={e => e.stopPropagation()}>
+        <div className="mb-5 flex items-start gap-3 border-b border-border pb-4 sm:items-center sm:gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 sm:h-12 sm:w-12">
             <CalendarClock className="h-6 w-6 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 id="vehicle-history-title" className="font-bold text-lg text-foreground">Vehicle Usage History</h3>
             <p className="text-sm text-muted-foreground">Completed vehicle trips and return records</p>
           </div>
+          <button onClick={onClose} aria-label="Close vehicle usage history" className="shrink-0 rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <XCircle className="h-5 w-5" />
+          </button>
         </div>
 
         {history.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No booking history found.</p>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          <div className="space-y-3 sm:hidden">
+          <div className="space-y-3 lg:hidden">
             {history.map((entry, index) => (
               <article key={index} className="rounded-xl border border-border bg-background p-4">
                 <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
@@ -952,26 +953,25 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
             ))}
           </div>
 
-          <div className="hidden sm:block max-h-[60vh] overflow-auto border border-border rounded-lg">
+          <div className="hidden overflow-hidden rounded-lg border border-border lg:block">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                 <TableRow className="bg-muted/50">
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Car</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Date & Time Out</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Date & Time In</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Vehicle</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Trip period</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Mileage / Distance</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Fuel Out → In</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Remarks</TableHead>
+                  <TableHead className="w-28 text-right text-xs font-bold uppercase tracking-wider">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {history.map((entry, index) => (
-                  <TableRow key={index} className="hover:bg-muted/20">
+                  <Fragment key={index}>
+                  <TableRow className="hover:bg-muted/20">
                     <TableCell className="font-medium text-foreground">{entry.employeeName}</TableCell>
                     <TableCell className="text-sm text-muted-foreground"><p>{entry.model} ({entry.plateNumber})</p>{entry.submissionRefNo && <p className="mt-1 text-[11px] font-semibold text-primary">{entry.submissionRefNo}</p>}<p className="mt-1 text-[10px]">Card: {entry.petrolCardOut ? entry.petrolCardSerialOut || "Issued" : "Not issued"}</p></TableCell>
-                    <TableCell className="text-sm"><HistoryDateTime value={entry.checkedOutAt} /></TableCell>
-                    <TableCell className="text-sm"><HistoryDateTime value={entry.checkedInAt} /></TableCell>
+                    <TableCell className="text-sm"><div className="grid grid-cols-[2rem_1fr] gap-x-2 gap-y-2"><span className="text-xs font-bold text-amber-600">OUT</span><HistoryDateTime value={entry.checkedOutAt} /><span className="text-xs font-bold text-emerald-600">IN</span><HistoryDateTime value={entry.checkedInAt} /></div></TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap"><p className="font-semibold text-foreground">{entry.mileageOut || "—"} → {entry.mileageIn || "—"} km</p><p className="mt-1">Distance: {getDistance(entry)}</p></TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {(entry.fuelLevelOut || entry.fuelLevelIn) ? (
@@ -986,14 +986,24 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
                         </div>
                       ) : "—"}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground align-top min-w-[200px]">
-                  {entry.remarksOut && <div className="text-xs mb-1"><span className="font-bold text-amber-600">Out:</span> {entry.remarksOut}</div>}
-                  {(entry.remarksIn || entry.remarks) && <div className="text-xs"><span className="font-bold text-emerald-600">In:</span> {entry.remarksIn || entry.remarks}</div>}
-                  <PhotoGroup photos={entry.photosOut} label="Photos Out" tone="text-amber-600" />
-                  <PhotoGroup photos={entry.photosIn} label="Photos In" tone="text-emerald-600" />
-                  {!entry.remarksOut && !entry.remarksIn && !entry.remarks && !(entry.photosOut && Object.values(entry.photosOut).some(v => v)) && !(entry.photosIn && Object.values(entry.photosIn).some(v => v)) && "—"}
+                <TableCell className="text-right">
+                  <button type="button" onClick={() => setExpandedRow(expandedRow === index ? null : index)} aria-expanded={expandedRow === index} aria-label={`${expandedRow === index ? "Hide" : "Show"} trip details`} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+                    {expandedRow === index ? "Hide" : "View"}
+                    {expandedRow === index ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
                     </TableCell>
                   </TableRow>
+                  {expandedRow === index && (
+                    <TableRow className="bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={6} className="px-5 py-4">
+                        <div className="grid gap-5 md:grid-cols-2">
+                          <div><p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Remarks</p><div className="mt-2 space-y-2 text-sm">{entry.remarksOut && <p><span className="font-bold text-amber-600">Out:</span> {entry.remarksOut}</p>}{(entry.remarksIn || entry.remarks) && <p><span className="font-bold text-emerald-600">In:</span> {entry.remarksIn || entry.remarks}</p>}{!entry.remarksOut && !entry.remarksIn && !entry.remarks && <p className="text-muted-foreground">No remarks recorded.</p>}</div></div>
+                          <div><p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Vehicle photos</p><div className="mt-2 flex flex-wrap gap-x-6"><PhotoGroup photos={entry.photosOut} label="Photos Out" tone="text-amber-600" /><PhotoGroup photos={entry.photosIn} label="Photos In" tone="text-emerald-600" />{!(entry.photosOut && Object.values(entry.photosOut).some(v => v)) && !(entry.photosIn && Object.values(entry.photosIn).some(v => v)) && <p className="text-sm text-muted-foreground">No photos recorded.</p>}</div></div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -1001,9 +1011,6 @@ function BookingHistoryModal({ history, onClose, onImageClick }: { history: Aggr
           </div>
         )}
         
-        <button onClick={onClose} className="mt-6 w-full py-2.5 rounded-lg bg-muted text-foreground font-medium text-sm hover:bg-muted/70 transition-colors">
-          Close
-        </button>
       </div>
     </div>
   );

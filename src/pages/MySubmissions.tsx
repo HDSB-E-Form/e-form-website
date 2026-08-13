@@ -16,6 +16,7 @@ import DashboardStatCard from "@/components/DashboardStatCard";
 import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetails";
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalOverview from "@/components/ApprovalOverview";
+import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
 import EmployeeSummary from "@/components/EmployeeSummary";
 
 const formTypeLabels: Record<string, string> = {
@@ -748,7 +749,9 @@ const MySubmissions = () => {
 
           </div>
 
-          {selectedSubmission.data.remarks && (selectedSubmission.formType !== "it_help_desk" || selectedSubmission.status === "rejected") && (
+          {selectedSubmission.formType !== "it_help_desk" ? (
+            <ApprovalRemarksHistory submission={selectedSubmission} />
+          ) : selectedSubmission.data.remarks && selectedSubmission.status === "rejected" && (
             <div className={`p-3 sm:p-4 rounded-xl border mb-8 print:border-gray-300 ${selectedSubmission.status === 'rejected' ? 'bg-destructive/10 border-destructive/20 text-destructive dark:text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300'}`}>
               <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80 print:text-gray-500">Remarks / Ulasan</p>
               <p className="text-xs sm:text-sm font-medium print:text-black">"{selectedSubmission.data.remarks}"</p>
