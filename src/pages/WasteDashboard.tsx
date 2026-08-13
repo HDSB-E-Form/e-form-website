@@ -4,10 +4,11 @@ import { PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Toolti
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart3, PieChart as PieChartIcon, Settings, Trash2, Pencil, Plus, Recycle, Download, Database, RotateCcw } from "lucide-react";
+import { BarChart3, PieChart as PieChartIcon, Settings, Trash2, Pencil, Plus, Recycle, Download, Database, RotateCcw, MessageSquare, Save, X } from "lucide-react";
 import { DEFAULT_SELL_WASTE_TYPES, DEFAULT_PAY_WASTE_TYPES } from "@/pages/WasteInventoryForm";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +39,12 @@ const WasteDashboard = () => {
     const [newTypeName, setNewTypeName] = useState("");
     const hasInvalidDateRange = Boolean(wasteStartDate && wasteEndDate && wasteStartDate > wasteEndDate);
     const hasActiveFilters = Boolean(wasteStartDate || wasteEndDate || wastePlantFilter !== "All" || wasteSwFilter !== "All");
+    const activeFilterCount = [wasteStartDate, wasteEndDate, wastePlantFilter !== "All", wasteSwFilter !== "All"].filter(Boolean).length;
+    const [isAddRemarkOpen, setIsAddRemarkOpen] = useState(false);
+    const [newRemark, setNewRemark] = useState("");
+    const [isSavingRemark, setIsSavingRemark] = useState(false);
+    const [isRemarksOpen, setIsRemarksOpen] = useState(false);
+    const [dashboardRemarks, setDashboardRemarks] = useState<Array<{ id: string; remark: string; created_by_name: string; created_at: string }>>([]);
 
 
     const [sellTypes, setSellTypes] = useState<string[]>(DEFAULT_SELL_WASTE_TYPES);
@@ -50,7 +57,29 @@ const WasteDashboard = () => {
                 if (value?.sell) setSellTypes(value.sell);
                 if (value?.pay) setPayTypes(value.pay);
             });
+        supabase.from("safety_dashboard_remarks").select("id, remark, created_by_name, created_at").eq("dashboard", "waste_inventory").order("created_at", { ascending: false })
+            .then(({ data }) => {
+                if (data) setDashboardRemarks(data);
+            });
     }, []);
+
+    const handleAddRemark = async () => {
+        if (!newRemark.trim()) {
+            toast.error("Remark cannot be empty.");
+            return;
+        }
+        setIsSavingRemark(true);
+        const { data, error } = await supabase.from("safety_dashboard_remarks").insert({
+            dashboard: "waste_inventory", remark: newRemark.trim(), created_by: user?.id || "", created_by_name: user?.name || "System",
+        }).select("id, remark, created_by_name, created_at").single();
+        if (!error && data) {
+            setDashboardRemarks(current => [data, ...current]);
+            toast.success("Remark added successfully.");
+            setIsAddRemarkOpen(false);
+            setNewRemark("");
+        } else toast.error(`Failed to save remark: ${error?.message || "Unknown error"}`);
+        setIsSavingRemark(false);
+    };
 
     const saveWasteTypes = async (nextSell: string[], nextPay: string[]) => {
         const { error } = await supabase.from("safety_dashboard_settings").upsert({
@@ -275,10 +304,14 @@ const WasteDashboard = () => {
                     <h1 className="text-2xl font-bold text-foreground">Scheduled Waste Inventory</h1>
                     <p className="text-muted-foreground text-sm mt-1">Track waste generation, recycling, and disposal with the Smart Calculator.</p>
                 </div>
-                <div className="relative">
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="h-10 w-10 flex items-center justify-center bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold shadow-sm">
-                        <Settings className="h-5 w-5" />
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setIsAddRemarkOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary/10 px-4 text-sm font-bold text-primary transition-colors hover:bg-primary/20">
+                        <Plus className="h-4 w-4" /> Add Remark
                     </button>
+                    <div className="relative">
+                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Dashboard settings" className="h-10 w-10 flex items-center justify-center bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg transition-colors text-sm font-bold shadow-sm">
+                            <Settings className="h-5 w-5" />
+                        </button>
                     {isMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
@@ -289,9 +322,13 @@ const WasteDashboard = () => {
                                 <button onClick={() => { setIsWasteTypesOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
                                     <Settings className="h-4 w-4 text-muted-foreground" /> Manage Waste Types
                                 </button>
+                                <button onClick={() => { setIsRemarksOpen(true); setIsMenuOpen(false); }} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted rounded-lg text-sm font-medium transition-colors text-left text-foreground">
+                                    <MessageSquare className="h-4 w-4 text-muted-foreground" /> View Remarks
+                                </button>
                             </div>
                         </>
                     )}
+                    </div>
                 </div>
             </div>
 
@@ -317,13 +354,13 @@ const WasteDashboard = () => {
 
                 {/* Compact responsive filter bar */}
                 <div className="mb-6 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[140px_140px_150px_minmax(270px,1fr)_auto]">
+                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(260px,1.5fr)_auto]">
                         <div>
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">From</Label>
+                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Start Date</Label>
                             <Input type="date" value={wasteStartDate} max={wasteEndDate || undefined} onChange={e => setWasteStartDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
                         </div>
                         <div>
-                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">To</Label>
+                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">End Date</Label>
                             <Input type="date" value={wasteEndDate} min={wasteStartDate || undefined} onChange={e => setWasteEndDate(e.target.value)} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
                         </div>
                         <div>
@@ -362,13 +399,29 @@ const WasteDashboard = () => {
                             <RotateCcw className="h-3.5 w-3.5" /> Reset Filters
                         </button>
                     </div>
-                    {hasInvalidDateRange && <p className="mt-2 text-xs font-semibold text-destructive">The From date must be earlier than or equal to the To date.</p>}
+                    {hasInvalidDateRange && <p className="mt-2 text-xs font-semibold text-destructive">The Start Date must be earlier than or equal to the End Date.</p>}
+                    <div className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs font-medium text-muted-foreground">
+                            Showing <span className="font-bold text-foreground">{wasteChartData.stats.recordCount.toLocaleString('en-US')}</span> {wasteChartData.stats.recordCount === 1 ? 'record' : 'records'}
+                            {hasActiveFilters && <span> · {activeFilterCount} active {activeFilterCount === 1 ? 'filter' : 'filters'}</span>}
+                        </p>
+                        {hasActiveFilters && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {wasteStartDate && <button onClick={() => setWasteStartDate("")} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted">From: {wasteStartDate}<X className="h-3 w-3" /></button>}
+                                {wasteEndDate && <button onClick={() => setWasteEndDate("")} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted">To: {wasteEndDate}<X className="h-3 w-3" /></button>}
+                                {wasteSwFilter !== "All" && <button onClick={() => setWasteSwFilter("All")} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted">SW Code: {wasteSwFilter}<X className="h-3 w-3" /></button>}
+                                {wastePlantFilter !== "All" && <button onClick={() => setWastePlantFilter("All")} className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted">{wastePlantFilter}<X className="h-3 w-3" /></button>}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex flex-col">
                 <div className="order-2 mt-6 grid grid-cols-1 gap-6">
                     <div className="card-elevated p-4 sm:p-6">
-                        <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-1"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
+                        <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <h3 className="font-bold text-foreground text-sm flex items-center gap-2"><PieChartIcon className="h-4 w-4 text-primary" /> Distribution</h3>
+                        </div>
                         <div className="min-h-72">
                             {wasteChartData.pieData.length === 0 ? (
                                 <div className="h-72 flex items-center justify-center text-muted-foreground text-sm">No data available.</div>
@@ -451,6 +504,60 @@ const WasteDashboard = () => {
                 </div>
                 </div>
             </div>
+
+            {/* Add Remark Sheet */}
+            <Sheet open={isAddRemarkOpen} onOpenChange={setIsAddRemarkOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Add New Remark</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Log an issue, false data, or any other note for Scheduled Waste Inventory records.</p>
+                    </SheetHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label className="text-xs font-bold text-primary uppercase tracking-wider">Remark / Ulasan</Label>
+                            <textarea
+                                value={newRemark}
+                                onChange={(e) => setNewRemark(e.target.value)}
+                                placeholder="Enter your observation or note here..."
+                                className="w-full mt-2 rounded-lg border border-border bg-background px-3 py-2 text-base sm:text-sm min-h-[120px] resize-y"
+                            />
+                        </div>
+                        <button onClick={handleAddRemark} disabled={isSavingRemark} className="w-full py-3 bg-primary text-primary-foreground font-bold text-sm rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-70">
+                            {isSavingRemark ? <><Save className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save Remark</>}
+                        </button>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Remarks Sheet */}
+            <Sheet open={isRemarksOpen} onOpenChange={setIsRemarksOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="border-b border-border pb-4 mb-6">
+                        <SheetTitle className="text-xl font-bold">Log Remarks</SheetTitle>
+                        <p className="text-sm text-muted-foreground">Notes and remarks from Scheduled Waste Inventory operations.</p>
+                    </SheetHeader>
+                    <div className="space-y-4">
+                        {dashboardRemarks.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">No remarks found.</p>
+                        ) : (
+                            dashboardRemarks.map(remark => (
+                                <div key={remark.id} className="p-4 rounded-xl border border-border bg-muted/10">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-sm text-foreground">{remark.created_by_name}</p>
+                                            <Badge variant="outline" className="text-[9px] border-blue-500/50 text-blue-600">Waste Inventory</Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {new Date(remark.created_at).toLocaleDateString('en-GB')}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm text-foreground">{remark.remark}</p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             {/* Export Options Sheet */}
             <Sheet open={isExportOpen} onOpenChange={setIsExportOpen}>

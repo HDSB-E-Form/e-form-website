@@ -10,6 +10,7 @@ import { Loader2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import ITHelpDeskWidget from "@/components/ITHelpDeskWidget";
+import MobileAppPromo from "@/components/MobileAppPromo";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -177,7 +178,9 @@ const LoginPage = () => {
       {/* Subtle dark overlay without blur to keep the background crisp */}
       <div className="absolute inset-0 bg-black/35 z-0"></div>
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-6xl relative z-10 flex flex-col-reverse items-center justify-center gap-8 lg:flex-row lg:items-center lg:gap-16">
+        <MobileAppPromo />
+        <div className="w-full max-w-md shrink-0">
         <div className="text-center mb-6">
           <img src={logo} alt="HICOM Diecasting" className="h-24 w-auto object-contain mx-auto mb-4 brightness-200" />
           <h1 className="text-4xl font-bold text-primary-foreground mb-1">Welcome to HDSB</h1>
@@ -366,8 +369,9 @@ const LoginPage = () => {
           )}
           <div className="mt-6 text-xs text-muted-foreground text-center">
             <p>© 2026 HICOM Diecastings Sdn Bhd. All rights reserved.</p>
-            
+
           </div>
+        </div>
         </div>
       </div>
       <ITHelpDeskWidget />

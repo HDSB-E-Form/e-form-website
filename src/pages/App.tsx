@@ -40,6 +40,7 @@ import CarManagement from "@/pages/CarManagement";
 import SecurityDashboard from "@/pages/SecurityDashboard";
 import NotFound from "@/pages/NotFound";
 import AllSubmissionsPage from "@/pages/AllSubmissionsPage";
+import AnalyticsDashboard from "@/pages/AnalyticsDashboard";
 import ProfilePage from "@/pages/ProfilePage";
 import WasteInventoryForm from "@/pages/WasteInventoryForm"; 
 import HomePage from "@/pages/HomePage";
@@ -119,6 +120,7 @@ const App = () => (
                   <Route path="admin/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/settings" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/submissions" element={<ProtectedRoute allowedRoles={["super_admin"]}><AllSubmissionsPage /></ProtectedRoute>} />
+                  <Route path="admin/analytics" element={<ProtectedRoute allowedRoles={["super_admin"]}><AnalyticsDashboard /></ProtectedRoute>} />
                   <Route path="admin/cars" element={<ProtectedRoute allowedRoles={["hr_admin", "super_admin"]}><CarManagement /></ProtectedRoute>} />
                   <Route path="admin/safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DischargeDashboard /></ProtectedRoute>} />
                   <Route path="admin/safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><MixingDashboard /></ProtectedRoute>} />

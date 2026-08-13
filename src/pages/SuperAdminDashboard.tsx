@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -158,49 +158,6 @@ const getInitialColor = (name: string) => {
     hash = safeName.charCodeAt(i) + ((hash << 5) - hash);
   }
   return colors[Math.abs(hash) % colors.length];
-};
-
-const AnimatedCount = ({ value, duration = 800 }: { value: number; duration?: number }) => {
-  const [displayValue, setDisplayValue] = useState(0);
-  const raf = useRef<number | null>(null);
-  const startTime = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (raf.current) {
-      cancelAnimationFrame(raf.current);
-    }
-
-    if (value <= 0) {
-      setDisplayValue(value);
-      return;
-    }
-
-    startTime.current = null;
-
-    const animate = (timestamp: number) => {
-      if (startTime.current === null) {
-        startTime.current = timestamp;
-      }
-
-      const progress = Math.min((timestamp - startTime.current) / duration, 1);
-      const current = Math.round(progress * value);
-      setDisplayValue(current);
-
-      if (progress < 1) {
-        raf.current = requestAnimationFrame(animate);
-      }
-    };
-
-    raf.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (raf.current) {
-        cancelAnimationFrame(raf.current);
-      }
-    };
-  }, [value, duration]);
-
-  return <span>{displayValue.toLocaleString()}</span>;
 };
 
 const SuperAdminDashboard = () => {
@@ -507,15 +464,6 @@ const SuperAdminDashboard = () => {
       if (error) console.warn("The Home poster was removed from display but its storage file could not be deleted:", error);
     }
     toast.success("Home poster deleted.");
-  };
-
-  const stats = {
-    totalAccounts: users.length,
-    activeUsers: activeUsers.length,
-    inactiveUsers: inactiveUsers.length,
-    activeHOS: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].includes('hos')).length,
-    activeHOD: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].includes('hod')).length,
-    activeAdmins: activeUsers.filter(u => [u.role, ...(u.secondary_roles || [])].some(role => ["super_admin", "safety_admin", "finance_admin", "it_admin", "hr_admin", "security_guard"].includes(role))).length,
   };
 
   const normalizedAdditionalRoles = editSecondaryRoles.filter(role => role !== editRole).slice().sort();
@@ -986,34 +934,6 @@ const SuperAdminDashboard = () => {
           <Download className="h-[18px] w-[18px]" />
           Export Users
         </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
-        <div className="card-elevated border-l-4 border-l-primary p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Accounts</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.totalAccounts} /></p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-emerald-500 p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Users</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeUsers} /></p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-slate-400 p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Inactive Users</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.inactiveUsers} /></p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-violet-500 p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Active HOS</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeHOS} /></p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-sky-500 p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Active HOD</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeHOD} /></p>
-        </div>
-        <div className="card-elevated border-l-4 border-l-amber-500 p-4">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Administrators</p>
-          <p className="text-3xl font-bold text-foreground"><AnimatedCount value={stats.activeAdmins} /></p>
-        </div>
       </div>
 
       {/* Users Table */}

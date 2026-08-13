@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale, BarChart3 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const employeeNav = [
@@ -85,6 +85,7 @@ const securityNav = [
 const superAdminNav = [
   { title: "User Directory", url: "/admin/users", icon: Users },
   { title: "All Submissions", url: "/admin/submissions", icon: FileText },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "System Settings", url: "/admin/settings", icon: Settings },
 ];
 
