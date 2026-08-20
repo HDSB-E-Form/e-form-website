@@ -109,8 +109,9 @@ const CarManagement = () => {
     .filter((sub: Submission) => {
       if (sub.formType !== 'car_rental' || sub.status !== "approved") return false;
       if (!sub.data?.fromDate || !sub.data?.toDate) return false;
-      const toDate = new Date(sub.data.toDate).getTime();
-      if (!Number.isFinite(toDate) || toDate < now) return false;
+      const toDateRaw = new Date(sub.data.toDate);
+      const toDateEndOfDay = new Date(toDateRaw.getFullYear(), toDateRaw.getMonth(), toDateRaw.getDate(), 23, 59, 59, 999).getTime();
+      if (!Number.isFinite(toDateEndOfDay) || toDateEndOfDay < now) return false;
       if (checkedOutEmployees.has(sub.employeeName)) return false;
       if (activeSubmissionIds.has(sub.id) || fulfilledSubmissionIds.has(sub.id)) return false;
       if (["checked_out", "returned"].includes(sub.data.carCheckoutStatus)) return false;
