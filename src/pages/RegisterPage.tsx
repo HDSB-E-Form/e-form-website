@@ -96,6 +96,16 @@ const RegisterPage = () => {
       return;
     }
 
+      // Supabase returns a 200 with no identities (and sends no email) when the
+      // address already belongs to a confirmed account, to avoid leaking which
+      // emails are registered. Without this check the form would tell the user
+      // to check their inbox for a code that will never arrive.
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError("This email is already registered. Please log in instead, or use \"Forgot password\" on the sign-in page.");
+        setIsRegistering(false);
+        return;
+      }
+
       const pendingProfile = {
         email: form.email.trim().toLowerCase(), name: form.name.trim(), employeeId: form.employeeId.trim(),
         department: form.department, phone: form.phone.trim(), position: form.position.trim(),

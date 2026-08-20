@@ -17,6 +17,9 @@ import HRFormsPage from "@/pages/HRFormsPage";
 import SafetyFormsPage from "@/pages/SafetyFormsPage";
 import FinanceFormsPage from "@/pages/FinanceFormsPage";
 import ITFormsPage from "@/pages/ITFormsPage";
+import StoreFormsPage from "@/pages/StoreFormsPage";
+import MaterialRequisitionForm from "@/pages/MaterialRequisitionForm";
+import StoreApproverDashboard from "@/pages/StoreApproverDashboard";
 import CCTVAccessRequestForm from "@/pages/CCTVAccessRequestForm";
 import ITHelpDeskForm from "@/pages/ITHelpDeskForm";
 import ITFacilitiesRequisitionForm from "@/pages/ITFacilitiesRequisitionForm";
@@ -94,6 +97,8 @@ const App = () => (
                   <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="finance" element={<FinanceFormsPage />} />
                   <Route path="it" element={<ITFormsPage />} />
+                  <Route path="store" element={<StoreFormsPage />} />
+                  <Route path="store/material-requisition-slip" element={<MaterialRequisitionForm />} />
                   <Route path="hr/car-rental" element={<CarBookingForm />} /> 
                   <Route path="hr/leave" element={<GatePassForm />} />
                   <Route path="hr/ppe-request" element={<PpeRequestForm />} />
@@ -116,6 +121,7 @@ const App = () => (
                   <Route path="admin/it/help-desk" element={<ProtectedRoute allowedRoles={["it_admin"]}><ITAdminDashboard mode="helpdesk" /></ProtectedRoute>} />
                   <Route path="admin/it/facilities" element={<ProtectedRoute allowedRoles={["it_admin"]}><ITAdminDashboard mode="facilities" /></ProtectedRoute>} />
                   <Route path="admin/security" element={<ProtectedRoute allowedRoles={["security_guard"]}><SecurityDashboard /></ProtectedRoute>} />
+                  <Route path="admin/store" element={<ProtectedRoute allowedRoles={["store_pic", "store_admin", "super_admin"]}><StoreApproverDashboard /></ProtectedRoute>} />
                   <Route path="admin/approvals" element={<ProtectedRoute allowedRoles={["hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance"]}><ApproverDashboard /></ProtectedRoute>} />
                   <Route path="admin/users" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
                   <Route path="admin/settings" element={<ProtectedRoute allowedRoles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />

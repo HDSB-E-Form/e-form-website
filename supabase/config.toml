@@ -1,4 +1,10 @@
 
+[auth.email]
+# Keep local/self-hosted Auth in step with the hosted registration flow.
+# Supabase accepts email OTP lengths from 6 to 10 digits.
+enable_confirmations = true
+otp_length = 8
+
 [functions.send-notification]
 enabled = true
 verify_jwt = true
@@ -9,3 +15,9 @@ entrypoint = "./functions/send-notification/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-notification/*.html" ]
+
+[functions.delete-user]
+enabled = true
+verify_jwt = true
+import_map = "./functions/delete-user/deno.json"
+entrypoint = "./functions/delete-user/index.ts"

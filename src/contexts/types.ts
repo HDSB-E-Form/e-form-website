@@ -10,4 +10,6 @@ export type UserRole =
   | "head_of_purchasing"
   | "head_of_finance"
   | "safety_admin"
+  | "store_pic"
+  | "store_admin"
   | "super_admin";

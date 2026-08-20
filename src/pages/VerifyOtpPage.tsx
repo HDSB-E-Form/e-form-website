@@ -8,13 +8,14 @@ import logo from "@/assets/logo.png";
 import bgImage from "@/assets/digital.jpg";
 import { Loader2 } from "lucide-react";
 
-const OTP_PATTERN = /^\d{6}$/;
+const OTP_LENGTH = 8;
+const OTP_PATTERN = new RegExp(`^\\d{${OTP_LENGTH}}$`);
 
 function Slot(props: SlotProps) {
   return (
     <div
       className={cn(
-        'relative w-10 h-14 text-[2rem]',
+        'relative w-7 sm:w-10 h-14 text-xl sm:text-[2rem]',
         'flex items-center justify-center',
         'transition-all duration-300',
         'border-border border-y border-r first:border-l first:rounded-l-md last:rounded-r-md',
@@ -34,7 +35,7 @@ function Slot(props: SlotProps) {
 // Inspired by Stripe's MFA input.
 function FakeDash() {
   return (
-    <div className="flex w-10 justify-center items-center">
+    <div className="flex w-4 sm:w-10 justify-center items-center">
       <div className="w-3 h-1 rounded-full bg-border" />
     </div>
   );
@@ -78,7 +79,7 @@ const VerifyOtpPage = () => {
     e.preventDefault();
     setError("");
     if (!OTP_PATTERN.test(otp)) {
-      setError("Please enter the complete 6-digit code.");
+      setError(`Please enter the complete ${OTP_LENGTH}-digit code.`);
       return;
     }
     setIsVerifying(true);
@@ -166,27 +167,27 @@ const VerifyOtpPage = () => {
         <div className="text-center mb-6">
           <img src={logo} alt="HICOM Diecasting" className="h-24 w-auto object-contain mx-auto mb-4 brightness-200" />
           <h1 className="text-3xl font-bold text-primary-foreground mb-1">Verify Your Email</h1>
-          <p className="text-nav-dark-foreground mt-1 text-sm">Enter the 6-digit code sent to <strong>{email}</strong></p>
+          <p className="text-nav-dark-foreground mt-1 text-sm">Enter the {OTP_LENGTH}-digit code sent to <strong>{email}</strong></p>
         </div>
 
         <div className="bg-background/60 backdrop-blur-xl border border-border/50 shadow-2xl px-8 py-10 rounded-[2rem]">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex justify-center">
               <OTPInput
-                maxLength={6}
+                maxLength={OTP_LENGTH}
                 pattern="[0-9]*"
                 inputMode="numeric"
                 value={otp}
-                onChange={value => setOtp(value.replace(/\D/g, "").slice(0, 6))}
+                onChange={value => setOtp(value.replace(/\D/g, "").slice(0, OTP_LENGTH))}
                 containerClassName="group flex items-center has-[:disabled]:opacity-30"
                 render={({ slots }) => (
                   <>
                     <div className="flex">
-                      {slots.slice(0, 3).map((slot, idx) => <Slot key={idx} {...slot} />)}
+                      {slots.slice(0, 4).map((slot, idx) => <Slot key={idx} {...slot} />)}
                     </div>
                     <FakeDash />
                     <div className="flex">
-                      {slots.slice(3).map((slot, idx) => <Slot key={idx} {...slot} />)}
+                      {slots.slice(4).map((slot, idx) => <Slot key={idx} {...slot} />)}
                     </div>
                   </>
                 )}

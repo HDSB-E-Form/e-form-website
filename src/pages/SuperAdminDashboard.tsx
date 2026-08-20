@@ -100,6 +100,8 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "finance_admin", label: "Finance Admin", description: "Manage finance & claims", icon: UserCheck },
   { value: "it_admin", label: "IT Admin", description: "Manage CCTV access requests", icon: UserCheck },
   { value: "safety_admin", label: "Safety Admin", description: "View safety dashboards & reports", icon: SafetyIcon },
+  { value: "store_pic", label: "Store PIC", description: "Approve or reject Material Requisition Slips", icon: UserCheck },
+  { value: "store_admin", label: "Store Admin", description: "Full oversight of all Store Department submissions", icon: UserCheck },
   { value: "super_admin", label: "Super Admin", description: "Full system access & user management", icon: Shield },
 ];
 
@@ -114,6 +116,8 @@ const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
   { value: "safety_admin", label: "Safety Admin" },
   { value: "it_admin", label: "IT Admin" },
   { value: "security_guard", label: "Security Guard" },
+  { value: "store_pic", label: "Store PIC" },
+  { value: "store_admin", label: "Store Admin" },
 ];
 
 const roleBadge = (role: UserRole) => {
@@ -142,6 +146,10 @@ const roleBadge = (role: UserRole) => {
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">SAFETY ADMIN</Badge>;
     case "security_guard":
       return <Badge className="bg-gray-500/20 text-gray-800 dark:text-gray-300 border-0 text-[10px] font-bold">SECURITY</Badge>;
+    case "store_pic":
+      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[10px] font-bold">STORE PIC</Badge>;
+    case "store_admin":
+      return <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0 text-[10px] font-bold">STORE ADMIN</Badge>;
     default:
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
   }
@@ -207,6 +215,9 @@ const SuperAdminDashboard = () => {
   const [editSecondaryRoles, setEditSecondaryRoles] = useState<UserRole[]>([]);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isDeactivatingUser, setIsDeactivatingUser] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isViewAll, setIsViewAll] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportStartDate, setExportStartDate] = useState("");
@@ -479,6 +490,8 @@ const SuperAdminDashboard = () => {
     setEditRole(user.role);
     setEditDepartment(user.department);
     setEditSecondaryRoles(user.secondary_roles || []);
+    setDeleteConfirmation("");
+    setIsDeleteConfirmationOpen(false);
     setSheetOpen(true);
   };
 
@@ -620,6 +633,41 @@ const SuperAdminDashboard = () => {
       toast.error("Failed to reactivate user");
     } finally {
       setIsDeactivatingUser(false);
+    }
+  };
+
+  const handlePermanentDeleteUser = async () => {
+    if (!selectedUser || selectedUser.status !== "inactive") return;
+    if (selectedUser.id === currentUser?.id) {
+      toast.error("You cannot permanently delete your own Super Admin account.");
+      return;
+    }
+    if (deleteConfirmation.trim().toLowerCase() !== selectedUser.email.trim().toLowerCase()) {
+      toast.error("Enter the user's email address exactly to confirm permanent deletion.");
+      return;
+    }
+
+    setIsDeletingUser(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId: selectedUser.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      queryClient.setQueryData<FirestoreUser[]>(["admin-users"], current =>
+        (current || []).filter(person => person.id !== selectedUser.id));
+      await refreshUsers();
+      setDeleteConfirmation("");
+      setIsDeleteConfirmationOpen(false);
+      setSheetOpen(false);
+      toast.success(`${selectedUser.name}'s account was permanently deleted.`);
+    } catch (error: unknown) {
+      console.error("Error permanently deleting user:", error);
+      const message = error instanceof Error ? error.message : "Failed to permanently delete the user.";
+      toast.error(message);
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -1353,22 +1401,61 @@ const SuperAdminDashboard = () => {
             </fieldset>
 
             {selectedUser?.status === "inactive" && (
-              <div className="rounded-xl border border-border bg-muted/20 p-4">
-                <p className="text-xs font-bold tracking-wider text-primary">ACCOUNT HISTORY</p>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Deactivated</p>
-                    <p className="mt-1 text-xs font-semibold text-foreground">{selectedUser.deactivatedAt?.toLocaleString("en-GB") || "Not recorded"}</p>
+              <>
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                  <p className="text-xs font-bold tracking-wider text-primary">ACCOUNT HISTORY</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Deactivated</p>
+                      <p className="mt-1 text-xs font-semibold text-foreground">{selectedUser.deactivatedAt?.toLocaleString("en-GB") || "Not recorded"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Deactivated By</p>
+                      <p className="mt-1 text-xs font-semibold text-foreground">{selectedUser.deactivatedByName || "Not recorded"}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Deactivated By</p>
-                    <p className="mt-1 text-xs font-semibold text-foreground">{selectedUser.deactivatedByName || "Not recorded"}</p>
-                  </div>
+                  <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                    The profile, submissions, approvals, and audit history remain stored under the same user ID.
+                  </p>
                 </div>
-                <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                  The profile, submissions, approvals, and audit history remain stored under the same user ID.
-                </p>
-              </div>
+
+                {isDeleteConfirmationOpen && (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+                    <p className="text-xs font-bold tracking-wider text-destructive">PERMANENT DELETE</p>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      This permanently removes the user's login and profile. It cannot be undone. Enter <strong className="text-foreground">{selectedUser.email}</strong> to continue.
+                    </p>
+                    <Label htmlFor="permanent-delete-confirmation" className="mt-4 block text-xs font-semibold">Confirm email address</Label>
+                    <Input
+                      id="permanent-delete-confirmation"
+                      type="email"
+                      value={deleteConfirmation}
+                      onChange={event => setDeleteConfirmation(event.target.value)}
+                      placeholder={selectedUser.email}
+                      autoComplete="off"
+                      className="mt-1.5"
+                    />
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setDeleteConfirmation(""); setIsDeleteConfirmationOpen(false); }}
+                        disabled={isDeletingUser}
+                        className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-bold text-foreground hover:bg-muted disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePermanentDeleteUser}
+                        disabled={isDeletingUser || deleteConfirmation.trim().toLowerCase() !== selectedUser.email.trim().toLowerCase()}
+                        className="flex-1 rounded-lg bg-destructive px-3 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isDeletingUser ? "Deleting..." : "Delete Permanently"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <fieldset disabled={selectedUser?.status === "inactive"} className={`space-y-6 ${selectedUser?.status === "inactive" ? "opacity-65" : ""}`}>
@@ -1384,20 +1471,32 @@ const SuperAdminDashboard = () => {
             <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap gap-3 border-t border-border bg-background/95 px-1 pb-1 pt-4 backdrop-blur">
               <button
                 onClick={() => setSheetOpen(false)}
-                disabled={isSavingUser || isDeactivatingUser}
+                disabled={isSavingUser || isDeactivatingUser || isDeletingUser}
                 className="min-h-11 min-w-28 flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {selectedUser?.status === "inactive" ? "Close" : "Cancel"}
               </button>
               {selectedUser?.status === "inactive" ? (
-                <button
-                  onClick={handleReactivateUser}
-                  disabled={isDeactivatingUser}
-                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <UserRoundCheck className="h-4 w-4" />
-                  {isDeactivatingUser ? "Reactivating..." : "Reactivate Account"}
-                </button>
+                <>
+                  <button
+                    onClick={handleReactivateUser}
+                    disabled={isDeactivatingUser || isDeletingUser || isDeleteConfirmationOpen}
+                    className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <UserRoundCheck className="h-4 w-4" />
+                    {isDeactivatingUser ? "Reactivating..." : "Reactivate Account"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsDeleteConfirmationOpen(true)}
+                    disabled={isDeactivatingUser || isDeletingUser || isDeleteConfirmationOpen || selectedUser?.id === currentUser?.id}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/40 px-3 py-2.5 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={selectedUser?.id === currentUser?.id ? "You cannot delete your own account" : "Permanently delete this inactive account"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Delete Permanently</span>
+                  </button>
+                </>
               ) : (
                 <>
                   <button

@@ -156,27 +156,22 @@ const MobileAppPromo = () => {
           </p>
         </div>
 
-        {/* Disabled Android download link */}
+        {/* Android app download */}
         <div className="flex flex-col items-start gap-2">
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            title="Android app coming soon"
-            className="group relative flex cursor-not-allowed items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 py-2 opacity-90 backdrop-blur-sm sm:gap-3 sm:px-4 sm:py-2.5 lg:px-5 lg:py-3"
+          <a
+            href="https://github.com/digitalization-hdsb/e-form_app/releases/download/v1.0.0/HDSB-E-Form.apk"
+            title="Download the HDSB E-Form Android app"
+            className="group relative flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:gap-3 sm:px-4 sm:py-2.5 lg:px-5 lg:py-3"
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/10 sm:h-8 sm:w-8 lg:h-9 lg:w-9">
-              <Download className="h-3.5 w-3.5 text-white/70 sm:h-4 sm:w-4" aria-hidden="true" />
+              <Download className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" aria-hidden="true" />
             </span>
             <span className="flex flex-col items-start leading-tight">
-              <span className="text-[9px] uppercase tracking-wide text-white/50 sm:text-[10px]">Download for</span>
+              <span className="text-[9px] uppercase tracking-wide text-white/70 sm:text-[10px]">Download for</span>
               <span className="text-xs font-semibold text-white sm:text-sm lg:text-base">Android</span>
             </span>
-            <span className="absolute -right-2 -top-2 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground shadow sm:px-2 sm:text-[10px]">
-              Soon
-            </span>
-          </button>
-          <p className="text-[10px] text-nav-dark-foreground/80 sm:text-xs">Available soon &mdash; stay tuned!</p>
+          </a>
+          <p className="text-[10px] text-nav-dark-foreground/80 sm:text-xs">Download the latest Android app.</p>
         </div>
       </div>
     </div>

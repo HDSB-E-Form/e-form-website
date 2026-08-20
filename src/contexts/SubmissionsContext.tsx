@@ -239,6 +239,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     );
     const isSafetyForm = isSafetyFormType && !isSafetyDashboardRemark;
     const isGatePass = sub.formType === 'leave';
+    const isMaterialRequisition = sub.formType === 'material_requisition_slip';
     const usesSharedHdsbReference = [
       "claim",
       "car_rental",
@@ -247,7 +248,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       "it_admin_request",
       "it_application_request",
     ].includes(sub.formType);
-    const isStandardForm = !["inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"].includes(sub.formType);
+    const isStandardForm = !["inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring", "material_requisition_slip"].includes(sub.formType);
 
     const submissionId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -270,6 +271,21 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
         return false;
       }
       refNo = gatePassRefNo;
+    } else if (isMaterialRequisition) {
+      const { data: mrsRefNo, error: mrsRpcError } = await supabase.rpc('next_mrs_ref_no');
+      if (!mrsRpcError && typeof mrsRefNo === "string") {
+        refNo = mrsRefNo;
+      } else {
+        // Falls back to a client-computed serial number if the atomic
+        // next_mrs_ref_no() DB function hasn't been deployed yet.
+        const { data: existingMrs, error } = await supabase.from('submissions').select('data').eq('formType', 'material_requisition_slip');
+        if (error) console.error("Could not fetch existing MRS submissions for serial number:", error);
+        const highest = ((existingMrs || []) as Array<{ data?: { refNo?: string } }>).reduce((max, s) => {
+          const match = /^MRS(\d+)$/.exec(s?.data?.refNo || "");
+          return match ? Math.max(max, parseInt(match[1], 10)) : max;
+        }, 1999);
+        refNo = `MRS${highest + 1}`;
+      }
     } else if (usesSharedHdsbReference) {
       const { data: hdsbRefNo, error } = await supabase.rpc('next_hdsb_ref_no');
       if (error || typeof hdsbRefNo !== "string") {

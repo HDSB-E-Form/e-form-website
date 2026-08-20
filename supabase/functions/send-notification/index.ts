@@ -21,6 +21,7 @@ type NotificationTarget = {
   eventType: string;
   audience: "approver" | "submitter";
   userIds?: string[];
+  name?: string;
   role?: string;
   subject: string;
   heading: string;
@@ -37,6 +38,7 @@ const formLabels: Record<string, string> = {
   it_facilities_requisition: "IT Facilities Requisition",
   ppe_request: "PPE / Uniform / Office Supplies Request",
   ppe_purchase: "PPE / Uniform Purchase",
+  material_requisition_slip: "Material Requisition Slip (MRS)",
 };
 
 const IT_FORMS = new Set([
@@ -91,7 +93,6 @@ function getTarget(submission: Submission): NotificationTarget | null {
     subject,
     heading,
   });
-
   switch (submission.status) {
     case "pending":
       if (submission.formType === "it_help_desk") return role("it_admin", "it");
@@ -127,6 +128,46 @@ function getTarget(submission: Submission): NotificationTarget | null {
     default:
       return null;
   }
+}
+
+// MRS is the only workflow with two independent recipients on the same
+// status transition (an FYI-only HOD and an action-required Store PIC, the
+// latter looked up by name since PIC accounts may not exist yet), so it
+// needs its own multi-target resolution instead of the single-target
+// getTarget() used by every other form.
+function getTargets(submission: Submission): NotificationTarget[] {
+  if (submission.status === "pending" && submission.formType === "material_requisition_slip") {
+    const data = submission.data ?? {};
+    const label = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
+    const targets: NotificationTarget[] = [];
+
+    const hodId = selectedUserId(data, "hodUserId");
+    if (hodId) {
+      targets.push({
+        eventType: "fyi_mrs_hod",
+        audience: "approver",
+        userIds: [hodId],
+        subject: `FYI: ${label}`,
+        heading: "A colleague submitted a request you were named on",
+      });
+    }
+
+    const picName = typeof data.storePicName === "string" ? data.storePicName.trim() : "";
+    if (picName) {
+      targets.push({
+        eventType: "action_required_store_pic",
+        audience: "approver",
+        name: picName,
+        subject: `Action required: ${label}`,
+        heading: "A submission requires your approval",
+      });
+    }
+
+    return targets;
+  }
+
+  const target = getTarget(submission);
+  return target ? [target] : [];
 }
 
 function emailHtml(submission: Submission, target: NotificationTarget, appUrl: string) {
@@ -184,63 +225,72 @@ Deno.serve(async (req) => {
       .eq("id", submissionId).single();
     if (submissionError || !rawSubmission) return json({ error: "Submission not found" }, 404);
     const submission = rawSubmission as Submission;
-    const target = getTarget(submission);
-    if (!target) return json({ sent: 0, skipped: "No email is required for this workflow state" });
-
-    let recipients: AppUser[] = [];
-    if (target.userIds?.length) {
-      const { data } = await admin.from("users").select("id, name, email").in("id", target.userIds).eq("status", "active");
-      recipients = (data ?? []) as AppUser[];
-    } else if (target.role) {
-      const { data } = await admin.from("users").select("id, name, email").eq("status", "active")
-        .or(`role.eq.${target.role},secondary_roles.cs.{${target.role}}`);
-      recipients = (data ?? []) as AppUser[];
-    }
-    recipients = recipients.filter((user) => Boolean(user.email));
-    if (!recipients.length) return json({ sent: 0, skipped: "No active recipient with an email address was found" });
+    const targets = getTargets(submission);
+    if (!targets.length) return json({ sent: 0, skipped: "No email is required for this workflow state" });
 
     const stateChangedAt = String(submission.data?.lastUpdatedAt ?? submission.submittedAt);
-    const eventKey = `${target.eventType}:${stateChangedAt}`;
     let sent = 0;
     const errors: string[] = [];
 
-    for (const recipient of recipients) {
-      const { data: existing } = await admin.from("submission_email_deliveries")
-        .select("id, status").eq("submission_id", submission.id).eq("event_key", eventKey)
-        .eq("recipient_user_id", recipient.id).maybeSingle();
-      if (existing?.status === "sent") continue;
+    for (const target of targets) {
+      let recipients: AppUser[] = [];
+      if (target.userIds?.length) {
+        const { data } = await admin.from("users").select("id, name, email").in("id", target.userIds).eq("status", "active");
+        recipients.push(...((data ?? []) as AppUser[]));
+      }
+      if (target.name) {
+        const { data } = await admin.from("users").select("id, name, email").ilike("name", target.name).eq("status", "active");
+        recipients.push(...((data ?? []) as AppUser[]));
+      }
+      if (target.role) {
+        const { data } = await admin.from("users").select("id, name, email").eq("status", "active")
+          .or(`role.eq.${target.role},secondary_roles.cs.{${target.role}}`);
+        recipients.push(...((data ?? []) as AppUser[]));
+      }
+      recipients = recipients.filter((user) => Boolean(user.email));
+      if (!recipients.length) continue;
 
-      const delivery = existing ?? (await admin.from("submission_email_deliveries").insert({
-        submission_id: submission.id,
-        event_key: eventKey,
-        event_type: target.eventType,
-        recipient_user_id: recipient.id,
-        recipient_email: recipient.email,
-        status: "processing",
-      }).select("id, status").single()).data;
-      if (!delivery) continue;
+      const eventKey = `${target.eventType}:${stateChangedAt}`;
 
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [recipient.email],
-          subject: target.subject,
-          html: emailHtml(submission, target, appUrl),
-        }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        await admin.from("submission_email_deliveries").update({ status: "sent", provider_message_id: result.id, sent_at: new Date().toISOString(), error_message: null }).eq("id", delivery.id);
-        sent += 1;
-      } else {
-        const message = String(result?.message ?? "Email provider rejected the message");
-        await admin.from("submission_email_deliveries").update({ status: "failed", error_message: message }).eq("id", delivery.id);
-        errors.push(`${recipient.id}: ${message}`);
+      for (const recipient of recipients) {
+        const { data: existing } = await admin.from("submission_email_deliveries")
+          .select("id, status").eq("submission_id", submission.id).eq("event_key", eventKey)
+          .eq("recipient_user_id", recipient.id).maybeSingle();
+        if (existing?.status === "sent") continue;
+
+        const delivery = existing ?? (await admin.from("submission_email_deliveries").insert({
+          submission_id: submission.id,
+          event_key: eventKey,
+          event_type: target.eventType,
+          recipient_user_id: recipient.id,
+          recipient_email: recipient.email,
+          status: "processing",
+        }).select("id, status").single()).data;
+        if (!delivery) continue;
+
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: [recipient.email],
+            subject: target.subject,
+            html: emailHtml(submission, target, appUrl),
+          }),
+        });
+        const result = await response.json();
+        if (response.ok) {
+          await admin.from("submission_email_deliveries").update({ status: "sent", provider_message_id: result.id, sent_at: new Date().toISOString(), error_message: null }).eq("id", delivery.id);
+          sent += 1;
+        } else {
+          const message = String(result?.message ?? "Email provider rejected the message");
+          await admin.from("submission_email_deliveries").update({ status: "failed", error_message: message }).eq("id", delivery.id);
+          errors.push(`${recipient.id}: ${message}`);
+        }
       }
     }
 
+    if (sent === 0 && errors.length === 0) return json({ sent: 0, skipped: "No active recipient with an email address was found" });
     return json({ sent, failed: errors.length, errors });
   } catch (error) {
     console.error("send-notification failed", error);

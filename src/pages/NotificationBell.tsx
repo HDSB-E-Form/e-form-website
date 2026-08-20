@@ -16,6 +16,7 @@ const formTypeLabels: Record<string, string> = {
   ppe_purchase: "PPE | Uniform | Office Supplies",
   cctv_access_request: "CCTV Access Request",
   it_help_desk: "IT Help Desk Ticket",
+  material_requisition_slip: "Material Requisition Slip (MRS)",
 };
 
 interface Notification {

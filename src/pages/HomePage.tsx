@@ -4,9 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers } from "@/contexts/UsersContext";
 import { useHiddenSubmissions } from "./useHiddenSubmissions";
-import { Users, DollarSign, FileText, FileCheck2, XCircle, FileX2, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog } from "lucide-react";
+import { Users, DollarSign, FileText, FileCheck2, XCircle, FileX2, ShieldCheck, IdCard, Briefcase, Megaphone, X, MonitorCog, Warehouse } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/supabase";
+import { useStoreDepartmentAccess } from "@/hooks/useStoreDepartmentAccess";
 
 interface HomePosterConfig {
   enabled: boolean;
@@ -43,6 +44,7 @@ const HomePage = () => {
   const [homePoster, setHomePoster] = useState<HomePosterConfig>({ enabled: false, url: null });
   const [showHomePoster, setShowHomePoster] = useState(false);
   const { hiddenIds } = useHiddenSubmissions();
+  const { hasAccess: hasStoreAccess } = useStoreDepartmentAccess();
   const displayedRole = user
     ? Array.from(new Set([user.role, ...(user.secondary_roles || [])])).map(role => roleLabels[role] || role.replace(/_/g, " ")).join(" + ")
     : "Staff";
@@ -131,6 +133,15 @@ const HomePage = () => {
       iconColor: "text-white",
       path: "/it",
     },
+    {
+      id: "store",
+      title: "Store Department",
+      description: "Submit Material Requisition Slip and other store requests.",
+      icon: Warehouse,
+      color: "from-amber-500 to-amber-600",
+      iconColor: "text-white",
+      path: "/store",
+    },
   ];
 
   const departments = useMemo(() => {
@@ -150,9 +161,10 @@ const HomePage = () => {
     // Filter out departments the user shouldn't see.
     return depts.filter(dept => {
       if (dept.id === 'safety') return hasSafetyAccess;
+      if (dept.id === 'store') return hasStoreAccess;
       return true;
     });
-  }, [user?.role, user?.secondary_roles]);
+  }, [user?.role, user?.secondary_roles, hasStoreAccess]);
 
   const handleDepartmentOpen = async (path: string) => {
     if (isPreparingForms) return;

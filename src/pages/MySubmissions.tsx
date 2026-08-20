@@ -29,6 +29,7 @@ const formTypeLabels: Record<string, string> = {
   it_facilities_requisition: "IT Facilities Requisition Form",
   it_admin_request: "IT Request Form (Admin)",
   it_application_request: "IT Request Form (Application)",
+  material_requisition_slip: "Material Requisition Slip (MRS)",
 };
 
 const hiddenUserDetailFields = new Set([
@@ -197,6 +198,13 @@ const MySubmissions = () => {
 
   const mySubmissions = submissions
     .filter(s => s.submittedBy === user?.id && !excludedForms.includes(s.formType) && !hiddenIds.has(s.id));
+
+  const notifiedAsHod = submissions.filter(s =>
+    s.formType === "material_requisition_slip" &&
+    s.submittedBy !== user?.id &&
+    !!user?.id &&
+    s.data?.hodUserId === user.id
+  );
 
   const stats = {
     total: mySubmissions.length,
@@ -990,6 +998,31 @@ const MySubmissions = () => {
           ))}
         </div>
       </div>
+
+      {notifiedAsHod.length > 0 && (
+        <div className="card-elevated overflow-hidden mb-6">
+          <div className="p-5 border-b border-border">
+            <h2 className="text-lg font-bold text-foreground">Notified As HOD</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">Material Requisition Slips where you were selected as the HOD for notification only. View-only — no approval needed from you.</p>
+          </div>
+          <div className="divide-y divide-border/60">
+            {notifiedAsHod.map(sub => (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => setSelectedSubmission(sub)}
+                className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/30"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{generateRefNo(sub)} · {sub.data?.itemDescription || "—"}</p>
+                </div>
+                {statusBadge(sub.status)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <div className="card-elevated p-12 text-center">

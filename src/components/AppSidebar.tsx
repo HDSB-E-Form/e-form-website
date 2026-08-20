@@ -18,8 +18,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale, BarChart3 } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale, BarChart3, Warehouse } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { useStoreDepartmentAccess } from "@/hooks/useStoreDepartmentAccess";
 
 const employeeNav = [
   { title: "Home", url: "/home", icon: Home },
@@ -59,6 +60,13 @@ const formDepartments = [
     { title: "Final Discharge", url: "/safety/discharge", icon: Droplet },
     { title: "Waste Calculator", url: "/safety/waste-inventory", icon: Scale },
   ] },
+  { id: "store", title: "Store Department", icon: Warehouse, departmentGated: true, forms: [
+    { title: "Material Requisition Slip", url: "/store/material-requisition-slip", icon: Package },
+  ] },
+];
+
+const storeAdminNav = [
+  { title: "Store Approvals", url: "/admin/store", icon: Warehouse },
 ];
 
 const itAdminNav = [
@@ -102,6 +110,8 @@ const roleLabels: Record<UserRole, string> = {
   super_admin: "Super Admin",
   security_guard: "Security Guard",
   safety_admin: "Safety Admin",
+  store_pic: "Store PIC",
+  store_admin: "Store Admin",
 };
 
 const getAdminNav = (role?: UserRole) => {
@@ -123,6 +133,8 @@ const getAdminNav = (role?: UserRole) => {
     return superAdminNav;
   } else if (role === "security_guard") {
     return securityNav;
+  } else if (role === "store_pic" || role === "store_admin") {
+    return storeAdminNav;
   }
   return [];
 };
@@ -141,7 +153,7 @@ export function AppSidebar() {
     if (currentFormDepartment) setExpandedDepartment(currentFormDepartment);
   }, [currentFormDepartment]);
 
-  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
+  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin", "store_pic", "store_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
@@ -203,7 +215,11 @@ export function AppSidebar() {
     const uniqueNav = Array.from(new Map(combined.map(item => [item.url, item])).values());
     return uniqueNav;
   }, [user]);
-  const visibleFormDepartments = formDepartments.filter(department => !department.restricted || user?.role === "safety_admin" || user?.role === "super_admin" || user?.secondary_roles?.includes("safety_admin"));
+  const { hasAccess: hasStoreAccess } = useStoreDepartmentAccess();
+  const visibleFormDepartments = formDepartments.filter(department => {
+    if (department.departmentGated) return hasStoreAccess;
+    return !department.restricted || user?.role === "safety_admin" || user?.role === "super_admin" || user?.secondary_roles?.includes("safety_admin");
+  });
 
   const visibleEmployeeNav = employeeNav.filter(item => {
     // Hide personal "My Submissions" for standard admin/manager roles to keep their sidebars clean
@@ -251,6 +267,8 @@ export function AppSidebar() {
       case "finance_admin": return { main: "Finance Admin", sub: financeSubtitle };
       case "it_admin": return { main: "IT Admin", sub: itSubtitle };
       case "safety_admin": return { main: "Safety Admin", sub: safetySubtitle };
+      case "store_pic": return { main: "Store PIC", sub: "Department Portal" };
+      case "store_admin": return { main: "Store Admin", sub: "Department Portal" };
       case "hod": return { main: "HOD Portal", sub: "Department Approvals" };
       case "hos": return { main: "HOS Portal", sub: "Section Approvals" };
       case "head_of_purchasing": return { main: "Purchasing Head", sub: "Approvals" };

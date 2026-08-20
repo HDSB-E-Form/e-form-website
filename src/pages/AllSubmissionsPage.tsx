@@ -26,6 +26,7 @@ const formTypeLabels: Record<string, string> = {
   it_admin_request: "IT Request Form (Admin)",
   it_application_request: "IT Request Form (Application)",
   it_facilities_requisition: "IT Facilities Requisition Form",
+  material_requisition_slip: "Material Requisition Slip (MRS)",
 };
 
 const statusBadgeBase = "border-0 whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-wider px-2 sm:px-3 py-0.5 sm:py-1";
