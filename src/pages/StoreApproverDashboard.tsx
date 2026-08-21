@@ -3,10 +3,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft } from "lucide-react";
+import { Clock, Search, ArrowLeft, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
 import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
 import EmployeeSummary from "@/components/EmployeeSummary";
@@ -38,6 +40,9 @@ const StoreApproverDashboard = () => {
   const [remarks, setRemarks] = useState("");
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
 
   const seesAllSubmissions = user?.role === "super_admin" || user?.role === "store_admin";
   const myPicSubmissions = useMemo(() => {
@@ -67,6 +72,60 @@ const StoreApproverDashboard = () => {
   };
 
   const generateRefNo = (sub: Submission) => sub.data?.refNo || `HDSB-${sub.id.slice(-4)}`;
+
+  const handleExportCSV = () => {
+    const start = exportStartDate || "0000-00-00";
+    const end = exportEndDate ? `${exportEndDate}T23:59:59` : "9999-12-31T23:59:59";
+    const dataToExport = myPicSubmissions.filter(s => {
+      const submittedAt = new Date(s.submittedAt).toISOString();
+      return submittedAt >= start && submittedAt <= end;
+    });
+
+    if (dataToExport.length === 0) {
+      toast.error("No requisition slips found in the selected date range.");
+      return;
+    }
+
+    dataToExport.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+
+    const formatDate = (iso: string) => {
+      const d = new Date(iso);
+      return ` ${d.toLocaleDateString("en-GB")}`;
+    };
+
+    const rows: string[][] = [
+      ["Serial No", "Date Submitted", "Employee", "Department", "Item Description", "Quantity", "Lot No", "Superior", "HOD", "Store PIC", "Status"],
+    ];
+
+    dataToExport.forEach(sub => {
+      rows.push([
+        generateRefNo(sub),
+        formatDate(sub.submittedAt),
+        sub.employeeName,
+        sub.department,
+        `"${(sub.data?.itemDescription || "").replace(/"/g, '""')}"`,
+        sub.data?.quantity || "",
+        sub.data?.lotNo || "",
+        sub.data?.superiorName || "",
+        sub.data?.hodName || "",
+        sub.data?.storePicName || "",
+        sub.status,
+      ]);
+    });
+
+    const csvContent = rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `MRS_Records_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Material Requisition Slip records exported successfully!");
+  };
 
   const handleAction = async (id: string, status: SubmissionStatus) => {
     if (isProcessingAction) return;
@@ -133,6 +192,12 @@ const StoreApproverDashboard = () => {
               <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Serial Number</span>
                 <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{generateRefNo(sub)}</div>
+              </div>
+              <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
+                <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Submitted</span>
+                <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
+                  {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}, {new Date(sub.submittedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                </div>
               </div>
               <div className="py-2 sm:py-4 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start">
                 <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Superior (Notified)</span>
@@ -203,6 +268,16 @@ const StoreApproverDashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">Store Approvals</h1>
           <p className="text-muted-foreground text-sm mt-1">Review and action incoming Material Requisition Slips.</p>
         </div>
+        {seesAllSubmissions && (
+          <button
+            type="button"
+            onClick={() => setIsExportOpen(true)}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-bold text-foreground transition-colors hover:bg-muted/50 sm:w-auto"
+          >
+            <Download className="h-[18px] w-[18px]" />
+            Export to Spreadsheet
+          </button>
+        )}
       </div>
 
       <div className="animate-in slide-in-from-bottom-2 duration-700">
@@ -289,9 +364,14 @@ const StoreApproverDashboard = () => {
                         </TableCell>
                         <TableCell className="text-sm text-foreground max-w-xs truncate">{sub.data?.itemDescription || "—"}</TableCell>
                         <TableCell>
-                          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                            {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                              {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap">
+                              {new Date(sub.submittedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                         <TableCell className="text-center">
@@ -327,6 +407,75 @@ const StoreApproverDashboard = () => {
           )}
         </div>
       </div>
+
+      {seesAllSubmissions && (
+        <Sheet open={isExportOpen} onOpenChange={setIsExportOpen}>
+          <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+            <SheetHeader className="mb-6 border-b border-border pb-4">
+              <SheetTitle className="text-xl font-bold">Export to Spreadsheet</SheetTitle>
+              <SheetDescription>Download Material Requisition Slip records as a CSV file.</SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-6">
+              <div className="space-y-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+                <Label className="text-xs font-bold uppercase tracking-wider text-foreground">Date Range</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">From Date</Label>
+                    <Input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                  </div>
+                  <div>
+                    <Label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">To Date</Label>
+                    <Input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} className="h-9 text-xs dark:[color-scheme:dark]" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button type="button" onClick={() => {
+                    const today = new Date().toISOString().split("T")[0];
+                    setExportStartDate(today);
+                    setExportEndDate(today);
+                  }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">Today</button>
+                  <button type="button" onClick={() => {
+                    const today = new Date();
+                    const start = new Date(today);
+                    start.setDate(today.getDate() - 7);
+                    setExportStartDate(start.toISOString().split("T")[0]);
+                    setExportEndDate(today.toISOString().split("T")[0]);
+                  }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">Last 7 Days</button>
+                  <button type="button" onClick={() => {
+                    const today = new Date();
+                    const start = new Date(today);
+                    start.setMonth(today.getMonth() - 1);
+                    setExportStartDate(start.toISOString().split("T")[0]);
+                    setExportEndDate(today.toISOString().split("T")[0]);
+                  }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">Last Month</button>
+                  <button type="button" onClick={() => {
+                    const today = new Date();
+                    const start = new Date(today);
+                    start.setFullYear(today.getFullYear() - 1);
+                    setExportStartDate(start.toISOString().split("T")[0]);
+                    setExportEndDate(today.toISOString().split("T")[0]);
+                  }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">Last 12 Months</button>
+                  <button type="button" onClick={() => {
+                    setExportStartDate("");
+                    setExportEndDate("");
+                  }} className="rounded-md bg-muted px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-muted/80">All Dates</button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/10 p-4">
+                <h3 className="text-sm font-bold text-foreground">Material Requisition Slip Records</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Includes serial number, date submitted, employee, department, item description, quantity, lot no, superior, HOD, Store PIC, and status.
+                </p>
+                <button type="button" onClick={() => { handleExportCSV(); setIsExportOpen(false); }} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2.5 text-xs font-bold text-white transition-colors hover:bg-emerald-600">
+                  <Download className="h-3.5 w-3.5" /> Download Spreadsheet
+                </button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 };

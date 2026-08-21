@@ -17,6 +17,15 @@ const formTypeLabels: Record<string, string> = {
   leave: "Gate Pass",
 };
 
+const formatEstimatedTime = (submittedAt: string, time?: string) => {
+  if (!time) return "—";
+  const [hours, minutes] = time.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return "—";
+  const d = new Date(submittedAt);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+};
+
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
@@ -266,11 +275,11 @@ const SecurityDashboard = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time Out</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeOut || "—"}</div>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeOut)}</div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time In</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeIn || "—"}</div>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}</div>
           </div>
           {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
             <>

@@ -16,6 +16,16 @@ import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
 import { Textarea } from "@/components/ui/textarea";
 import { appendApprovalRemark } from "@/lib/approvalRemarks";
 import EmployeeSummary from "@/components/EmployeeSummary";
+import { getGatePassTimeOut } from "@/components/PersonalGatePassTracker";
+
+const formatEstimatedTime = (submittedAt: string, time?: string) => {
+  if (!time) return "—";
+  const [hours, minutes] = time.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return "—";
+  const d = new Date(submittedAt);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+};
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -178,11 +188,11 @@ const ApproverDashboard = () => {
         </div>
         <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
           <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Selected Time Out</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeOut || "—"}</div>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeOut)}</div>
         </div>
         <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
           <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Selected Time In</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.estimatedTime?.timeIn || "—"}</div>
+          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}</div>
         </div>
         <div className="hidden py-2 sm:py-2.5 border-b border-border/50 grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
           <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
@@ -206,11 +216,11 @@ const ApproverDashboard = () => {
           <>
             <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
               <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
-              <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeOut || "—"}</div>
+              <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"}</div>
             </div>
             <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
               <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
-              <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn || "—"}</div>
+              <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn ? new Date(sub.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"}</div>
             </div>
           </>
         )}

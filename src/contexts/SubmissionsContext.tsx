@@ -283,7 +283,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
         const highest = ((existingMrs || []) as Array<{ data?: { refNo?: string } }>).reduce((max, s) => {
           const match = /^MRS(\d+)$/.exec(s?.data?.refNo || "");
           return match ? Math.max(max, parseInt(match[1], 10)) : max;
-        }, 1999);
+        }, 19999);
         refNo = `MRS${highest + 1}`;
       }
     } else if (usesSharedHdsbReference) {

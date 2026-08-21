@@ -15,6 +15,16 @@ import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetail
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalOverview from "@/components/ApprovalOverview";
 import EmployeeSummary from "@/components/EmployeeSummary";
+import { getGatePassTimeOut } from "@/components/PersonalGatePassTracker";
+
+const formatEstimatedTime = (submittedAt: string, time?: string) => {
+  if (!time) return "—";
+  const [hours, minutes] = time.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return "—";
+  const d = new Date(submittedAt);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+};
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -630,13 +640,13 @@ const AllSubmissionsPage = () => {
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time Out</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                    {selectedSubmission.data.estimatedTime?.timeOut || "—"}
+                    {formatEstimatedTime(selectedSubmission.submittedAt, selectedSubmission.data.estimatedTime?.timeOut)}
                   </div>
                 </div>
                 <div className="py-2 border-b border-border print:border-gray-300 grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-1 sm:gap-4 items-start">
                   <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Selected Time In</span>
                   <div className="text-xs sm:text-sm font-medium text-foreground print:text-black text-left break-words sm:col-span-2 print:col-span-2">
-                    {selectedSubmission.data.estimatedTime?.timeIn || "—"}
+                    {formatEstimatedTime(selectedSubmission.submittedAt, selectedSubmission.data.estimatedTime?.timeIn)}
                   </div>
                 </div>
               </div>
@@ -715,11 +725,11 @@ const AllSubmissionsPage = () => {
             <div className="w-full flex mt-2 sm:mt-3 bg-muted/5 print:bg-transparent p-3 sm:p-4 rounded-lg border border-border print:border-gray-400">
               <div className="flex-1 border-r border-border/50 print:border-gray-300 pr-3 sm:pr-4">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Actual Time Out</span>
-                <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeOut || '—'}</span>
+                <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{getGatePassTimeOut(selectedSubmission) !== null ? new Date(getGatePassTimeOut(selectedSubmission)!).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : '—'}</span>
               </div>
               <div className="flex-1 pl-3 sm:pl-4">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground print:text-gray-500 font-bold mb-0.5 sm:mb-1 block">Actual Time In</span>
-                <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeIn || '—'}</span>
+                <span className="text-xs sm:text-sm font-semibold text-foreground print:text-black block">{selectedSubmission.data.securityLog.actualTimeIn ? new Date(selectedSubmission.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : '—'}</span>
               </div>
             </div>
           </div>

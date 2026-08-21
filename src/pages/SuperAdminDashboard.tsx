@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -218,6 +218,13 @@ const SuperAdminDashboard = () => {
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const deleteConfirmationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isDeleteConfirmationOpen) {
+      deleteConfirmationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isDeleteConfirmationOpen]);
   const [isViewAll, setIsViewAll] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportStartDate, setExportStartDate] = useState("");
@@ -1420,7 +1427,7 @@ const SuperAdminDashboard = () => {
                 </div>
 
                 {isDeleteConfirmationOpen && (
-                  <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+                  <div ref={deleteConfirmationRef} className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
                     <p className="text-xs font-bold tracking-wider text-destructive">PERMANENT DELETE</p>
                     <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                       This permanently removes the user's login and profile. It cannot be undone. Enter <strong className="text-foreground">{selectedUser.email}</strong> to continue.
