@@ -9,6 +9,7 @@ import bgImage from "@/assets/digital.jpg";
 import { Loader2, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
+import { isStrongPassword, strongPasswordMessage } from "@/lib/password";
 import ITHelpDeskWidget from "@/components/ITHelpDeskWidget";
 import MobileAppPromo from "@/components/MobileAppPromo";
 
@@ -120,8 +121,8 @@ const LoginPage = () => {
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (!isStrongPassword(newPassword)) {
+      setError(strongPasswordMessage);
       return;
     }
     if (newPassword !== confirmNewPassword) {

@@ -130,11 +130,8 @@ function getTarget(submission: Submission): NotificationTarget | null {
   }
 }
 
-// MRS is the only workflow with two independent recipients on the same
-// status transition (an FYI-only HOD and an action-required Store PIC, the
-// latter looked up by name since PIC accounts may not exist yet), so it
-// needs its own multi-target resolution instead of the single-target
-// getTarget() used by every other form.
+// MRS has two independent recipients on the same status transition: an
+// FYI-only HOD and an action-required Store PIC.
 function getTargets(submission: Submission): NotificationTarget[] {
   if (submission.status === "pending" && submission.formType === "material_requisition_slip") {
     const data = submission.data ?? {};
@@ -152,8 +149,17 @@ function getTargets(submission: Submission): NotificationTarget[] {
       });
     }
 
+    const picId = selectedUserId(data, "storePicUserId");
     const picName = typeof data.storePicName === "string" ? data.storePicName.trim() : "";
-    if (picName) {
+    if (picId) {
+      targets.push({
+        eventType: "action_required_store_pic",
+        audience: "approver",
+        userIds: [picId],
+        subject: `Action required: ${label}`,
+        heading: "A submission requires your approval",
+      });
+    } else if (picName) {
       targets.push({
         eventType: "action_required_store_pic",
         audience: "approver",

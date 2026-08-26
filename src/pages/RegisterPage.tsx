@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ITHelpDeskWidget from "@/components/ITHelpDeskWidget";
+import { isStrongPassword, strongPasswordMessage } from "@/lib/password";
 
 const RegisterPage = () => {
   const [form, setForm] = useState({ name: "", email: "", employeeId: "", phone: "", department: "", position: "", password: "", confirmPassword: "" });
@@ -21,14 +22,19 @@ const RegisterPage = () => {
   const navigate = useNavigate();
 
   const passwordMeetsMinimum = form.password.length >= 8;
+  const passwordHasUppercase = /[A-Z]/.test(form.password);
+  const passwordHasLowercase = /[a-z]/.test(form.password);
+  const passwordHasNumber = /\d/.test(form.password);
+  const passwordHasSpecial = /[^A-Za-z0-9]/.test(form.password);
   const confirmationEntered = form.confirmPassword.length > 0;
   const passwordsMatch = confirmationEntered && form.password === form.confirmPassword;
   const passwordStrengthScore = form.password
     ? [
         passwordMeetsMinimum,
         form.password.length >= 12,
-        /[A-Z]/.test(form.password) && /[a-z]/.test(form.password),
-        /\d/.test(form.password) || /[^A-Za-z0-9]/.test(form.password),
+        passwordHasUppercase,
+        passwordHasLowercase,
+        passwordHasNumber && passwordHasSpecial,
       ].filter(Boolean).length
     : 0;
   const passwordStrength =
@@ -69,8 +75,8 @@ const RegisterPage = () => {
       setError("Passwords do not match");
       return;
     }
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (!isStrongPassword(form.password)) {
+      setError(strongPasswordMessage);
       return;
     }
 
@@ -210,6 +216,7 @@ const RegisterPage = () => {
                       <span className={`h-1.5 w-1.5 rounded-full ${passwordMeetsMinimum ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
                       At least 8 characters
                     </p>
+                    <p className={`text-xs ${passwordHasUppercase ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>Uppercase, lowercase, number, and special character</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm Password <span className="text-destructive">*</span></Label>

@@ -101,7 +101,6 @@ const ROLE_OPTIONS: Array<{ value: UserRole; label: string; description: string;
   { value: "it_admin", label: "IT Admin", description: "Manage CCTV access requests", icon: UserCheck },
   { value: "safety_admin", label: "Safety Admin", description: "View safety dashboards & reports", icon: SafetyIcon },
   { value: "store_pic", label: "Store PIC", description: "Approve or reject Material Requisition Slips", icon: UserCheck },
-  { value: "store_admin", label: "Store Admin", description: "Full oversight of all Store Department submissions", icon: UserCheck },
   { value: "super_admin", label: "Super Admin", description: "Full system access & user management", icon: Shield },
 ];
 
@@ -117,7 +116,6 @@ const SECONDARY_ROLE_OPTIONS: Array<{ value: UserRole; label: string; }> = [
   { value: "it_admin", label: "IT Admin" },
   { value: "security_guard", label: "Security Guard" },
   { value: "store_pic", label: "Store PIC" },
-  { value: "store_admin", label: "Store Admin" },
 ];
 
 const roleBadge = (role: UserRole) => {
@@ -148,8 +146,6 @@ const roleBadge = (role: UserRole) => {
       return <Badge className="bg-gray-500/20 text-gray-800 dark:text-gray-300 border-0 text-[10px] font-bold">SECURITY</Badge>;
     case "store_pic":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[10px] font-bold">STORE PIC</Badge>;
-    case "store_admin":
-      return <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0 text-[10px] font-bold">STORE ADMIN</Badge>;
     default:
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
   }

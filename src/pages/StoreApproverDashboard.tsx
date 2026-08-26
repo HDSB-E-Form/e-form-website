@@ -44,15 +44,17 @@ const StoreApproverDashboard = () => {
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
 
-  const seesAllSubmissions = user?.role === "super_admin" || user?.role === "store_admin";
+  const seesAllSubmissions = user?.role === "super_admin";
   const myPicSubmissions = useMemo(() => {
     return submissions.filter(s => {
       if (s.formType !== "material_requisition_slip") return false;
       if (seesAllSubmissions) return true;
+      const picUserId = typeof s.data?.storePicUserId === "string" ? s.data.storePicUserId : "";
+      if (picUserId) return picUserId === user?.id;
       const picName = (s.data?.storePicName || "").trim().toLowerCase();
       return picName && picName === (user?.name || "").trim().toLowerCase();
     });
-  }, [submissions, seesAllSubmissions, user?.name]);
+  }, [submissions, seesAllSubmissions, user?.id, user?.name]);
 
   const filtered = myPicSubmissions.filter(s => {
     if (!search) return true;

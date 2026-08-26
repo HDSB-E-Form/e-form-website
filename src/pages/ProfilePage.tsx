@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner"; 
 import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera, CreditCard, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/supabase";
+import { isStrongPassword, strongPasswordMessage } from "@/lib/password";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const getInitials = (name?: string) =>
@@ -243,8 +244,8 @@ const ProfilePage = () => {
       toast.error("New passwords do not match.");
       return;
     }
-    if (password.newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters long.");
+    if (!isStrongPassword(password.newPassword)) {
+      toast.error(strongPasswordMessage);
       return;
     }
     setIsPasswordSaving(true);
@@ -275,15 +276,15 @@ const ProfilePage = () => {
     }
   };
 
-  const passwordMeetsMinimum = password.newPassword.length >= 6;
+  const passwordMeetsMinimum = password.newPassword.length >= 8;
   const confirmationEntered = password.confirmPassword.length > 0;
   const passwordsMatch = confirmationEntered && password.newPassword === password.confirmPassword;
   const passwordStrengthScore = password.newPassword
     ? [
         passwordMeetsMinimum,
-        password.newPassword.length >= 10,
-        /[A-Z]/.test(password.newPassword) && /[a-z]/.test(password.newPassword),
-        /\d/.test(password.newPassword) || /[^A-Za-z0-9]/.test(password.newPassword),
+        /[A-Z]/.test(password.newPassword),
+        /[a-z]/.test(password.newPassword),
+        /\d/.test(password.newPassword) && /[^A-Za-z0-9]/.test(password.newPassword),
       ].filter(Boolean).length
     : 0;
   const passwordStrength =

@@ -111,7 +111,6 @@ const roleLabels: Record<UserRole, string> = {
   security_guard: "Security Guard",
   safety_admin: "Safety Admin",
   store_pic: "Store PIC",
-  store_admin: "Store Admin",
 };
 
 const getAdminNav = (role?: UserRole) => {
@@ -133,7 +132,7 @@ const getAdminNav = (role?: UserRole) => {
     return superAdminNav;
   } else if (role === "security_guard") {
     return securityNav;
-  } else if (role === "store_pic" || role === "store_admin") {
+  } else if (role === "store_pic") {
     return storeAdminNav;
   }
   return [];
@@ -153,7 +152,7 @@ export function AppSidebar() {
     if (currentFormDepartment) setExpandedDepartment(currentFormDepartment);
   }, [currentFormDepartment]);
 
-  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin", "store_pic", "store_admin"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
+  const isAdmin = user?.role && (["hr_admin", "finance_admin", "it_admin", "hod", "hos", "manco_member", "head_of_purchasing", "head_of_finance", "super_admin", "security_guard", "safety_admin", "store_pic"].includes(user.role) || (user.secondary_roles && user.secondary_roles.length > 0));
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
@@ -268,7 +267,6 @@ export function AppSidebar() {
       case "it_admin": return { main: "IT Admin", sub: itSubtitle };
       case "safety_admin": return { main: "Safety Admin", sub: safetySubtitle };
       case "store_pic": return { main: "Store PIC", sub: "Department Portal" };
-      case "store_admin": return { main: "Store Admin", sub: "Department Portal" };
       case "hod": return { main: "HOD Portal", sub: "Department Approvals" };
       case "hos": return { main: "HOS Portal", sub: "Section Approvals" };
       case "head_of_purchasing": return { main: "Purchasing Head", sub: "Approvals" };

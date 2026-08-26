@@ -23,8 +23,6 @@ const SUPERIOR_EMAILS = [
   "zaini@hidsb.com",
 ];
 
-const STORE_PIC_OPTIONS = ["Abd Haafidz", "Mohd Shafeeq", "Fakaruddin", "Nasri", "Joy"];
-
 const MaterialRequisitionForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -50,13 +48,14 @@ const MaterialRequisitionForm = () => {
   }), [users]);
 
   const hodUsers: AppUser[] = useMemo(() => [...(getUsersByRole("hod") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
+  const storePicUsers: AppUser[] = useMemo(() => [...(getUsersByRole("store_pic") || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [getUsersByRole]);
 
   const [superiorEmail, setSuperiorEmail] = useState("");
   const [hodName, setHodName] = useState("");
   const [itemDescription, setItemDescription] = useState("");
   const [quantity, setQuantity] = useState("");
   const [lotNo, setLotNo] = useState("");
-  const [storePicName, setStorePicName] = useState("");
+  const [storePicUserId, setStorePicUserId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isLoaded || !hasAccess) return null;
@@ -84,7 +83,7 @@ const MaterialRequisitionForm = () => {
       toast.error("Please enter the Lot No.");
       return;
     }
-    if (!storePicName) {
+    if (!storePicUserId) {
       toast.error("Please select the Store PIC.");
       return;
     }
@@ -94,6 +93,13 @@ const MaterialRequisitionForm = () => {
 
     const selectedSuperior = superiorOptions.find(option => option.email === superiorEmail);
     const selectedHod = hodUsers.find(u => u.name === hodName);
+    const selectedStorePic = storePicUsers.find(u => u.id === storePicUserId);
+
+    if (!selectedStorePic) {
+      toast.error("The selected Store PIC is no longer active. Please select another user.");
+      setIsSubmitting(false);
+      return;
+    }
 
     const success = await addSubmission({
       formType: "material_requisition_slip",
@@ -111,7 +117,8 @@ const MaterialRequisitionForm = () => {
         itemDescription: itemDescription.trim(),
         quantity,
         lotNo: lotNo.trim(),
-        storePicName,
+        storePicUserId: selectedStorePic.id,
+        storePicName: selectedStorePic.name,
       },
     });
 
@@ -241,12 +248,15 @@ const MaterialRequisitionForm = () => {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">Store PIC <span className="text-destructive">*</span></Label>
-              <Select value={storePicName} onValueChange={setStorePicName}>
-                <SelectTrigger className="h-11"><SelectValue placeholder="Choose Store PIC..." /></SelectTrigger>
+              <Select value={storePicUserId} onValueChange={setStorePicUserId} disabled={areUsersLoading || storePicUsers.length === 0}>
+                <SelectTrigger className="h-11"><SelectValue placeholder={areUsersLoading ? "Loading users..." : "Choose Store PIC..."} /></SelectTrigger>
                 <SelectContent>
-                  {STORE_PIC_OPTIONS.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                  {storePicUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {!areUsersLoading && storePicUsers.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5">Ask a Super Admin to assign the Store PIC role to an active user.</p>
+              )}
             </div>
           </div>
         </div>
