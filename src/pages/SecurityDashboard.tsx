@@ -17,6 +17,9 @@ const formTypeLabels: Record<string, string> = {
   leave: "Gate Pass",
 };
 
+// Company closing time — used to auto-complete "not returning today" gate passes.
+const CLOSING_TIME = "17:30";
+
 const formatEstimatedTime = (submittedAt: string, time?: string) => {
   if (!time) return "—";
   const [hours, minutes] = time.split(":").map(Number);
@@ -170,6 +173,11 @@ const SecurityDashboard = () => {
             securityEntryReviewedByName: user?.name || "Security Guard",
             securityEntryReviewedById: user?.id || null,
             securityEntryReviewedAt: new Date().toISOString(),
+            ...(logData?.completedWithoutReturn ? {
+              securityExitReviewedByName: user?.name || "Security Guard",
+              securityExitReviewedById: user?.id || null,
+              securityExitReviewedAt: new Date().toISOString(),
+            } : {}),
           }
         : {
             securityReviewedByName: user?.name || "Security Guard",
@@ -225,6 +233,22 @@ const SecurityDashboard = () => {
     if (!selectedSubmission || !securityLog.actualTimeOut) return;
     const exitTime = timestampForToday(securityLog.actualTimeOut);
     const friendlyTime = exitTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+    // "Not returning today": no entry step — close the pass now with time in at closing time.
+    if (selectedSubmission.data.notReturningToday === true) {
+      const closingTime = timestampForToday(CLOSING_TIME);
+      const friendlyClosing = closingTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+      if (!window.confirm(`Confirm that ${selectedSubmission.employeeName} left at ${friendlyTime}? They are not returning today, so the pass will be completed with a Time In of ${friendlyClosing}.`)) return;
+      void handleAction(selectedSubmission.id, "approved", {
+        actualTimeOut: exitTime.toISOString(),
+        actualTimeIn: closingTime.toISOString(),
+        vehicleNo: securityLog.vehicleNo,
+        remarks: securityLog.remarks,
+        completedWithoutReturn: true,
+      });
+      return;
+    }
+
     if (!window.confirm(`Confirm that ${selectedSubmission.employeeName} left at ${friendlyTime}?`)) return;
     void handleAction(selectedSubmission.id, "on_leave", { actualTimeOut: exitTime.toISOString(), vehicleNo: securityLog.vehicleNo, remarks: securityLog.remarks });
   };
@@ -279,7 +303,12 @@ const SecurityDashboard = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
             <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time In</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}</div>
+            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">
+              {formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}
+              {sub.data.notReturningToday === true && (
+                <span className="ml-2 inline-flex rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 print:border print:border-gray-400 print:text-black">Not returning today</span>
+              )}
+            </div>
           </div>
           {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
             <>
@@ -418,6 +447,11 @@ const SecurityDashboard = () => {
         {canApprove && (
           <div className="mt-4 rounded-xl border border-border/60 bg-background p-4 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-5">
             <h3 className="mb-3 text-base font-bold text-foreground sm:text-lg">Log Employee Exit</h3>
+            {selectedSubmission.data.notReturningToday === true && (
+              <div className="mb-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-2.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                Employee is not returning today. Confirming exit will complete this pass with a Time In of 5:30 PM — there is no separate entry step.
+              </div>
+            )}
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -436,7 +470,7 @@ const SecurityDashboard = () => {
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-3 sm:flex-row">
                 <button disabled={isProcessing} onClick={() => void handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 rounded-xl bg-destructive px-6 py-3 text-center font-bold text-white transition-all hover:bg-destructive/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60">REJECT</button>
                 <button onClick={handleConfirmExit} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-center font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" disabled={!securityLog.actualTimeOut || isProcessing}>
-                  <LogOut className="h-4 w-4" /> {isProcessing ? "SAVING..." : "CONFIRM EXIT"}
+                  <LogOut className="h-4 w-4" /> {isProcessing ? "SAVING..." : (selectedSubmission.data.notReturningToday === true ? "CONFIRM EXIT & COMPLETE" : "CONFIRM EXIT")}
                 </button>
               </div>
             </div>

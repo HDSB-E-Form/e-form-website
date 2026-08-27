@@ -49,6 +49,20 @@ const IT_FORMS = new Set([
   "it_facilities_requisition",
 ]);
 
+// Record-only forms (Safety department dashboards, inventory/monitoring logs, and
+// the auto-approved PPE / Uniform / Office Supplies requests). These are stored
+// straight as "approved" with no approver workflow, so they never generate any
+// email — not even a submitter confirmation.
+const NO_NOTIFICATION_FORMS = new Set([
+  "mixing_chemical_stages",
+  "final_discharge",
+  "waste_inventory",
+  "daily_operation_monitoring",
+  "inventory_addition",
+  "ppe_request",
+  "ppe_purchase",
+]);
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -69,15 +83,24 @@ const selectedUserId = (data: Record<string, unknown>, key: string) => {
 function getTarget(submission: Submission): NotificationTarget | null {
   const data = submission.data ?? {};
   const label = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
-  const selected = (key: string, stage: string): NotificationTarget | null => {
-    const id = selectedUserId(data, key);
-    return id ? {
+  // Resolve a selected approver for a stage. Prefer the stored user id; fall back
+  // to matching by the stored name (several forms only persist `*Name`). A stage
+  // explicitly set to "N/A" never sends an email.
+  const selected = (idKey: string, nameKeys: string[], stage: string): NotificationTarget | null => {
+    const base = {
       eventType: `approval_required_${stage}`,
-      audience: "approver",
-      userIds: [id],
+      audience: "approver" as const,
       subject: `Action required: ${label}`,
       heading: "A submission requires your approval",
-    } : null;
+    };
+    const id = selectedUserId(data, idKey);
+    if (id) return { ...base, userIds: [id] };
+    for (const nameKey of nameKeys) {
+      const raw = data[nameKey];
+      const nameValue = typeof raw === "string" ? raw.trim() : "";
+      if (nameValue && nameValue.toUpperCase() !== "N/A") return { ...base, name: nameValue };
+    }
+    return null;
   };
   const role = (roleName: string, stage: string): NotificationTarget => ({
     eventType: `action_required_${stage}`,
@@ -95,24 +118,23 @@ function getTarget(submission: Submission): NotificationTarget | null {
   });
   switch (submission.status) {
     case "pending":
+      // IT Help Desk has no HOS/HOD stage — it routes straight to IT Admin.
       if (submission.formType === "it_help_desk") return role("it_admin", "it");
-      return selected("hosUserId", "hos");
+      return selected("hosUserId", ["hosName", "hos"], "hos");
     case "approved_hos":
-      return selected("hodUserId", "hod");
+      return selected("hodUserId", ["hodName", "hod"], "hod");
     case "approved_hod":
-      if (submission.formType === "leave") return selected("mancoMemberUserId", "manco");
-      if (submission.formType === "claim") return selected("hopUserId", "purchasing");
+      if (submission.formType === "leave") return selected("mancoMemberUserId", ["mancoMemberName"], "manco");
+      if (submission.formType === "claim") return selected("hopUserId", ["hopName"], "purchasing");
       if (submission.formType === "car_rental") return role("hr_admin", "hr");
       if (IT_FORMS.has(submission.formType)) return role("it_admin", "it");
       return null;
     case "pending_finance_review":
       return submission.formType === "claim" ? role("finance_admin", "finance_review") : null;
     case "approved_hop":
-      return submission.formType === "claim" ? selected("hofUserId", "finance_approval") : null;
+      return submission.formType === "claim" ? selected("hofUserId", ["hofName"], "finance_approval") : null;
     case "approved_hof":
       return submission.formType === "claim" ? role("finance_admin", "payment") : null;
-    case "approved_manco":
-      return submission.formType === "leave" ? role("security_guard", "security") : null;
     case "reopened":
       return IT_FORMS.has(submission.formType) ? role("it_admin", "it_reopened") : null;
     case "awaiting_confirmation":
@@ -130,24 +152,14 @@ function getTarget(submission: Submission): NotificationTarget | null {
   }
 }
 
-// MRS has two independent recipients on the same status transition: an
-// FYI-only HOD and an action-required Store PIC.
+// MRS (store requisition): only the selected Store PIC is notified.
 function getTargets(submission: Submission): NotificationTarget[] {
+  if (NO_NOTIFICATION_FORMS.has(submission.formType)) return [];
+
   if (submission.status === "pending" && submission.formType === "material_requisition_slip") {
     const data = submission.data ?? {};
     const label = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
     const targets: NotificationTarget[] = [];
-
-    const hodId = selectedUserId(data, "hodUserId");
-    if (hodId) {
-      targets.push({
-        eventType: "fyi_mrs_hod",
-        audience: "approver",
-        userIds: [hodId],
-        subject: `FYI: ${label}`,
-        heading: "A colleague submitted a request you were named on",
-      });
-    }
 
     const picId = selectedUserId(data, "storePicUserId");
     const picName = typeof data.storePicName === "string" ? data.storePicName.trim() : "";

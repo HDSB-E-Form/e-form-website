@@ -4,12 +4,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
 import { useUsers, type AppUser } from "@/contexts/UsersContext";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; 
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, UserCheck, Info, ShieldCheck, Shield, Send, Car, LogIn, LogOut, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/supabase";
 import { useFormLanguage } from "@/contexts/FormLanguageContext";
+
+// Company closing time. A gate pass flagged "not returning today" gets this as
+// its time in automatically, and security completes it on exit (no entry step).
+const CLOSING_TIME = "17:30";
 
 const GatePassForm = () => {
   const navigate = useNavigate();
@@ -64,6 +69,7 @@ const GatePassForm = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [estimatedTime, setEstimatedTime] = useState({ timeOut: "", timeIn: "" });
+  const [notReturningToday, setNotReturningToday] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +79,7 @@ const GatePassForm = () => {
       return;
     }
     
-    if (!estimatedTime.timeOut || !estimatedTime.timeIn) {
+    if (!estimatedTime.timeOut || (!notReturningToday && !estimatedTime.timeIn)) {
       toast.error(text("Please provide both estimated Time Out and Time In.", "Sila masukkan anggaran Masa Keluar dan Masa Masuk."));
       return;
     }
@@ -106,7 +112,11 @@ const GatePassForm = () => {
         hodName,
         mancoMemberName: selectedMancoMember.name,
         mancoMemberUserId: selectedMancoMember.id,
-        estimatedTime,
+        estimatedTime: {
+          timeOut: estimatedTime.timeOut,
+          timeIn: notReturningToday ? CLOSING_TIME : estimatedTime.timeIn,
+        },
+        notReturningToday,
       },
     });
     if (success) {
@@ -401,6 +411,24 @@ const GatePassForm = () => {
             </h2>
           </div>
 
+          <label className="mb-4 flex items-start gap-3 rounded-xl border border-border/60 bg-muted/10 p-3.5 cursor-pointer hover:bg-muted/20 transition-colors">
+            <Checkbox
+              checked={notReturningToday}
+              onCheckedChange={value => {
+                const checked = value === true;
+                setNotReturningToday(checked);
+                if (checked) setEstimatedTime(p => ({ ...p, timeIn: "" }));
+              }}
+              className="mt-0.5"
+            />
+            <span className="text-sm">
+              <span className="font-semibold text-foreground">{text("I will not return to the office today", "Saya tidak akan kembali ke pejabat hari ini")}</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {text("Select this if you cannot return before the 5:30 PM closing time. Your Time In will be set to 5:30 PM automatically and security will record your actual Time Out.", "Pilih ini jika anda tidak dapat kembali sebelum waktu tutup 5:30 PM. Masa Masuk anda akan ditetapkan kepada 5:30 PM secara automatik dan pihak keselamatan akan merekod Masa Keluar sebenar anda.")}
+              </span>
+            </span>
+          </label>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-primary">{text("Time Out", "Masa Keluar")} <span className="text-destructive">*</span></Label>
@@ -420,19 +448,24 @@ const GatePassForm = () => {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-primary">{text("Time In", "Masa Masuk")} <span className="text-destructive">*</span></Label>
-              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">{text("Select your estimated time in.", "Pilih anggaran masa masuk anda.")}</p>
+              <Label className="text-xs font-semibold text-primary">{text("Time In", "Masa Masuk")} {!notReturningToday && <span className="text-destructive">*</span>}</Label>
+              <p className="text-xs text-muted-foreground -mt-1 mb-1.5">
+                {notReturningToday
+                  ? text("Automatically set to 5:30 PM (closing time).", "Ditetapkan secara automatik kepada 5:30 PM (waktu tutup).")
+                  : text("Select your estimated time in.", "Pilih anggaran masa masuk anda.")}
+              </p>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors z-10">
                   <LogIn className="h-4 w-4" />
                 </div>
                 <Input
                   type="time"
-                  value={estimatedTime.timeIn}
+                  value={notReturningToday ? CLOSING_TIME : estimatedTime.timeIn}
                   onChange={e => setEstimatedTime(p => ({ ...p, timeIn: e.target.value }))}
-                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark]"
+                  disabled={notReturningToday}
+                  className="h-11 pl-10 w-full bg-muted/20 hover:bg-muted/50 focus:bg-background text-foreground font-medium shadow-sm transition-colors dark:[color-scheme:dark] disabled:opacity-70 disabled:cursor-not-allowed"
                   placeholder="--:--"
-                  required
+                  required={!notReturningToday}
                 />
               </div>
             </div>
