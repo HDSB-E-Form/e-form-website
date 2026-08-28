@@ -1076,8 +1076,8 @@ const MySubmissions = () => {
                   const rejectedFromStatus = sub.data.rejectedFromStatus;
                   const wasApprovedByHosBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus ? ["approved_hos", "approved_hod"].includes(rejectedFromStatus) : rejectedStage === "admin";
                   const wasApprovedByHodBeforeAdminRejection = rejectedStage === "admin" && rejectedFromStatus ? rejectedFromStatus === "approved_hod" : rejectedStage === "admin";
-                  const isApprovedHOS = sub.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hod", "hop", "finance_review", "hof"].includes(rejectedStage as string) || wasApprovedByHosBeforeAdminRejection;
-                  const isApprovedHOD = sub.data.hodName === 'N/A' || ["approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(sub.status) || ["hop", "finance_review", "hof"].includes(rejectedStage) || wasApprovedByHodBeforeAdminRejection;
+                  const isApprovedHOS = sub.data.hosName === 'N/A' || ["approved_hos", "approved_hod", "approved_manco", "on_leave", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "awaiting_confirmation", "reopened"].includes(sub.status) || ["hod", "manco", "hop", "finance_review", "hof"].includes(rejectedStage as string) || wasApprovedByHosBeforeAdminRejection;
+                  const isApprovedHOD = sub.data.hodName === 'N/A' || ["approved_hod", "approved_manco", "on_leave", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed", "awaiting_confirmation", "reopened"].includes(sub.status) || ["manco", "hop", "finance_review", "hof"].includes(rejectedStage) || wasApprovedByHodBeforeAdminRejection;
                   const isRejected = sub.status === "rejected";
 
                   return (

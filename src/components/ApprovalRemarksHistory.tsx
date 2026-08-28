@@ -81,6 +81,13 @@ const ApprovalRemarksHistory = ({ submission }: { submission: Submission }) => {
   const history = [...storedHistory, ...legacyHistory];
   if (history.length === 0) return null;
 
+  // Only worth showing when it carries information the Approval Overview badges
+  // don't: a rejection, or an approver who actually left a written remark.
+  // A clean chain of "Approved" with no notes just repeats the Overview.
+  const hasContent = submission.status === "rejected"
+    || history.some(entry => entry.action === "rejected" || (entry.remark && String(entry.remark).trim()));
+  if (!hasContent) return null;
+
   return (
     <section className="mb-4">
       <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Approval History</p>
