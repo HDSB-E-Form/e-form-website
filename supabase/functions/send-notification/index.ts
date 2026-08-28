@@ -14,6 +14,7 @@ type Submission = {
   submittedAt: string;
   submittedBy: string;
   employeeName: string;
+  department: string | null;
   data: Record<string, unknown> | null;
 };
 
@@ -25,7 +26,23 @@ type NotificationTarget = {
   role?: string;
   subject: string;
   heading: string;
+  // Dashboard route the CTA button deep-links to (opened after login).
+  path: string;
+  // Human label for the recipient's part in this request, e.g. "Head of Section".
+  roleLabel?: string;
+  // true when a specific person was picked for this stage, false for a whole team/role.
+  namedApprover?: boolean;
+  // Overrides the default body text (used for submitter-facing outcomes).
+  message?: string;
 };
+
+const APPROVALS_PATH = "/admin/approvals";
+const SUBMITTER_PATH = "/submissions";
+
+const itAdminPath = (formType: string) =>
+  formType === "it_help_desk" ? "/admin/it/help-desk"
+    : formType === "cctv_access_request" ? "/admin/it"
+      : "/admin/it/facilities";
 
 const formLabels: Record<string, string> = {
   car_rental: "Company Vehicle Request",
@@ -86,12 +103,21 @@ function getTarget(submission: Submission): NotificationTarget | null {
   // Resolve a selected approver for a stage. Prefer the stored user id; fall back
   // to matching by the stored name (several forms only persist `*Name`). A stage
   // explicitly set to "N/A" never sends an email.
-  const selected = (idKey: string, nameKeys: string[], stage: string): NotificationTarget | null => {
+  const selected = (
+    idKey: string,
+    nameKeys: string[],
+    stage: string,
+    roleLabel: string,
+    path = APPROVALS_PATH,
+  ): NotificationTarget | null => {
     const base = {
       eventType: `approval_required_${stage}`,
       audience: "approver" as const,
       subject: `Action required: ${label}`,
-      heading: "A submission requires your approval",
+      heading: "A submission needs your approval",
+      path,
+      roleLabel,
+      namedApprover: true,
     };
     const id = selectedUserId(data, idKey);
     if (id) return { ...base, userIds: [id] };
@@ -102,51 +128,60 @@ function getTarget(submission: Submission): NotificationTarget | null {
     }
     return null;
   };
-  const role = (roleName: string, stage: string): NotificationTarget => ({
+  const role = (roleName: string, stage: string, path: string, roleLabel: string): NotificationTarget => ({
     eventType: `action_required_${stage}`,
     audience: "approver",
     role: roleName,
     subject: `Action required: ${label}`,
-    heading: "A submission requires your attention",
+    heading: "A submission needs your team's attention",
+    path,
+    roleLabel,
+    namedApprover: false,
   });
-  const submitter = (eventType: string, subject: string, heading: string): NotificationTarget => ({
+  const submitter = (eventType: string, subject: string, heading: string, message: string): NotificationTarget => ({
     eventType,
     audience: "submitter",
     userIds: [submission.submittedBy],
     subject,
     heading,
+    path: SUBMITTER_PATH,
+    message,
   });
   switch (submission.status) {
     case "pending":
       // IT Help Desk has no HOS/HOD stage — it routes straight to IT Admin.
-      if (submission.formType === "it_help_desk") return role("it_admin", "it");
-      return selected("hosUserId", ["hosName", "hos"], "hos");
+      if (submission.formType === "it_help_desk") return role("it_admin", "it", itAdminPath(submission.formType), "IT Admin");
+      return selected("hosUserId", ["hosName", "hos"], "hos", "Head of Section");
     case "approved_hos":
-      return selected("hodUserId", ["hodName", "hod"], "hod");
+      return selected("hodUserId", ["hodName", "hod"], "hod", "Head of Department");
     case "approved_hod":
-      if (submission.formType === "leave") return selected("mancoMemberUserId", ["mancoMemberName"], "manco");
-      if (submission.formType === "claim") return selected("hopUserId", ["hopName"], "purchasing");
-      if (submission.formType === "car_rental") return role("hr_admin", "hr");
-      if (IT_FORMS.has(submission.formType)) return role("it_admin", "it");
+      if (submission.formType === "leave") return selected("mancoMemberUserId", ["mancoMemberName"], "manco", "MANCO member");
+      if (submission.formType === "claim") return selected("hopUserId", ["hopName"], "purchasing", "Head of Purchasing");
+      if (submission.formType === "car_rental") return role("hr_admin", "hr", "/admin/hr", "HR Admin");
+      if (IT_FORMS.has(submission.formType)) return role("it_admin", "it", itAdminPath(submission.formType), "IT Admin");
       return null;
     case "pending_finance_review":
-      return submission.formType === "claim" ? role("finance_admin", "finance_review") : null;
+      return submission.formType === "claim" ? role("finance_admin", "finance_review", "/admin/finance", "Finance Admin") : null;
     case "approved_hop":
-      return submission.formType === "claim" ? selected("hofUserId", ["hofName"], "finance_approval") : null;
+      return submission.formType === "claim" ? selected("hofUserId", ["hofName"], "finance_approval", "Head of Finance") : null;
     case "approved_hof":
-      return submission.formType === "claim" ? role("finance_admin", "payment") : null;
+      return submission.formType === "claim" ? role("finance_admin", "payment", "/admin/finance", "Finance Admin") : null;
     case "reopened":
-      return IT_FORMS.has(submission.formType) ? role("it_admin", "it_reopened") : null;
+      return IT_FORMS.has(submission.formType) ? role("it_admin", "it_reopened", itAdminPath(submission.formType), "IT Admin") : null;
     case "awaiting_confirmation":
-      return submitter("employee_confirmation_required", `Please review: ${label}`, "Your confirmation is required");
+      return submitter("employee_confirmation_required", `Please review: ${label}`, "Your confirmation is required",
+        "Open this request in the system and confirm the details so it can move forward.");
     case "paid":
       return submission.formType === "claim"
-        ? submitter("payment_acknowledgement_required", `Payment processed: ${label}`, "Your payment acknowledgement is required")
+        ? submitter("payment_acknowledgement_required", `Payment processed: ${label}`, "Your payment acknowledgement is required",
+          "Your claim has been paid. Please open the system and acknowledge that you received the payment.")
         : null;
     case "approved":
-      return submitter("submission_approved", `Approved: ${label}`, "Your submission has been approved");
+      return submitter("submission_approved", `Approved: ${label}`, "Your submission has been approved",
+        "Your submission has been approved. No further action is needed from you.");
     case "rejected":
-      return submitter("submission_rejected", `Rejected: ${label}`, "Your submission has been rejected");
+      return submitter("submission_rejected", `Rejected: ${label}`, "Your submission has been rejected",
+        "Your submission was rejected. Open it in the system to see the reason and resubmit if needed.");
     default:
       return null;
   }
@@ -159,57 +194,108 @@ function getTargets(submission: Submission): NotificationTarget[] {
   if (submission.status === "pending" && submission.formType === "material_requisition_slip") {
     const data = submission.data ?? {};
     const label = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
-    const targets: NotificationTarget[] = [];
+    const base = {
+      eventType: "action_required_store_pic",
+      audience: "approver" as const,
+      subject: `Action required: ${label}`,
+      heading: "A submission needs your approval",
+      path: "/admin/store",
+      roleLabel: "Store PIC",
+      namedApprover: true,
+    };
 
     const picId = selectedUserId(data, "storePicUserId");
     const picName = typeof data.storePicName === "string" ? data.storePicName.trim() : "";
-    if (picId) {
-      targets.push({
-        eventType: "action_required_store_pic",
-        audience: "approver",
-        userIds: [picId],
-        subject: `Action required: ${label}`,
-        heading: "A submission requires your approval",
-      });
-    } else if (picName) {
-      targets.push({
-        eventType: "action_required_store_pic",
-        audience: "approver",
-        name: picName,
-        subject: `Action required: ${label}`,
-        heading: "A submission requires your approval",
-      });
-    }
-
-    return targets;
+    if (picId) return [{ ...base, userIds: [picId] }];
+    if (picName) return [{ ...base, name: picName }];
+    return [];
   }
 
   const target = getTarget(submission);
   return target ? [target] : [];
 }
 
-function emailHtml(submission: Submission, target: NotificationTarget, appUrl: string) {
+const formatWhen = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+    timeZone: "Asia/Kuala_Lumpur",
+  });
+};
+
+// Shared pieces so the HTML and plain-text bodies never drift apart.
+function emailParts(submission: Submission, target: NotificationTarget, appUrl: string) {
   const formLabel = formLabels[submission.formType] ?? submission.formType.replaceAll("_", " ");
-  const reference = submission.data?.refNo ?? submission.id;
-  const systemUrl = `${appUrl.replace(/\/$/, "")}/login`;
+  const reference = String(submission.data?.refNo ?? submission.id);
+  const department = submission.department
+    ?? (submission.data as Record<string, any> | null)?.employeeInfo?.department
+    ?? "—";
+  const ctaUrl = `${appUrl.replace(/\/$/, "")}${target.path}`;
+
+  const intro = target.message
+    ?? (target.roleLabel
+      ? (target.namedApprover
+        ? `You are named as the ${target.roleLabel} for this request. Please review it in the system and record your approval or rejection.`
+        : `This request has reached the ${target.roleLabel} team and needs to be actioned in the system.`)
+      : "This request needs your attention in the system.");
+
+  const ctaLabel = target.audience === "approver" ? "Review in HDSB E-Form" : "Open in HDSB E-Form";
+
+  const preheader = target.audience === "approver"
+    ? `${submission.employeeName} submitted a ${formLabel} (${reference}) — your action is needed.`
+    : target.heading;
+
+  const rows: Array<[string, string]> = [
+    ["Submitter", submission.employeeName],
+    ["Department", String(department)],
+    ["Form type", formLabel],
+    ["Reference number", reference],
+    ["Submitted", formatWhen(submission.submittedAt)],
+  ];
+
+  return { formLabel, reference, intro, ctaLabel, ctaUrl, preheader, rows };
+}
+
+function emailHtml(submission: Submission, target: NotificationTarget, appUrl: string) {
+  const { intro, ctaLabel, ctaUrl, preheader, rows } = emailParts(submission, target, appUrl);
+  const rowsHtml = rows.map(([k, v]) =>
+    `<tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">${escapeHtml(k)}</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(v)}</td></tr>`
+  ).join("");
   return `<!doctype html>
-  <html><body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#172033">
+  <html lang="en"><body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#172033">
+    <span style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all">${escapeHtml(preheader)}</span>
     <div style="max-width:600px;margin:0 auto;padding:32px 16px">
       <div style="background:#fff;border:1px solid #e4e8ee;border-radius:14px;overflow:hidden">
         <div style="background:#003366;padding:22px 28px;color:#fff"><strong style="font-size:18px">HDSB E-Form System</strong></div>
         <div style="padding:28px">
-          <h1 style="font-size:22px;margin:0 0 22px;color:#003366">${escapeHtml(target.heading)}</h1>
+          <h1 style="font-size:22px;margin:0 0 12px;color:#003366">${escapeHtml(target.heading)}</h1>
+          <p style="margin:0 0 22px;font-size:14px;line-height:1.5;color:#475467">${escapeHtml(intro)}</p>
           <table role="presentation" style="width:100%;border-collapse:collapse;font-size:15px">
-            <tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">Submitter</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(submission.employeeName)}</td></tr>
-            <tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">Form type</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(formLabel)}</td></tr>
-            <tr><td style="padding:10px 0;color:#667085;border-bottom:1px solid #eee">Reference number</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(reference)}</td></tr>
+            ${rowsHtml}
           </table>
-          <div style="margin-top:28px;text-align:center"><a href="${escapeHtml(systemUrl)}" style="display:inline-block;background:#003366;color:#fff;text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:700">Open HDSB E-Form System</a></div>
+          <div style="margin-top:28px;text-align:center"><a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:#003366;color:#fff;text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:700">${escapeHtml(ctaLabel)}</a></div>
+          <p style="margin:22px 0 0;font-size:12px;color:#98a2b3">If the button does not work, copy this link into your browser:<br>${escapeHtml(ctaUrl)}</p>
         </div>
       </div>
-      <p style="text-align:center;color:#98a2b3;font-size:12px;margin:16px 0">This is an automated system notification.</p>
+      <p style="text-align:center;color:#98a2b3;font-size:12px;margin:16px 0">This is an automated notification from the HDSB E-Form System. Please do not reply to this email.</p>
     </div>
   </body></html>`;
+}
+
+function emailText(submission: Submission, target: NotificationTarget, appUrl: string) {
+  const { intro, ctaLabel, ctaUrl, rows } = emailParts(submission, target, appUrl);
+  return [
+    target.heading,
+    "",
+    intro,
+    "",
+    ...rows.map(([k, v]) => `${k}: ${v}`),
+    "",
+    `${ctaLabel}: ${ctaUrl}`,
+    "",
+    "This is an automated notification from the HDSB E-Form System. Please do not reply to this email.",
+  ].join("\n");
 }
 
 Deno.serve(async (req) => {
@@ -239,7 +325,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
     const { data: rawSubmission, error: submissionError } = await admin
-      .from("submissions").select("id, formType, status, submittedAt, submittedBy, employeeName, data")
+      .from("submissions").select("id, formType, status, submittedAt, submittedBy, employeeName, department, data")
       .eq("id", submissionId).single();
     if (submissionError || !rawSubmission) return json({ error: "Submission not found" }, 404);
     const submission = rawSubmission as Submission;
@@ -294,6 +380,7 @@ Deno.serve(async (req) => {
             to: [recipient.email],
             subject: target.subject,
             html: emailHtml(submission, target, appUrl),
+            text: emailText(submission, target, appUrl),
           }),
         });
         const result = await response.json();

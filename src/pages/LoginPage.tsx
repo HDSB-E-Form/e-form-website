@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,15 @@ const LoginPage = () => {
   const [isBackgroundLoaded, setIsBackgroundLoaded] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Where to land after signing in: the `next` param from a deep link (e.g. a
+  // dashboard link in a notification email), or the home page. Only same-site
+  // absolute paths are honoured, never an external URL.
+  const postLoginPath = (() => {
+    const next = searchParams.get("next");
+    return next && next.startsWith("/") && !next.startsWith("//") ? next : "/home";
+  })();
 
   useEffect(() => {
     const image = new Image();
@@ -87,7 +96,7 @@ const LoginPage = () => {
 
     const result = await login(email, password, rememberMe);
     if (result.success) {
-      navigate("/home", { replace: true });
+      navigate(postLoginPath, { replace: true });
     } else {
       setError(result.error || "Unable to sign in. Please try again.");
     }

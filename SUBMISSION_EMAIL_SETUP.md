@@ -26,6 +26,9 @@ IT request forms). A stage set to `N/A` sends no email for that stage.
 - Claim payment: submitter for acknowledgement
 - IT resolution: submitter for confirmation
 - IT request returned by employee: active IT Admins
+- Personal gate pass overdue (2h past the security-recorded exit, still not
+  logged back in): the employee, the selected HOD, and HR — sent once, by the
+  scheduled `check-overdue-gate-passes` function (see below), not the workflow.
 
 No email is sent for Safety department records (mixing & chemical stages, final
 discharge, waste inventory), inventory/monitoring logs, or the auto-approved
@@ -96,10 +99,17 @@ with `RESEND_API_KEY`.
 Set these in Supabase Dashboard under **Edge Functions > Secrets**:
 
 ```text
-RESEND_API_KEY=https://rfaikvgsulpbpsyfccku.supabase.co/functions/v1/resend-email
-RESEND_FROM_EMAIL=HDSB Management System <digitalization@hidsb.com>
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx           # real key from Resend, starts with re_
+RESEND_FROM_EMAIL=HDSB Management System <notification@notification.hidsb.com>
 APP_URL=https://hdsb-e-form.netlify.app
+HR_NOTIFICATION_EMAIL=hr@hidsb.com               # overdue personal gate pass alerts
+CRON_SECRET=<optional random string>            # if set, the cron job must send it too
 ```
+
+The `RESEND_FROM_EMAIL` domain (after `@`) must exactly match a **verified**
+domain in Resend. `notification.hidsb.com` is the verified sending subdomain
+(region: Tokyo / ap-northeast-1). To send from the bare `@hidsb.com` instead,
+verify `hidsb.com` as its own Resend domain first.
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are supplied
 to hosted Supabase Edge Functions automatically and must never be put in the
@@ -107,14 +117,30 @@ browser environment.
 
 ## Deployment order
 
-1. Apply `supabase/migrations/202608070001_submission_email_deliveries.sql`.
-2. Add the three Edge Function secrets above.
-3. Deploy the `send-notification` Edge Function with JWT verification enabled.
-4. Deploy the web application.
-5. Submit one test form and inspect:
+1. Apply `supabase/migrations/202608070001_submission_email_deliveries.sql`
+   (creates `submission_email_deliveries`).
+2. Add the Edge Function secrets above.
+3. Deploy `send-notification` (JWT verification enabled).
+4. Deploy `check-overdue-gate-passes` with `--no-verify-jwt`, then apply
+   `supabase/migrations/202608270001_gate_pass_overdue_cron.sql` (needs the
+   `pg_cron` and `pg_net` extensions) so pg_cron calls it every 10 minutes.
+   Alternatively schedule it from the Supabase Dashboard **Cron** UI.
+5. Deploy the web application.
+6. Submit one test form and inspect:
    - Supabase **Edge Function Logs**
    - Resend **Emails** delivery log
    - `submission_email_deliveries` using the Supabase service/admin interface
+
+## Overdue personal gate pass alert
+
+`check-overdue-gate-passes` runs on a schedule (not on a workflow event). Each
+run it looks for gate passes that are all of: `status = on_leave`,
+`data.purposeType = personal`, security has stored an ISO `securityLog.actualTimeOut`,
+that time is more than 2 hours ago, and `data.personalOverdueNotifiedAt` is not
+yet set. For each match it emails the employee (To), the selected HOD and
+`HR_NOTIFICATION_EMAIL` (Cc), then stamps `personalOverdueNotifiedAt` so the
+alert is sent only once. A Resend failure leaves the stamp unset so the next
+run retries.
 
 ## Operational checks
 

@@ -21,3 +21,10 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/delete-user/deno.json"
 entrypoint = "./functions/delete-user/index.ts"
+
+[functions.check-overdue-gate-passes]
+enabled = true
+# Invoked by pg_cron, not an end user. Guarded by the optional CRON_SECRET.
+verify_jwt = false
+import_map = "./functions/check-overdue-gate-passes/deno.json"
+entrypoint = "./functions/check-overdue-gate-passes/index.ts"
