@@ -45,7 +45,9 @@ import NotFound from "@/pages/NotFound";
 import AllSubmissionsPage from "@/pages/AllSubmissionsPage";
 import AnalyticsDashboard from "@/pages/AnalyticsDashboard";
 import ProfilePage from "@/pages/ProfilePage";
-import WasteInventoryForm from "@/pages/WasteInventoryForm"; 
+import WasteInventoryForm from "@/pages/WasteInventoryForm";
+import PermitToWorkForm from "@/pages/PermitToWorkForm";
+import PermitToWorkDashboard from "@/pages/PermitToWorkDashboard";
 import HomePage from "@/pages/HomePage";
 import PpeRequestForm from "@/pages/PpeRequestForm";
 import DailyOperationMonitoringForm from "@/pages/WaterTreatmentForm"; // Note: Renamed component
@@ -91,7 +93,8 @@ const App = () => (
                 <Route path="/" element={<Root />}>
                   <Route path="home" element={<HomePage />} />
                   <Route path="hr" element={<HRFormsPage />} />
-                  <Route path="safety" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><SafetyFormsPage /></ProtectedRoute>} />
+                  <Route path="safety" element={<SafetyFormsPage />} />
+                  <Route path="safety/permit-to-work" element={<PermitToWorkForm />} />
                   <Route path="safety/waste-inventory" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><WasteInventoryForm /></ProtectedRoute>} />
                   <Route path="safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
                   <Route path="safety/discharge" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><DailyOperationMonitoringForm /></ProtectedRoute>} />
@@ -132,6 +135,7 @@ const App = () => (
                   <Route path="admin/safety/mixing" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><MixingDashboard /></ProtectedRoute>} />
                   <Route path="admin/safety/waste" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><WasteDashboard /></ProtectedRoute>} />
                   <Route path="admin/safety/waste-records" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><WasteRecordsPage /></ProtectedRoute>} />
+                  <Route path="admin/safety/permit-to-work" element={<ProtectedRoute allowedRoles={["safety_admin", "super_admin"]}><PermitToWorkDashboard /></ProtectedRoute>} />
                   
                   {/* Redirects */}
                   <Route path="/admin/dashboard" element={<Navigate to="/admin/hr" replace />} />

@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner"; 
-import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera, CreditCard, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
+import { User, KeyRound, Save, Pencil, X, Mail, Phone, IdCard, Briefcase, Camera, CreditCard, Eye, EyeOff, Check } from "lucide-react";
 import { supabase } from "@/supabase";
-import { isStrongPassword, strongPasswordMessage } from "@/lib/password";
+import { isStrongPassword, strongPasswordMessage, PASSWORD_REQUIREMENTS } from "@/lib/password";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const getInitials = (name?: string) =>
@@ -102,6 +102,52 @@ const ProfilePage = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  const cropDialogRef = useRef<HTMLDivElement>(null);
+
+  // Make the avatar crop modal behave like a real dialog: lock body scroll,
+  // trap focus, close on Escape, and restore focus to the trigger on close.
+  useEffect(() => {
+    if (!cropImage) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusables = () =>
+      Array.from(
+        cropDialogRef.current?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        ) || []
+      ).filter(el => !el.hasAttribute("disabled"));
+
+    focusables()[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCropImage(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [cropImage]);
 
   const [password, setPassword] = useState({
     currentPassword: "",
@@ -276,23 +322,22 @@ const ProfilePage = () => {
     }
   };
 
-  const passwordMeetsMinimum = password.newPassword.length >= 8;
   const confirmationEntered = password.confirmPassword.length > 0;
   const passwordsMatch = confirmationEntered && password.newPassword === password.confirmPassword;
-  const passwordStrengthScore = password.newPassword
-    ? [
-        passwordMeetsMinimum,
-        /[A-Z]/.test(password.newPassword),
-        /[a-z]/.test(password.newPassword),
-        /\d/.test(password.newPassword) && /[^A-Za-z0-9]/.test(password.newPassword),
-      ].filter(Boolean).length
-    : 0;
+  const passwordChecks = [
+    { label: `At least ${PASSWORD_REQUIREMENTS.minLength} characters`, met: password.newPassword.length >= PASSWORD_REQUIREMENTS.minLength },
+    { label: "One uppercase letter", met: PASSWORD_REQUIREMENTS.uppercase.test(password.newPassword) },
+    { label: "One lowercase letter", met: PASSWORD_REQUIREMENTS.lowercase.test(password.newPassword) },
+    { label: "One number", met: PASSWORD_REQUIREMENTS.number.test(password.newPassword) },
+    { label: "One special character", met: PASSWORD_REQUIREMENTS.special.test(password.newPassword) },
+  ];
+  const passwordStrengthScore = password.newPassword ? passwordChecks.filter(check => check.met).length : 0;
   const passwordStrength =
-    passwordStrengthScore <= 1
+    passwordStrengthScore <= 2
       ? { label: "Weak", color: "bg-destructive", textColor: "text-destructive" }
-      : passwordStrengthScore <= 2
+      : passwordStrengthScore === 3
         ? { label: "Fair", color: "bg-amber-500", textColor: "text-amber-600 dark:text-amber-400" }
-        : passwordStrengthScore === 3
+        : passwordStrengthScore === 4
           ? { label: "Good", color: "bg-cyan-500", textColor: "text-cyan-600 dark:text-cyan-400" }
           : { label: "Strong", color: "bg-emerald-500", textColor: "text-emerald-600 dark:text-emerald-400" };
 
@@ -339,14 +384,14 @@ const ProfilePage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
                 <div className="md:col-span-2 border-b border-border/60 pb-2">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Account & Contact</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Account</p>
                 </div>
                 <div className="md:col-span-2">
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Email Address</p>
                   <p className="text-sm font-medium text-foreground flex items-start gap-2"><Mail className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-all">{user?.email}</span></p>
                 </div>
                 <div className="md:col-span-2 border-b border-border/60 pb-2 pt-1">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Employment & Contact</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Employment</p>
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Staff ID</p>
@@ -354,17 +399,18 @@ const ProfilePage = () => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Department</p>
-                  <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{user?.department}</span></p>
+                  <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{user?.department || <span className="text-muted-foreground italic">Not set</span>}</span></p>
                 </div>
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
-                  <div>
-                    <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Position</p>
-                    <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{(user as any)?.position || <span className="text-muted-foreground italic">Not set</span>}</span></p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Phone Number</p>
-                    <p className="text-sm font-medium text-foreground flex items-center gap-2"><Phone className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.phone || <span className="text-muted-foreground italic">Not set</span>}</p>
-                  </div>
+                <div className="md:col-span-2">
+                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Position</p>
+                  <p className="text-sm font-medium text-foreground flex items-start gap-2"><Briefcase className="h-4 w-4 text-primary/70 mt-0.5 flex-shrink-0"/> <span className="break-words">{(user as any)?.position || <span className="text-muted-foreground italic">Not set</span>}</span></p>
+                </div>
+                <div className="md:col-span-2 border-b border-border/60 pb-2 pt-1">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Contact</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Phone Number</p>
+                  <p className="text-sm font-medium text-foreground flex items-center gap-2"><Phone className="h-4 w-4 text-primary/70 flex-shrink-0"/> {user?.phone || <span className="text-muted-foreground italic">Not set</span>}</p>
                 </div>
                 <div className="md:col-span-2 border-b border-border/60 pb-2 pt-1">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Identification</p>
@@ -527,8 +573,8 @@ const ProfilePage = () => {
                         <span className="text-muted-foreground">Password strength</span>
                         <span className={`font-semibold ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
-                        {[1, 2, 3, 4].map(level => (
+                      <div className="grid grid-cols-5 gap-1.5" aria-hidden="true">
+                        {[1, 2, 3, 4, 5].map(level => (
                           <span
                             key={level}
                             className={`h-1.5 rounded-full transition-colors ${
@@ -539,10 +585,19 @@ const ProfilePage = () => {
                       </div>
                     </div>
                   )}
-                  <p className={`flex items-center gap-1.5 text-xs ${passwordMeetsMinimum ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${passwordMeetsMinimum ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
-                    At least 6 characters
-                  </p>
+                  <ul className="space-y-1 pt-1" aria-live="polite">
+                    {passwordChecks.map(check => (
+                      <li
+                        key={check.label}
+                        className={`flex items-center gap-1.5 text-xs ${check.met ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
+                      >
+                        {check.met
+                          ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/50" aria-hidden="true" />}
+                        {check.label}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Confirm New Password <span className="text-destructive">*</span></Label>
@@ -580,8 +635,14 @@ const ProfilePage = () => {
       {/* Interactive Crop Modal */}
       {cropImage && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 touch-none">
-          <div className="bg-background rounded-2xl p-6 w-full max-w-sm flex flex-col items-center shadow-2xl animate-in fade-in zoom-in duration-200">
-            <h3 className="text-lg font-bold text-foreground mb-1">Adjust Photo</h3>
+          <div
+            ref={cropDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="crop-dialog-title"
+            className="bg-background rounded-2xl p-6 w-full max-w-sm flex flex-col items-center shadow-2xl animate-in fade-in zoom-in duration-200"
+          >
+            <h3 id="crop-dialog-title" className="text-lg font-bold text-foreground mb-1">Adjust Photo</h3>
             <p className="text-xs text-muted-foreground mb-6">Drag to reposition, use slider to zoom</p>
             
             <div 

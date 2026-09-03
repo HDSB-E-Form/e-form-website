@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 // ADDED: "Save" icon to the lucide-react imports
-import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, FolderPlus, MonitorCog, X, Megaphone, Pencil, Save, Upload, Image as ImageIcon, ZoomIn, UserX, UserRoundCheck, Archive } from "lucide-react";
+import { Download, Search, Shield, Users, UserCheck, User, Plus, Trash2, ShieldAlert, ShieldCheck as SafetyIcon, FolderPlus, MonitorCog, X, Megaphone, Pencil, Save, Upload, Image as ImageIcon, ZoomIn, UserX, UserRoundCheck, Archive, RefreshCw, ArrowUp, ArrowDown, ChevronsUpDown, UserCog, CalendarClock } from "lucide-react";
+import DashboardStatCard from "@/components/DashboardStatCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -137,15 +138,15 @@ const roleBadge = (role: UserRole) => {
     case "hod":
       return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">HOD</Badge>;
     case "hos":
-      return <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-400 border-0 text-[10px] font-bold">HOS</Badge>;
+      return <Badge className="bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400 border-0 text-[10px] font-bold">HOS</Badge>;
     case "employee":
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
     case "safety_admin":
-      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 text-[10px] font-bold">SAFETY ADMIN</Badge>;
+      return <Badge className="bg-lime-500/15 text-lime-700 dark:text-lime-400 border-0 text-[10px] font-bold">SAFETY ADMIN</Badge>;
     case "security_guard":
       return <Badge className="bg-gray-500/20 text-gray-800 dark:text-gray-300 border-0 text-[10px] font-bold">SECURITY</Badge>;
     case "store_pic":
-      return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[10px] font-bold">STORE PIC</Badge>;
+      return <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0 text-[10px] font-bold">STORE PIC</Badge>;
     default:
       return <Badge className="bg-muted text-muted-foreground border-0 text-[10px] font-bold">EMPLOYEE</Badge>;
   }
@@ -176,6 +177,8 @@ const SuperAdminDashboard = () => {
     data: users = [],
     isLoading: isUsersLoading,
     error: usersError,
+    refetch: refetchUsers,
+    isFetching: isFetchingUsers,
   } = useQuery({ queryKey: ["admin-users"], queryFn: fetchAdminUsers });
   const {
     data: departmentsList = [],
@@ -198,11 +201,24 @@ const SuperAdminDashboard = () => {
     if (posterError) console.error("Could not load Home poster settings:", posterError);
   }, [posterError]);
 
+  // Keep the directory in sync when another admin edits a user elsewhere.
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-directory-users")
+      .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [queryClient]);
+
   const isSettingsPage = pathname === "/admin/settings";
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [registrationDateFilter, setRegistrationDateFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<"name" | "department" | "role" | "joined">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [directoryView, setDirectoryView] = useState<"active" | "inactive">("active");
   const [selectedUser, setSelectedUser] = useState<FirestoreUser | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -251,45 +267,86 @@ const SuperAdminDashboard = () => {
     if (panel === "announcements") setIsAnnouncementsOpen(true);
   }, [searchParams]);
 
-  const filtered = users.filter(u => {
+  const rolesOf = (u: FirestoreUser) => [u.role, ...(u.secondary_roles || [])].filter(Boolean) as string[];
+
+  const filtered = useMemo(() => users.filter(u => {
     if ((u.status || "active") !== directoryView) return false;
-    const effectiveRoles = [u.role, ...(u.secondary_roles || [])];
-    if (roleFilter === "employee" && !effectiveRoles.includes("employee")) return false;
-    if (roleFilter === "manco_member" && !effectiveRoles.includes("manco_member")) return false;
-    if (roleFilter === "hos" && !effectiveRoles.includes("hos")) return false;
-    if (roleFilter === "hod" && !effectiveRoles.includes("hod")) return false;
-    if (roleFilter === "admin" && !effectiveRoles.some(role => ["hr_admin", "finance_admin", "it_admin", "safety_admin", "super_admin"].includes(role))) return false;
+    const roles = rolesOf(u);
+    if (roleFilter === "employee" && !roles.includes("employee")) return false;
+    if (roleFilter === "approver" && !roles.some(role => ["hos", "hod", "manco_member"].includes(role))) return false;
+    if (roleFilter === "admin" && !roles.some(role => ["hr_admin", "finance_admin", "it_admin", "safety_admin"].includes(role))) return false;
+    if (roleFilter === "super_admin" && !roles.includes("super_admin")) return false;
+    if (roleFilter === "finance_head" && !roles.some(role => ["head_of_purchasing", "head_of_finance"].includes(role))) return false;
+    if (roleFilter === "security_guard" && !roles.includes("security_guard")) return false;
+    if (roleFilter === "store_pic" && !roles.includes("store_pic")) return false;
+    if (roleFilter === "has_secondary" && (u.secondary_roles || []).filter(role => role !== u.role).length === 0) return false;
 
     if (departmentFilter !== "all" && u.department !== departmentFilter) return false;
 
     if (registrationDateFilter !== "all") {
       if (!u.createdAt || Number.isNaN(u.createdAt.getTime())) return false;
-
       const cutoff = new Date();
       if (registrationDateFilter === "week") cutoff.setDate(cutoff.getDate() - 7);
       if (registrationDateFilter === "month") cutoff.setDate(cutoff.getDate() - 30);
       if (registrationDateFilter === "year") cutoff.setFullYear(cutoff.getFullYear() - 1);
-
       if (u.createdAt < cutoff) return false;
     }
 
     if (search) {
       const q = search.toLowerCase();
-      const nameMatch = (u.name || '').toLowerCase().includes(q);
-      const emailMatch = (u.email || '').toLowerCase().includes(q);
-      const idMatch = (u.employeeId || '').toLowerCase().includes(q);
-      const roleMatch = (u.role || '').toLowerCase().includes(q);
-      const secondaryRoleMatch = (u.secondary_roles || []).some(role => role.toLowerCase().includes(q));
-
-      if (!(nameMatch || emailMatch || idMatch || roleMatch || secondaryRoleMatch)) {
-        return false;
-      }
+      const match = (u.name || "").toLowerCase().includes(q)
+        || (u.email || "").toLowerCase().includes(q)
+        || (u.employeeId || "").toLowerCase().includes(q)
+        || (u.department || "").toLowerCase().includes(q)
+        || (u.role || "").toLowerCase().includes(q)
+        || (u.secondary_roles || []).some(role => role.toLowerCase().includes(q));
+      if (!match) return false;
     }
     return true;
-  });
+  }), [users, directoryView, roleFilter, departmentFilter, registrationDateFilter, search]);
+
+  const sortedUsers = useMemo(() => {
+    const direction = sortDir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+      if (sortKey === "joined") comparison = (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0);
+      else if (sortKey === "department") comparison = (a.department || "").localeCompare(b.department || "");
+      else if (sortKey === "role") comparison = (a.role || "").localeCompare(b.role || "");
+      else comparison = (a.name || "").localeCompare(b.name || "");
+      return (comparison || (a.name || "").localeCompare(b.name || "")) * direction;
+    });
+  }, [filtered, sortKey, sortDir]);
 
   const activeUsers = users.filter(person => (person.status || "active") === "active");
   const inactiveUsers = users.filter(person => person.status === "inactive");
+
+  const directoryStats = useMemo(() => {
+    const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
+    return {
+      total: users.length,
+      active: activeUsers.length,
+      inactive: inactiveUsers.length,
+      admins: activeUsers.filter(u => rolesOf(u).some(role => ["hr_admin", "finance_admin", "it_admin", "safety_admin", "super_admin", "store_pic"].includes(role))).length,
+      approvers: activeUsers.filter(u => rolesOf(u).some(role => ["hos", "hod", "manco_member"].includes(role))).length,
+      recent: users.filter(u => u.createdAt && !Number.isNaN(u.createdAt.getTime()) && u.createdAt.getTime() >= thirtyDaysAgo).length,
+    };
+  }, [users, activeUsers, inactiveUsers]);
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) setSortDir(current => (current === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(key === "joined" ? "desc" : "asc"); }
+    setIsViewAll(false);
+  };
+  const sortHead = (label: string, column: typeof sortKey) => (
+    <TableHead className="text-xs font-bold uppercase tracking-wider">
+      <button type="button" onClick={() => toggleSort(column)} className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+        {label}
+        {sortKey === column
+          ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
+          : <ChevronsUpDown className="h-3 w-3 opacity-40" />}
+      </button>
+    </TableHead>
+  );
 
   const handleExportUsers = () => {
     if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
@@ -760,34 +817,6 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  const handleResetAllForms = async () => {
-    toast.error("Bulk deletion is disabled. Use Submission Records to delete one terminal record at a time.");
-    return;
-    /*
-    const confirm1 = window.confirm("⚠️WARNING: This will permanently delete all form submissions across the entire system. Are you absolutely sure?");
-    if (!confirm1) return;
-    
-    const confirm2 = window.prompt('Type "RESET_SUBMISSIONS" to confirm:');
-    if (confirm2 !== "RESET_SUBMISSIONS") {
-      toast.info("System reset cancelled.");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.from("submissions").delete().neq("id", "0");
-      if (error) throw error;
-
-      toast.success("System Reset Completed!");
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err: any) {
-      console.error("Error wiping forms:", err);
-      toast.error("Failed to delete forms: " + err.message);
-      setIsLoading(false);
-    }
-    */
-  };
-
   const handleAnnouncementSubmit = async () => {
     if (announcementAction) return;
     if (!announcementContent.trim()) {
@@ -976,15 +1005,37 @@ const SuperAdminDashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">User Directory</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage active accounts and retain inactive employee records.</p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setIsExportOpen(true)}
-          className="h-11 w-full gap-2 font-bold sm:w-auto"
-        >
-          <Download className="h-[18px] w-[18px]" />
-          Export Users
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => { void refetchUsers(); }}
+            disabled={isFetchingUsers}
+            className="h-11 w-full gap-2 font-bold sm:w-auto"
+          >
+            <RefreshCw className={`h-[18px] w-[18px] ${isFetchingUsers ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsExportOpen(true)}
+            className="h-11 w-full gap-2 font-bold sm:w-auto"
+          >
+            <Download className="h-[18px] w-[18px]" />
+            Export Users
+          </Button>
+        </div>
+      </div>
+
+      {/* Directory summary */}
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <DashboardStatCard label="Total Accounts" value={directoryStats.total} icon={Users} tone="blue" />
+        <DashboardStatCard label="Active" value={directoryStats.active} icon={UserCheck} tone="emerald" />
+        <DashboardStatCard label="Inactive" value={directoryStats.inactive} icon={UserX} tone="rose" />
+        <DashboardStatCard label="Administrators" value={directoryStats.admins} icon={Shield} tone="amber" />
+        <DashboardStatCard label="Approvers" value={directoryStats.approvers} icon={UserCog} tone="indigo" />
+        <DashboardStatCard label="Joined (30d)" value={directoryStats.recent} icon={CalendarClock} tone="blue" />
       </div>
 
       {/* Users Table */}
@@ -1031,10 +1082,13 @@ const SuperAdminDashboard = () => {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="employee">Employees</SelectItem>
-                <SelectItem value="manco_member">Manco Members</SelectItem>
-                <SelectItem value="admin">Admins</SelectItem>
-                <SelectItem value="hod">HOD</SelectItem>
-                <SelectItem value="hos">HOS</SelectItem>
+                <SelectItem value="approver">Approvers (HOS / HOD / MANCO)</SelectItem>
+                <SelectItem value="admin">Department Admins</SelectItem>
+                <SelectItem value="finance_head">Finance Heads (HOP / HOF)</SelectItem>
+                <SelectItem value="security_guard">Security Guards</SelectItem>
+                <SelectItem value="store_pic">Store PICs</SelectItem>
+                <SelectItem value="super_admin">Super Admins</SelectItem>
+                <SelectItem value="has_secondary">Has additional role</SelectItem>
               </SelectContent>
             </Select>
             <Select value={departmentFilter} onValueChange={val => { setDepartmentFilter(val); setIsViewAll(false); }}>
@@ -1066,16 +1120,17 @@ const SuperAdminDashboard = () => {
           <TableHeader>
             <TableRow className="bg-muted/30">
               <TableHead className="text-xs font-bold uppercase tracking-wider w-12 text-center">No.</TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider">Name</TableHead>
+              {sortHead("Name", "name")}
               <TableHead className="text-xs font-bold uppercase tracking-wider">Email</TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider">Role</TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider">Department</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Actions</TableHead>
+              {sortHead("Role", "role")}
+              {sortHead("Department", "department")}
+              {sortHead("Joined", "joined")}
+              <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
+              <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(isViewAll ? filtered : filtered.slice(0, 10)).map((u, index) => (
+            {(isViewAll ? sortedUsers : sortedUsers.slice(0, 10)).map((u, index) => (
               <TableRow key={u.id} className="hover:bg-muted/20">
                 <TableCell className="text-sm font-medium text-muted-foreground text-center">
                   {index + 1}
@@ -1114,6 +1169,9 @@ const SuperAdminDashboard = () => {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-foreground">{u.department}</TableCell>
+                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                  {u.createdAt && !Number.isNaN(u.createdAt.getTime()) ? u.createdAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                </TableCell>
                 <TableCell>
                   {directoryView === "active"
                     ? <Badge className="border-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">Active</Badge>
@@ -1524,55 +1582,6 @@ const SuperAdminDashboard = () => {
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* Submission Records now belongs to the All Submissions page.
-      <Sheet open={isSubmissionRecordsOpen} onOpenChange={setIsSubmissionRecordsOpen}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-          <SheetHeader className="border-b border-border pb-4">
-            <SheetTitle className="text-xl font-bold">Submission Records</SheetTitle>
-            <SheetDescription>
-              Permanent deletion is limited to completed, rejected, and voided records. An audit snapshot is retained.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-5 space-y-3">
-            {eligibleDeletionSubmissions.length === 0 ? (
-              <p className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">No eligible records.</p>
-            ) : eligibleDeletionSubmissions.map(submission => {
-              const reference = getSubmissionReference(submission);
-              const selected = deletionTarget?.id === submission.id;
-              return (
-                <div key={submission.id} className="rounded-xl border border-border p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-foreground">{reference}</p>
-                      <p className="text-xs text-muted-foreground">{submission.employeeName} · {submission.formType.replace(/_/g, " ")}</p>
-                    </div>
-                    <Badge className="border-0 bg-muted text-muted-foreground uppercase">{submission.status}</Badge>
-                  </div>
-                  {!selected ? (
-                    <button type="button" onClick={() => { setDeletionTarget(submission); setDeletionReason(""); setDeletionConfirmation(""); }} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-bold text-destructive hover:bg-destructive/10">
-                      <Trash2 className="h-3.5 w-3.5" /> Permanently Delete
-                    </button>
-                  ) : (
-                    <div className="mt-4 space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-                      <p className="text-xs font-semibold text-destructive">This cannot be undone. Type the exact reference number to confirm.</p>
-                      <textarea value={deletionReason} onChange={event => setDeletionReason(event.target.value)} rows={2} placeholder="Required deletion reason..." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-                      <Input value={deletionConfirmation} onChange={event => setDeletionConfirmation(event.target.value)} placeholder={`Type ${reference}`} />
-                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                        <button type="button" disabled={isDeletingSubmission} onClick={() => setDeletionTarget(null)} className="rounded-lg bg-muted px-4 py-2 text-sm font-semibold">Cancel</button>
-                        <button type="button" disabled={isDeletingSubmission || deletionConfirmation !== reference || deletionReason.trim().length < 5} onClick={handlePermanentSubmissionDelete} className="rounded-lg bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground disabled:opacity-50">
-                          {isDeletingSubmission ? "Deleting..." : "Delete Permanently"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
-      */}
 
       {/* Manage Departments Sheet */}
       <Sheet open={addDeptOpen} onOpenChange={open => { setAddDeptOpen(open); if (!open && searchParams.get("panel") === "departments") navigate("/admin/users"); }}>

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { Submission } from "@/contexts/SubmissionsContext";
+import { getPermitStages } from "@/lib/permitToWork";
 
 type ApprovalStageState = "approved" | "rejected" | "pending" | "skipped" | "not_applicable" | "out" | "completed";
 
@@ -57,6 +58,10 @@ const getApprovalStages = (submission: Submission): ApprovalStage[] => {
     if (done) return "approved";
     return "pending";
   };
+
+  if (formType === "permit_to_work") {
+    return getPermitStages(submission) as ApprovalStage[];
+  }
 
   if (formType === "claim") {
     const afterHOS = ["approved_hos", "approved_hod", "pending_finance_review", "approved_hop", "approved_hof", "approved", "paid", "completed"].includes(status) || ["hod", "hop", "finance_review", "hof", "admin"].includes(rejectedStage);

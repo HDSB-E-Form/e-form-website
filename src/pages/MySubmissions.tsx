@@ -18,6 +18,7 @@ import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalOverview from "@/components/ApprovalOverview";
 import ApprovalRemarksHistory from "@/components/ApprovalRemarksHistory";
 import EmployeeSummary from "@/components/EmployeeSummary";
+import PermitToWorkDetails from "@/components/PermitToWorkDetails";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
@@ -30,6 +31,7 @@ const formTypeLabels: Record<string, string> = {
   it_admin_request: "IT Request Form (Admin)",
   it_application_request: "IT Request Form (Application)",
   material_requisition_slip: "Material Requisition Slip (MRS)",
+  permit_to_work: "Permit to Work",
 };
 
 const hiddenUserDetailFields = new Set([
@@ -59,6 +61,8 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">COMPLETED</Badge>;
     case "awaiting_confirmation":
       return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">AWAITING CONFIRMATION</Badge>;
+    case "pending_closure":
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">PENDING CLOSURE</Badge>;
     case "reopened":
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-1">REOPENED</Badge>;
     case "pending":
@@ -78,6 +82,12 @@ const getOverallStatus = (sub: Submission) => {
   if (status === "completed") return { label: "Completed", color: "bg-emerald-500", progress: 100 };
   if (status === "approved" || status === "paid") return { label: "Fully Approved", color: "bg-emerald-500", progress: 100 };
   
+  if (sub.formType === 'permit_to_work') {
+    if (status === "approved") return { label: "Permit Active", color: "bg-emerald-500", progress: 70 };
+    if (status === "pending_closure") return { label: "Pending Safety Closure", color: "bg-sky-500", progress: 90 };
+    return { label: "Pending Safety Approval", color: "bg-amber-500", progress: 25 };
+  }
+
   if (sub.formType === 'claim') {
     if (status === "approved_hof") return { label: "Pending Finance Payment", color: "bg-teal-500", progress: 95 };
     if (status === "approved_hop") return { label: "Pending HOF", color: "bg-sky-500", progress: 85 };
@@ -129,6 +139,8 @@ const MySubmissions = () => {
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
   const [resolutionResponse, setResolutionResponse] = useState("");
   const [isRespondingToResolution, setIsRespondingToResolution] = useState(false);
+  const [ptwRestoreConfirmed, setPtwRestoreConfirmed] = useState(false);
+  const [isConfirmingPtw, setIsConfirmingPtw] = useState(false);
   const { hiddenIds, hideSubmissions } = useHiddenSubmissions();
 
   const assignedCar = cars.find(c => c.status === 'checked_out' && c.lastCheckedOutBy === user?.name);
@@ -286,6 +298,21 @@ const MySubmissions = () => {
     toast.success(confirmed ? "IT update accepted. The request is now completed." : "Request returned to IT with your remark.");
     setResolutionResponse("");
     setSelectedSubmission(null);
+  };
+
+  const handlePermitCompletion = async () => {
+    if (!selectedSubmission) return;
+    if (!ptwRestoreConfirmed) return toast.error("Confirm the work area has been restored before submitting.");
+    setIsConfirmingPtw(true);
+    const success = await updateSubmissionStatus(selectedSubmission.id, "pending_closure", {
+      originatorCompletion: { name: user?.name || "", confirmedAt: new Date().toISOString(), restoredConfirmed: true },
+    });
+    setIsConfirmingPtw(false);
+    if (success) {
+      toast.success("Work marked complete. The Safety Department will verify and close the permit.");
+      setPtwRestoreConfirmed(false);
+      setSelectedSubmission(null);
+    }
   };
 
   const handleEditSubmission = (path: string) => {
@@ -664,6 +691,8 @@ const MySubmissions = () => {
                   </div>
                 )}
               </div>
+            ) : selectedSubmission.formType === 'permit_to_work' ? (
+              <PermitToWorkDetails submission={selectedSubmission} />
             ) : (
               <>
                 <div className="hidden">
@@ -779,6 +808,25 @@ const MySubmissions = () => {
                     <p className="mt-3 text-xs text-muted-foreground">Resolved by {selectedSubmission.data.resolvedBy || "IT Admin"}{selectedSubmission.data.resolvedAt ? ` on ${new Date(selectedSubmission.data.resolvedAt).toLocaleString("en-GB")}` : ""}</p>
                   </div>
                   {selectedSubmission.status === "awaiting_confirmation" && <><label htmlFor="resolution-response" className="mt-4 block text-sm font-semibold text-foreground">Your remarks</label><textarea id="resolution-response" value={resolutionResponse} onChange={event => setResolutionResponse(event.target.value)} rows={3} placeholder="Required when returning the request to IT..." className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" /><div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(false)} className="rounded-lg border border-amber-500 px-5 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50">Return to IT</button><button type="button" disabled={isRespondingToResolution} onClick={() => void handleResolutionResponse(true)} className="btn-gold rounded-lg px-5 py-2.5 text-sm font-bold disabled:opacity-50">{isRespondingToResolution ? "Submitting..." : "Accept IT Update"}</button></div></>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedSubmission.formType === 'permit_to_work' && selectedSubmission.status === 'approved' && selectedSubmission.submittedBy === user?.id && (
+            <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:p-5 print:hidden">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-foreground">Confirm completion of work</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Once the contractor has finished, confirm below. The permit then moves to the Safety Department for final verification and closure.</p>
+                  <label htmlFor="ptw-restored" className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-background/70 p-3">
+                    <Checkbox id="ptw-restored" checked={ptwRestoreConfirmed} onCheckedChange={checked => setPtwRestoreConfirmed(checked === true)} className="mt-0.5 rounded-none" />
+                    <span className="text-sm font-medium text-foreground">The work is complete and the work area has been restored to its original condition with no new hazards introduced.</span>
+                  </label>
+                  <div className="mt-4 flex justify-end">
+                    <button type="button" disabled={isConfirmingPtw} onClick={() => void handlePermitCompletion()} className="btn-gold rounded-lg px-6 py-2.5 text-sm font-bold disabled:opacity-50">{isConfirmingPtw ? "Submitting…" : "Mark Work Complete"}</button>
+                  </div>
                 </div>
               </div>
             </div>

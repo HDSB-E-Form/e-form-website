@@ -99,6 +99,8 @@ export function useRealtimeNotifications() {
           ? `${employeeName}'s form requires HR action.`
         : notificationTarget?.recipientType === "finance_admin"
           ? `${employeeName}'s petty cash claim is ready for finance review.`
+        : notificationTarget?.recipientType === "safety_admin"
+          ? `${employeeName}'s Permit to Work needs Safety Department action.`
           : notificationTarget?.recipientType === "submitter"
             ? isITConfirmation
               ? "IT has provided an update. Please review it and accept or return the request with remarks."

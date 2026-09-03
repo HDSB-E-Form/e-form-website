@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
-import { useUsers, type AppUser } from "@/contexts/UsersContext";
+import { useUsers } from "@/contexts/UsersContext";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle } from "lucide-react";
+import { Clock, Search, ArrowLeft, FileText, ExternalLink, CheckCircle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { renderValue } from "@/components/DataRenderer";
@@ -36,7 +37,56 @@ const formTypeLabels: Record<string, string> = {
   it_admin_request: "IT Request Form (Admin)",
   it_application_request: "IT Request Form (Application)",
   it_facilities_requisition: "IT Facilities Requisition Form",
+  material_requisition_slip: "Material Requisition Slip (MRS)",
 };
+
+// When the submission entered the stage that is currently waiting on an approver —
+// the last approval-remark timestamp, else the submission time.
+const stageEnteredAt = (sub: Submission): number => {
+  const history = Array.isArray(sub.data?.approvalRemarksHistory) ? sub.data.approvalRemarksHistory : [];
+  const stamp = history.length ? history[history.length - 1]?.createdAt : null;
+  const time = new Date(stamp || sub.submittedAt).getTime();
+  return Number.isNaN(time) ? new Date(sub.submittedAt).getTime() : time;
+};
+
+const formatWaiting = (sub: Submission): { label: string; tone: string } => {
+  const hours = (Date.now() - stageEnteredAt(sub)) / 3_600_000;
+  if (hours < 1) return { label: "just now", tone: "text-muted-foreground" };
+  if (hours < 24) return { label: `${Math.round(hours)}h`, tone: "text-muted-foreground" };
+  const days = Math.floor(hours / 24);
+  const tone = days >= 5 ? "text-rose-600 dark:text-rose-400" : days >= 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground";
+  return { label: `${days}d`, tone };
+};
+
+// The approval stage the current user is acting as, from the submission's status.
+const actorStageFor = (sub: Submission): string => {
+  if (sub.status === "pending") return "hos";
+  if (sub.status === "approved_hos") return "hod";
+  if (sub.status === "approved_hod") return sub.formType === "leave" ? "manco" : "hop";
+  return "hof";
+};
+const stageRoleLabel = (stage: string) => (stage === "manco" ? "MANCO" : stage.toUpperCase());
+
+// The status a submission moves to when the current approver approves it.
+const nextApprovedStatus = (sub: Submission): SubmissionStatus => {
+  if (sub.status === "pending") return sub.data.hodName === "N/A" ? "approved_hod" : "approved_hos";
+  if (sub.status === "approved_hos") return "approved_hod";
+  if (sub.status === "approved_hod") return sub.formType === "leave" ? "approved_manco" : "pending_finance_review";
+  if (sub.status === "approved_hop") return "approved_hof";
+  return "approved";
+};
+
+const claimTotal = (sub: Submission) => {
+  const value = Number(sub.data?.totalAmount);
+  return Number.isFinite(value) ? value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+};
+
+const DetailRow = ({ label, value, last }: { label: string; value: React.ReactNode; last?: boolean }) => (
+  <div className={`grid grid-cols-1 items-start gap-1 py-2 sm:grid-cols-3 sm:gap-3 sm:py-2.5 ${last ? "" : "border-b border-border/50"}`}>
+    <span className="mt-0.5 text-xs font-bold uppercase tracking-wider text-primary sm:text-sm">{label}</span>
+    <div className="text-left text-xs font-medium text-foreground sm:col-span-2 sm:text-sm">{value || "—"}</div>
+  </div>
+);
 
 const statusBadge = (status: string) => {
   switch (status) {
@@ -85,17 +135,28 @@ const ApproverDashboard = () => {
   const [remarks, setRemarks] = useState("");
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [activeTab, setActiveTab] = useState<"action_required" | "in_progress" | "history">("action_required");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   useEffect(() => {
     refreshSubmissions();
   }, [refreshSubmissions]);
   const [isViewAll, setIsViewAll] = useState(false);
 
+  useEffect(() => { setSelectedIds(new Set()); }, [activeTab, search]);
+
   const isHOD = user?.role === "hod" || user?.secondary_roles?.includes("hod");
   const isHOS = user?.role === "hos" || user?.secondary_roles?.includes("hos");
   const isHOP = user?.role === "head_of_purchasing" || user?.secondary_roles?.includes('head_of_purchasing');
   const isHOF = user?.role === "head_of_finance" || user?.secondary_roles?.includes('head_of_finance');
   const isMancoMember = user?.role === "manco_member" || user?.secondary_roles?.includes('manco_member');
+
+  const roleLabel = isHOD ? "Head of Department"
+    : isHOS ? "Head of Section"
+    : isMancoMember ? "MANCO member"
+    : isHOP ? "Head of Purchasing"
+    : isHOF ? "Head of Finance"
+    : "an approver";
 
   const isAssignedHOS = (s: Submission) => isHOS &&
     (s.data.hosUserId ? s.data.hosUserId === user?.id : (s.data.hosName || s.data.hos) === user?.name);
@@ -142,25 +203,54 @@ const ApproverDashboard = () => {
              dateStr2.includes(q);
     });
 
-  const isRecent = (dateStr: string) => {
-    const hours = (new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
-    return hours < 48;
-  };
-
-  const tabFiltered = filtered.filter(s => {
-    if (activeTab === "action_required") return isActionRequiredForUser(s);
-    if (activeTab === "in_progress") return isInProgressForUser(s);
-    if (activeTab === "history") return ["approved", "rejected", "paid", "completed", "voided"].includes(s.status);
-    return true;
-  });
+  const tabFiltered = filtered
+    .filter(s => {
+      if (activeTab === "action_required") return isActionRequiredForUser(s);
+      if (activeTab === "in_progress") return isInProgressForUser(s);
+      if (activeTab === "history") return ["approved", "rejected", "paid", "completed", "voided"].includes(s.status);
+      return true;
+    })
+    .sort((a, b) => activeTab === "action_required"
+      ? stageEnteredAt(a) - stageEnteredAt(b)          // longest-waiting first
+      : new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
   const stats = {
-    total: filtered.length,
     actionRequired: filtered.filter(isActionRequiredForUser).length,
     inProgress: filtered.filter(isInProgressForUser).length,
-    resolved: filtered.filter(s => ["approved", "rejected", "voided"].includes(s.status)).length,
   };
   const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
+
+  const selectableInView = activeTab === "action_required" ? visibleSubmissions.filter(isActionRequiredForUser) : [];
+  const allSelectableChecked = selectableInView.length > 0 && selectableInView.every(s => selectedIds.has(s.id));
+  const toggleSelected = (id: string) => setSelectedIds(current => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleSelectAll = () => setSelectedIds(current => {
+    if (selectableInView.every(s => current.has(s.id))) return new Set();
+    return new Set(selectableInView.map(s => s.id));
+  });
+
+  const handleBulkApprove = async () => {
+    const targets = tabFiltered.filter(s => selectedIds.has(s.id) && isActionRequiredForUser(s));
+    if (targets.length === 0) return;
+    setIsBulkProcessing(true);
+    let approved = 0;
+    for (const sub of targets) {
+      const history = appendApprovalRemark(sub.data.approvalRemarksHistory, {
+        actorName: user?.name || "Approver",
+        actorRole: stageRoleLabel(actorStageFor(sub)),
+        action: "approved",
+        remark: "",
+      });
+      const success = await updateSubmissionStatus(sub.id, nextApprovedStatus(sub), { approvalRemarksHistory: history });
+      if (success) approved += 1;
+    }
+    setIsBulkProcessing(false);
+    setSelectedIds(new Set());
+    if (approved > 0) toast.success(`${approved} submission${approved === 1 ? "" : "s"} approved.`);
+  };
 
   const generateRefNo = (sub: Submission) => {
     if (sub.data?.refNo) return sub.data.refNo;
@@ -171,111 +261,66 @@ const ApproverDashboard = () => {
     const passType = sub.data.purposeType === 'company' ? 'Company Business' : 'Personal Matter';
     const location = sub.data.purposeType === 'company' ? sub.data.companyDetails?.location : sub.data.personalDetails?.location;
     const purpose = sub.data.purposeType === 'company' ? sub.data.companyDetails?.purpose : sub.data.personalDetails?.purpose;
+    const hasActual = sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn;
 
     return (
       <>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{passType}</div>
-        </div>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Location</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{location || "—"}</div>
-        </div>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Purpose</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{purpose || "—"}</div>
-        </div>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Selected Time Out</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeOut)}</div>
-        </div>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Selected Time In</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}</div>
-        </div>
-        <div className="hidden py-2 sm:py-2.5 border-b border-border/50 grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Section</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-            {sub.data.hosName || sub.data.hos || "—"}
-          </div>
-        </div>
-        <div className="hidden py-2 sm:py-2.5 border-b border-border/50 grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Head of Department</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-            {sub.data.hodName || sub.data.hod || "—"}
-          </div>
-        </div>
-        <div className="hidden py-2 sm:py-2.5 border-b-0 grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Manco Member</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-            {sub.data.mancoMemberName || "—"}
-          </div>
-        </div>
-        {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
+        <DetailRow label="Pass Type" value={passType} />
+        <DetailRow label="Location" value={location} />
+        <DetailRow label="Purpose" value={purpose} />
+        <DetailRow label="Selected Time Out" value={formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeOut)} />
+        <DetailRow label="Selected Time In" value={formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)} last={!hasActual} />
+        {hasActual && (
           <>
-            <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-              <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
-              <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"}</div>
-            </div>
-            <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-              <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
-              <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.actualTimeIn ? new Date(sub.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"}</div>
-            </div>
+            <DetailRow label="Actual Time Out" value={getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"} />
+            <DetailRow label="Actual Time In" value={sub.data.securityLog.actualTimeIn ? new Date(sub.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"} last />
           </>
         )}
       </>
     );
   };
 
-  const renderCarRentalDetailsForApprover = (sub: Submission) => {
-    return (
-      <>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Destination</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.destination || "—"}</div>
-        </div>
-        <div className="py-2 sm:py-2.5 border-b border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Purpose</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">{sub.data.purpose || "—"}</div>
-        </div>
-        <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-          <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">Journey Dates</span>
-          <div className="text-xs sm:text-sm font-medium text-foreground sm:col-span-2 text-left">
-            {sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} - {sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-          </div>
-        </div>
-        {sub.data.licenseAttachment && (
-          <div className="py-2 sm:py-2.5 border-b-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 items-start">
-            <span className="text-xs sm:text-sm text-primary uppercase tracking-wider font-bold mt-0.5">License</span>
-            <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-bold text-primary hover:underline flex items-center gap-1.5 text-left sm:col-span-2">
+  const renderCarRentalDetailsForApprover = (sub: Submission) => (
+    <>
+      <DetailRow label="Destination" value={sub.data.destination} />
+      <DetailRow label="Purpose" value={sub.data.purpose} />
+      <DetailRow
+        label="Journey Dates"
+        value={`${sub.data.fromDate ? new Date(sub.data.fromDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} — ${sub.data.toDate ? new Date(sub.data.toDate).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}`}
+        last={!sub.data.licenseAttachment}
+      />
+      {sub.data.licenseAttachment && (
+        <DetailRow
+          label="License"
+          last
+          value={
+            <a href={sub.data.licenseAttachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 font-bold text-primary hover:underline">
               <FileText className="h-4 w-4" /> View Document
             </a>
-          </div>
-        )}
-      </>
-    );
-  };
+          }
+        />
+      )}
+    </>
+  );
 
   const handleAction = async (id: string, status: SubmissionStatus) => {
     if (isProcessingAction) return;
     if (status === "rejected" && !remarks.trim()) {
-      toast.error("Please enter a reason before rejecting this claim.");
+      toast.error("Please enter a reason before rejecting this submission.");
       return;
     }
     setIsProcessingAction(true);
-    const currentStatus = selectedSubmission?.status;
-    const rejectedStage = currentStatus === "pending" ? "hos" : currentStatus === "approved_hos" ? "hod" : currentStatus === "approved_hod" && selectedSubmission?.formType === "leave" ? "manco" : currentStatus === "approved_hod" ? "hop" : "hof";
+    const stage = selectedSubmission ? actorStageFor(selectedSubmission) : "hos";
     const approvalRemarksHistory = appendApprovalRemark(selectedSubmission?.data.approvalRemarksHistory, {
       actorName: user?.name || "Approver",
-      actorRole: rejectedStage === "manco" ? "MANCO" : rejectedStage.toUpperCase(),
+      actorRole: stageRoleLabel(stage),
       action: status === "rejected" ? "rejected" : "approved",
       remark: remarks.trim(),
     });
     const success = await updateSubmissionStatus(id, status, {
       remarks: remarks.trim() || selectedSubmission?.data.remarks,
       approvalRemarksHistory,
-      rejectedStage: status === "rejected" ? rejectedStage : undefined,
+      rejectedStage: status === "rejected" ? stage : undefined,
     });
     setIsProcessingAction(false);
     if (!success) return;
@@ -311,15 +356,19 @@ const ApproverDashboard = () => {
           className="mb-4"
         />
 
-        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">SUBMISSION SUMMARY</p>
-        <div className="mb-4 rounded-xl border border-border/60 bg-white p-4 shadow-sm sm:p-5 dark:bg-card">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Submission Summary</p>
+        <div className="mb-4 rounded-xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
           <div className="mb-3 flex items-start justify-between gap-4 border-b border-border/50 pb-3">
             <div className="min-w-0">
-              <h2 className="text-lg font-bold uppercase leading-tight text-foreground sm:text-xl">
+              <h2 className="text-lg font-bold leading-tight text-foreground sm:text-xl">
                 {formTypeLabels[selectedSubmission.formType] || selectedSubmission.formType.replace(/_/g, " ")}
               </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ref: <span className="font-semibold text-foreground">{generateRefNo(selectedSubmission)}</span>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span>Ref: <span className="font-semibold text-foreground">{generateRefNo(selectedSubmission)}</span></span>
+                <span>Submitted {new Date(selectedSubmission.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+                {isActionRequiredForUser(selectedSubmission) && (
+                  <span className={formatWaiting(selectedSubmission).tone}>Waiting {formatWaiting(selectedSubmission).label}</span>
+                )}
               </p>
             </div>
             <div className="shrink-0">
@@ -343,7 +392,7 @@ const ApproverDashboard = () => {
               </div>
               <div className="mt-3 border-t border-border/50 pt-3 text-right">
                 <p className="text-xs text-muted-foreground uppercase font-bold">Total Amount</p>
-                <p className="text-xl font-bold text-primary">RM {selectedSubmission.data.totalAmount || "0.00"}</p>
+                <p className="text-xl font-bold text-primary">RM {claimTotal(selectedSubmission)}</p>
               </div>
             </>
           )}
@@ -363,7 +412,7 @@ const ApproverDashboard = () => {
         </div>
 
         {selectedSubmission.data.passengers && selectedSubmission.data.passengers.some((p) => p.name) && (
-          <div className="mb-4 rounded-xl border border-border/60 bg-white p-4 shadow-sm sm:p-5 dark:bg-card">
+          <div className="mb-4 rounded-xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">PASSENGERS</p>
             <div className="space-y-2">
               {selectedSubmission.data.passengers.filter((p) => p.name).map((p, i: number) => (
@@ -382,7 +431,7 @@ const ApproverDashboard = () => {
         {selectedSubmission.data.attachments && selectedSubmission.data.attachments.length > 0 ? (
           <div className="mb-4 space-y-2">
             {selectedSubmission.data.attachments.map((url: string, idx: number) => (
-              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block border border-dashed border-border rounded-xl bg-white p-4 shadow-sm dark:bg-card flex items-center justify-between cursor-pointer hover:bg-muted/20 transition-colors">
+              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/20">
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm font-medium text-primary">View Attachment {idx + 1}</span>
@@ -392,7 +441,7 @@ const ApproverDashboard = () => {
             ))}
           </div>
         ) : selectedSubmission.data.attachment && (
-          <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="mb-4 flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-border bg-white p-4 shadow-sm transition-colors hover:bg-muted/20 dark:bg-card">
+          <a href={selectedSubmission.data.attachment} target="_blank" rel="noopener noreferrer" className="mb-4 flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/20">
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm font-medium text-primary">View Attachment</span>
@@ -470,46 +519,35 @@ const ApproverDashboard = () => {
             );
           }
           return (
-            <>
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">REMARKS</p>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 sm:p-5">
+              <label htmlFor="approver-remarks" className="text-xs font-bold uppercase tracking-wider text-primary">
+                Remarks <span className="font-medium normal-case text-muted-foreground">(required to reject)</span>
+              </label>
               <Textarea
-                placeholder="Please enter remarks if any..."
+                id="approver-remarks"
+                placeholder="Add a note, or a reason if you are rejecting…"
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 rows={3}
-                className="mb-4 min-h-20 resize-y bg-muted/20"
+                className="mb-4 mt-2 min-h-20 resize-y bg-background"
               />
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:gap-3">
                 <button
                   onClick={() => handleAction(selectedSubmission.id, "rejected")}
                   disabled={isProcessingAction}
-                  className="w-full rounded-xl bg-destructive px-6 py-3.5 text-center font-bold text-white transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-1/3 sm:py-4"
+                  className="w-full rounded-xl bg-destructive px-6 py-3.5 text-center text-sm font-bold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
                 >
-                  {isProcessingAction ? "SAVING..." : "REJECT"}
+                  {isProcessingAction ? "Saving…" : "Reject"}
                 </button>
                 <button
-                  onClick={() => {
-                    let nextStatus: SubmissionStatus = "approved";
-                    if (canApproveAsHOS) {
-                      nextStatus = selectedSubmission.data.hodName === "N/A" ? "approved_hod" : "approved_hos";
-                    } else if (canApproveAsHOD) {
-                      nextStatus = "approved_hod";
-                    } else if (canApproveAsManco) {
-                      nextStatus = "approved_manco";
-                    } else if (canApproveAsHOP) {
-                      nextStatus = "pending_finance_review";
-                    } else if (canApproveAsHOF) {
-                      nextStatus = "approved_hof";
-                    }
-                    handleAction(selectedSubmission.id, nextStatus);
-                  }}
+                  onClick={() => handleAction(selectedSubmission.id, nextApprovedStatus(selectedSubmission))}
                   disabled={isProcessingAction}
-                  className="w-full rounded-xl bg-[#57D51B] px-6 py-3.5 text-center font-bold text-white transition-colors hover:bg-[#49BD16] disabled:cursor-not-allowed disabled:opacity-60 sm:w-2/3 sm:py-4"
+                  className="w-full rounded-xl bg-[#57D51B] px-6 py-3.5 text-center text-sm font-bold text-white transition-colors hover:bg-[#49BD16] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
                 >
-                  {isProcessingAction ? "SAVING..." : "APPROVE"}
+                  <CheckCircle className="mr-2 inline h-4 w-4" />{isProcessingAction ? "Saving…" : "Approve"}
                 </button>
               </div>
-            </>
+            </div>
           );
         })()}
 
@@ -521,46 +559,51 @@ const ApproverDashboard = () => {
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Approvals Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground">My Approvals</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Submissions awaiting your decision as {roleLabel}.</p>
       </div>
 
       <div className="animate-in slide-in-from-bottom-2 duration-700">
-      <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0">
-        <p className="mb-3 text-sm font-bold text-foreground">Filter Approvals</p>
-        <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
-          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "action_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            Action Required
-            {stats.actionRequired > 0 && (
-              <Badge className="h-6 min-w-6 justify-center border-0 bg-red-500 px-1.5 text-xs text-white hover:bg-red-500">{stats.actionRequired}</Badge>
-            )}
+      <div className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-muted/40 p-1.5">
+        {([
+          ["action_required", "Action Required", stats.actionRequired, "bg-red-500 text-white"],
+          ["in_progress", "In Progress", stats.inProgress, "bg-muted-foreground/20 text-muted-foreground"],
+          ["history", "History", 0, ""],
+        ] as const).map(([tab, label, count, badgeClass]) => (
+          <button
+            key={tab}
+            onClick={() => { setActiveTab(tab); setIsViewAll(false); }}
+            className={`flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-bold transition-colors sm:flex-none ${activeTab === tab ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {label}
+            {count > 0 && <Badge className={`h-5 min-w-5 justify-center border-0 px-1.5 text-[11px] ${badgeClass}`}>{count}</Badge>}
           </button>
-          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            In Progress
-            {stats.inProgress > 0 && (
-              <Badge className="h-6 min-w-6 justify-center border-0 bg-muted-foreground/20 px-1.5 text-xs text-muted-foreground hover:bg-muted-foreground/20">{stats.inProgress}</Badge>
-            )}
-          </button>
-          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            History
-          </button>
-        </div>
-        <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:shrink-0">{[["Action Required", stats.actionRequired], ["In Progress", stats.inProgress], ["Resolved", stats.resolved], ["Total Assigned", stats.total]].map(([label, value]) => <div key={String(label)} className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm"><p className="text-[10px] font-semibold leading-tight text-muted-foreground">{label}</p><p className="mt-1 text-xl font-bold leading-none text-foreground">{value}</p></div>)}</div>
-        </div>
+        ))}
       </div>
+
+      {selectedIds.size > 0 && activeTab === "action_required" && (
+        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-bold text-foreground">{selectedIds.size} selected</p>
+          <div className="flex gap-2">
+            <button onClick={() => setSelectedIds(new Set())} disabled={isBulkProcessing} className="rounded-lg border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50">Clear</button>
+            <button onClick={handleBulkApprove} disabled={isBulkProcessing} className="inline-flex items-center gap-1.5 rounded-lg bg-[#57D51B] px-4 py-2 text-xs font-bold text-white hover:bg-[#49BD16] disabled:opacity-50">
+              <CheckCircle className="h-3.5 w-3.5" /> {isBulkProcessing ? "Approving…" : `Approve ${selectedIds.size}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card-elevated overflow-hidden">
         <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Recent Submissions</h2>
+          <h2 className="text-lg font-bold text-foreground">
+            {activeTab === "action_required" ? "Waiting for you" : activeTab === "in_progress" ? "In progress elsewhere" : "History"}
+          </h2>
           <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search by name, date, or type..." 
-              value={search} 
-              onChange={e => { setSearch(e.target.value); setIsViewAll(false); }} 
+            <Input
+              placeholder="Search name, department, or type…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setIsViewAll(false); }}
               className="h-11 w-full pl-9 text-sm sm:w-80"
             />
           </div>
@@ -569,8 +612,8 @@ const ApproverDashboard = () => {
         {tabFiltered.length === 0 ? (
           <div className="p-12 text-center">
             <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">No submissions found in this tab</h3>
-            <p className="text-sm text-muted-foreground mt-1">Forms assigned to you will appear here.</p>
+            <h3 className="text-lg font-semibold text-foreground">Nothing here</h3>
+            <p className="text-sm text-muted-foreground mt-1">{activeTab === "action_required" ? "You're all caught up — no submissions need your decision." : "Submissions will appear here."}</p>
           </div>
         ) : (
           <>
@@ -578,9 +621,17 @@ const ApproverDashboard = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/40">
+                  {activeTab === "action_required" && (
+                    <TableHead className="w-10">
+                      {selectableInView.length > 0 && (
+                        <Checkbox checked={allSelectableChecked} onCheckedChange={toggleSelectAll} aria-label="Select all" className="rounded-none border-2" />
+                      )}
+                    </TableHead>
+                  )}
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider">Date</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider">Reference</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider">Type</TableHead>
+                  {activeTab === "action_required" && <TableHead className="text-xs font-bold uppercase tracking-wider">Waiting</TableHead>}
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Status</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                 </TableRow>
@@ -588,41 +639,45 @@ const ApproverDashboard = () => {
               <TableBody>
             {visibleSubmissions.map((sub) => {
               const avatarUrl = sub.data?.employeeInfo?.avatar || sub.data?.avatar;
+              const actionable = isActionRequiredForUser(sub);
+              const waiting = activeTab === "action_required" ? formatWaiting(sub) : null;
               return (
-                <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
+                <TableRow key={sub.id} className={selectedIds.has(sub.id) ? "bg-primary/5" : "hover:bg-muted/20"}>
+                    {activeTab === "action_required" && (
+                      <TableCell>
+                        {actionable && (
+                          <Checkbox checked={selectedIds.has(sub.id)} onCheckedChange={() => toggleSelected(sub.id)} aria-label={`Select ${sub.employeeName}'s submission`} className="rounded-none border-2" />
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-1 h-12 rounded-full bg-primary" />
-                    <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden ${!avatarUrl ? getInitialColor(sub.employeeName) : 'bg-transparent'}`}>
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt={sub.employeeName} className="w-full h-full object-cover" />
-                      ) : (
-                        getInitials(sub.employeeName)
-                      )}
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold ${!avatarUrl ? getInitialColor(sub.employeeName) : "bg-transparent"}`}>
+                          {avatarUrl ? <img src={avatarUrl} alt={sub.employeeName} className="h-full w-full object-cover" /> : getInitials(sub.employeeName)}
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-foreground">{sub.employeeName}</p>
-                          <p className="text-xs text-muted-foreground">{sub.data.position || sub.department}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <p className="truncate text-xs text-muted-foreground">{sub.data.position || sub.department}</p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col items-start gap-0.5">
-                        <span className="text-sm text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
-                        <span className="text-[11px] text-muted-foreground/80">
-                          {new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
+                      <p className="whitespace-nowrap text-sm font-semibold text-primary">{generateRefNo(sub)}</p>
+                      <p className="text-[11px] text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
                     </TableCell>
                     <TableCell>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        {formTypeLabels[sub.formType] || sub.formType.toUpperCase().replace(/_/g, ' ')}
-                      </p>
+                      <p className="text-xs font-semibold text-foreground">{formTypeLabels[sub.formType] || sub.formType.replace(/_/g, " ")}</p>
+                      {sub.formType === "claim" && <p className="text-[11px] text-muted-foreground">RM {claimTotal(sub)}</p>}
                     </TableCell>
+                    {waiting && (
+                      <TableCell>
+                        <span className={`text-sm font-semibold ${waiting.tone}`}>{waiting.label}</span>
+                      </TableCell>
+                    )}
                     <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                     <TableCell className="text-center">
-                      <button onClick={() => setSelectedSubmission(sub)} className="min-h-11 min-w-[8rem] whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
-                        View Details
+                      <button onClick={() => setSelectedSubmission(sub)} className={`inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-sm font-bold shadow-sm transition-all active:scale-[0.98] ${actionable ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border bg-background text-foreground hover:bg-muted"}`}>
+                        {actionable ? "Review" : "View"}<ChevronRight className="h-4 w-4" />
                       </button>
                     </TableCell>
                   </TableRow>
@@ -632,36 +687,39 @@ const ApproverDashboard = () => {
             </Table>
             </div>
             <div className="divide-y divide-border/60 sm:hidden">
-              {visibleSubmissions.map(sub => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => setSelectedSubmission(sub)}
-                  className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""}`}
-                >
-                  <div className="mb-2 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
-                      <p className="truncate text-xs text-muted-foreground">{sub.data.position || sub.department}</p>
-                    </div>
-                    {statusBadge(sub.status)}
+              {visibleSubmissions.map(sub => {
+                const actionable = isActionRequiredForUser(sub);
+                const waiting = activeTab === "action_required" ? formatWaiting(sub) : null;
+                return (
+                  <div key={sub.id} className={`flex items-start gap-3 p-4 ${selectedIds.has(sub.id) ? "bg-primary/5" : ""}`}>
+                    {activeTab === "action_required" && actionable && (
+                      <Checkbox checked={selectedIds.has(sub.id)} onCheckedChange={() => toggleSelected(sub.id)} className="mt-1 rounded-none border-2" aria-label={`Select ${sub.employeeName}'s submission`} />
+                    )}
+                    <button type="button" onClick={() => setSelectedSubmission(sub)} className="min-w-0 flex-1 text-left">
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">{sub.employeeName}</p>
+                          <p className="truncate text-xs text-muted-foreground">{sub.data.position || sub.department}</p>
+                        </div>
+                        {statusBadge(sub.status)}
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate font-semibold text-foreground">
+                          {formTypeLabels[sub.formType] || sub.formType.replace(/_/g, " ")}
+                          {sub.formType === "claim" && <span className="ml-1.5 font-normal text-muted-foreground">RM {claimTotal(sub)}</span>}
+                        </span>
+                        <span className="shrink-0 text-muted-foreground">{generateRefNo(sub)}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        {waiting
+                          ? <span className={`text-xs font-semibold ${waiting.tone}`}>Waiting {waiting.label}</span>
+                          : <span className="text-xs text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>}
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-primary">{actionable ? "Review" : "View"} <ChevronRight className="h-3.5 w-3.5" /></span>
+                      </div>
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {formTypeLabels[sub.formType] || sub.formType.toUpperCase().replace(/_/g, " ")}
-                    </p>
-                    <span className="flex shrink-0 flex-col items-end text-xs text-muted-foreground">
-                      <span>{new Date(sub.submittedAt).toLocaleDateString("en-CA")}</span>
-                      <span className="text-[10px] text-muted-foreground/80">
-                        {new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </span>
-                  </div>
-                  <span className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm">
-                    {isActionRequiredForUser(sub) ? "Review" : "View Details"}
-                  </span>
-                </button>
-              ))}
+                );
+              })}
             </div>
             <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground sm:text-sm">Showing {visibleSubmissions.length} of {tabFiltered.length} entries</p>

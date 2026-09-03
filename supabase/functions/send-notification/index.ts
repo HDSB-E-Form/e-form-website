@@ -56,6 +56,7 @@ const formLabels: Record<string, string> = {
   ppe_request: "PPE / Uniform / Office Supplies Request",
   ppe_purchase: "PPE / Uniform Purchase",
   material_requisition_slip: "Material Requisition Slip (MRS)",
+  permit_to_work: "Permit to Work",
 };
 
 const IT_FORMS = new Set([
@@ -151,7 +152,13 @@ function getTarget(submission: Submission): NotificationTarget | null {
     case "pending":
       // IT Help Desk has no HOS/HOD stage — it routes straight to IT Admin.
       if (submission.formType === "it_help_desk") return role("it_admin", "it", itAdminPath(submission.formType), "IT Admin");
+      // Permit to Work routes straight to the Safety Department team for approval.
+      if (submission.formType === "permit_to_work") return role("safety_admin", "safety", "/admin/safety/permit-to-work", "Safety Department");
       return selected("hosUserId", ["hosName", "hos"], "hos", "Head of Section");
+    case "pending_closure":
+      return submission.formType === "permit_to_work"
+        ? role("safety_admin", "safety_closure", "/admin/safety/permit-to-work", "Safety Department")
+        : null;
     case "approved_hos":
       return selected("hodUserId", ["hodName", "hod"], "hod", "Head of Department");
     case "approved_hod":
@@ -177,8 +184,17 @@ function getTarget(submission: Submission): NotificationTarget | null {
           "Your claim has been paid. Please open the system and acknowledge that you received the payment.")
         : null;
     case "approved":
+      if (submission.formType === "permit_to_work") {
+        return submitter("permit_authorised", `Approved: ${label}`, "Your Permit to Work has been approved",
+          "The Safety Department has approved this permit. Work may proceed within the approved dates. Confirm completion in the system when the work is done.");
+      }
       return submitter("submission_approved", `Approved: ${label}`, "Your submission has been approved",
         "Your submission has been approved. No further action is needed from you.");
+    case "completed":
+      return submission.formType === "permit_to_work"
+        ? submitter("permit_closed", `Closed: ${label}`, "Your Permit to Work has been closed",
+          "The Safety Department has verified the work and closed this permit. No further action is needed.")
+        : null;
     case "rejected":
       return submitter("submission_rejected", `Rejected: ${label}`, "Your submission has been rejected",
         "Your submission was rejected. Open it in the system to see the reason and resubmit if needed.");

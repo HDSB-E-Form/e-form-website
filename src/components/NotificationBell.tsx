@@ -39,6 +39,7 @@ const formTypeLabels: Record<string, string> = {
   it_admin_request: "IT Request (Admin)",
   it_application_request: "IT Request (Application)",
   it_facilities_requisition: "IT Facilities Request",
+  permit_to_work: "Permit to Work",
 };
 
 const getActionCopy = (notification: AppNotification) => {

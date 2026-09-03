@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, Search, ArrowLeft, LogOut, LogIn, Printer } from "lucide-react";
+import { Clock, Search, ArrowLeft, LogOut, LogIn, Printer, TimerReset, CheckCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 import ApprovalDashboardSkeleton from "@/components/ApprovalDashboardSkeleton";
@@ -47,8 +48,27 @@ const statusBadge = (status: string) => {
   }
 };
 
+// Build a Date from a "HH:MM" time, anchored to the calendar day closest to a reference
+// instant. Keeps entry/exit timestamps correct across midnight and for overnight passes.
+const timestampNear = (time: string, referenceMs: number) => {
+  const [hours, minutes] = time.split(":").map(Number);
+  const base = new Date(referenceMs);
+  const candidate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0);
+  const dayMs = 86_400_000;
+  const alternatives = [candidate.getTime() - dayMs, candidate.getTime(), candidate.getTime() + dayMs];
+  const best = alternatives.reduce((a, b) => (Math.abs(b - referenceMs) < Math.abs(a - referenceMs) ? b : a));
+  return new Date(best);
+};
+
 const getInitials = (name?: string) =>
   (name || " ").split(" ").map(n => n ? n[0] : "").join("").toUpperCase().slice(0, 2);
+
+const DetailRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="grid grid-cols-1 items-start gap-1 px-5 py-3 sm:grid-cols-3 sm:gap-4">
+    <span className="mt-0.5 text-xs font-bold uppercase tracking-wider text-primary print:text-gray-500 sm:text-sm">{label}</span>
+    <div className="text-left text-xs font-bold text-foreground sm:col-span-2 sm:text-sm">{value ?? "—"}</div>
+  </div>
+);
 
 const getInitialColor = (name: string) => {
   const colors = ["bg-violet-500/15 text-violet-700 dark:text-violet-400", "bg-sky-500/15 text-sky-700 dark:text-sky-400", "bg-amber-500/15 text-amber-700 dark:text-amber-400", "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", "bg-rose-500/15 text-rose-700 dark:text-rose-400"];
@@ -62,13 +82,12 @@ const getInitialColor = (name: string) => {
 
 const SecurityDashboard = () => {
   const { user } = useAuth();
-  const { submissions, updateSubmissionStatus, isLoading, refreshSubmissions } = useSubmissions();
+  const { submissions, refNoMap, updateSubmissionStatus, isLoading, refreshSubmissions } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"action_required" | "on_leave" | "in_progress" | "history">("action_required");
   const [historyFilter, setHistoryFilter] = useState<'approved' | 'rejected'>('approved');
   const [isViewAll, setIsViewAll] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [remarks, setRemarks] = useState("");
   const [securityLog, setSecurityLog] = useState({
     actualTimeOut: "",
@@ -78,6 +97,17 @@ const SecurityDashboard = () => {
   });
   const [trackingNow, setTrackingNow] = useState(Date.now());
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshSubmissions();
+    } finally {
+      setTrackingNow(Date.now());
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setTrackingNow(Date.now()), 60000);
@@ -102,16 +132,6 @@ const SecurityDashboard = () => {
     refreshSubmissions();
   }, [refreshSubmissions]);
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-    submissions.filter(s => !excludedForms.includes(s.formType)).sort((a, b) => {
-      const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-      return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-    }).forEach((submission, index) => map.set(submission.id, `HDSB-${String(index + 1).padStart(4, "0")}`));
-    return map;
-  }, [submissions]);
-
   const generateRefNo = (sub: Submission) => sub.data?.refNo || refNoMap.get(sub.id) || `GP-${sub.id.slice(-4)}`;
 
   // Security guard only sees leave forms
@@ -122,34 +142,34 @@ const SecurityDashboard = () => {
       const q = search.trim().toLowerCase();
       const dateStr1 = new Date(s.submittedAt).toLocaleDateString("en-CA");
       const dateStr2 = new Date(s.submittedAt).toLocaleDateString("en-GB");
-      const typeStr = (formTypeLabels[s.formType] || s.formType).toLowerCase();
-      return (s.employeeName || '').toLowerCase().includes(q) || 
-             generateRefNo(s).toLowerCase().includes(q) ||
-             (s.department || '').toLowerCase().includes(q) ||
-             (typeStr || '').toLowerCase().includes(q) ||
-             (dateStr1 || '').includes(q) ||
-             (dateStr2 || '').includes(q);
+      return (s.employeeName || "").toLowerCase().includes(q)
+        || generateRefNo(s).toLowerCase().includes(q)
+        || (s.department || "").toLowerCase().includes(q)
+        || (s.data?.securityLog?.vehicleNo || "").toLowerCase().includes(q)
+        || dateStr1.includes(q)
+        || dateStr2.includes(q);
     });
 
-  const isRecent = (dateStr: string) => {
-    const hours = (new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
-    return hours < 48; // Checks if submitted within the last 48 hours
-  };
-
-  const tabFiltered = filtered.filter(s => {
-    if (activeTab === "action_required") return s.status === "approved_manco";
-    if (activeTab === "on_leave") return s.status === "on_leave";
-    if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
-    if (activeTab === "history") {
-      if (historyFilter === 'approved') return s.status === "approved";
-      if (historyFilter === 'rejected') return s.status === "rejected";
-      return false; // Should not happen
-    }
-    return true;
-  });
+  const tabFiltered = filtered
+    .filter(s => {
+      if (activeTab === "action_required") return s.status === "approved_manco";
+      if (activeTab === "on_leave") return s.status === "on_leave";
+      if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
+      if (activeTab === "history") return historyFilter === "approved" ? s.status === "approved" : s.status === "rejected";
+      return true;
+    })
+    .sort((a, b) => {
+      if (activeTab === "on_leave") {
+        // Overdue first, then longest-out first.
+        const overdueA = getPersonalGatePassElapsed(a, trackingNow)?.overdue ? 1 : 0;
+        const overdueB = getPersonalGatePassElapsed(b, trackingNow)?.overdue ? 1 : 0;
+        if (overdueA !== overdueB) return overdueB - overdueA;
+        return (getGatePassTimeOut(a) ?? 0) - (getGatePassTimeOut(b) ?? 0);
+      }
+      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+    });
 
   const stats = {
-    total: filtered.length,
     actionRequired: filtered.filter(s => s.status === "approved_manco").length,
     onLeave: filtered.filter(s => s.status === "on_leave").length,
     inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
@@ -157,7 +177,7 @@ const SecurityDashboard = () => {
   };
   const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
 
-  const handleAction = async (id: string, newStatus: SubmissionStatus, logData: any) => {
+  const handleAction = async (id: string, newStatus: SubmissionStatus, logData: Record<string, unknown>) => {
     if (isProcessing) return;
     setIsProcessing(true);
     const currentData = selectedSubmission?.data || {};
@@ -222,21 +242,14 @@ const SecurityDashboard = () => {
     }
   };
 
-  const timestampForToday = (time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    const timestamp = new Date();
-    timestamp.setHours(hours, minutes, 0, 0);
-    return timestamp;
-  };
-
   const handleConfirmExit = () => {
     if (!selectedSubmission || !securityLog.actualTimeOut) return;
-    const exitTime = timestampForToday(securityLog.actualTimeOut);
+    const exitTime = timestampNear(securityLog.actualTimeOut, Date.now());
     const friendlyTime = exitTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
     // "Not returning today": no entry step — close the pass now with time in at closing time.
     if (selectedSubmission.data.notReturningToday === true) {
-      const closingTime = timestampForToday(CLOSING_TIME);
+      const closingTime = timestampNear(CLOSING_TIME, exitTime.getTime());
       const friendlyClosing = closingTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
       if (!window.confirm(`Confirm that ${selectedSubmission.employeeName} left at ${friendlyTime}? They are not returning today, so the pass will be completed with a Time In of ${friendlyClosing}.`)) return;
       void handleAction(selectedSubmission.id, "approved", {
@@ -256,8 +269,9 @@ const SecurityDashboard = () => {
   const handleConfirmEntry = () => {
     if (!selectedSubmission) return;
     const time = securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5);
-    const entryTime = timestampForToday(time);
     const exitTime = getGatePassTimeOut(selectedSubmission);
+    // Anchor the entry to the day nearest the exit, so an overnight return lands on the right date.
+    const entryTime = timestampNear(time, exitTime ?? Date.now());
     if (exitTime !== null && entryTime.getTime() < exitTime) {
       toast.error("Return time cannot be earlier than the recorded exit time.");
       return;
@@ -282,52 +296,34 @@ const SecurityDashboard = () => {
 
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary print:text-black">Submission Summary</p>
         <div className="mb-5 divide-y divide-border/50 rounded-xl border border-border/60 bg-background shadow-sm print:rounded-none print:border-gray-300 print:bg-transparent print:shadow-none">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Ref No</span>
-            <div className="sm:col-span-2 text-left">
-              <p className="text-xs sm:text-sm font-bold text-foreground">{refNo}</p>
-              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Submitted on: {new Date(sub.submittedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Pass Type</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{passType}</div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Reason</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"}</div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time Out</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeOut)}</div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-            <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Expected Time In</span>
-            <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">
-              {formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}
-              {sub.data.notReturningToday === true && (
-                <span className="ml-2 inline-flex rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 print:border print:border-gray-400 print:text-black">Not returning today</span>
-              )}
-            </div>
-          </div>
+          <DetailRow
+            label="Ref No"
+            value={
+              <>
+                <p className="font-bold text-foreground">{refNo}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Submitted {new Date(sub.submittedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })}</p>
+              </>
+            }
+          />
+          <DetailRow label="Pass Type" value={passType} />
+          <DetailRow label="Reason" value={sub.data.companyDetails?.purpose || sub.data.personalDetails?.purpose || "No reason provided"} />
+          <DetailRow label="Expected Time Out" value={formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeOut)} />
+          <DetailRow
+            label="Expected Time In"
+            value={
+              <>
+                {formatEstimatedTime(sub.submittedAt, sub.data.estimatedTime?.timeIn)}
+                {sub.data.notReturningToday === true && (
+                  <span className="ml-2 inline-flex rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 print:border print:border-gray-400 print:text-black">Not returning today</span>
+                )}
+              </>
+            }
+          />
           {(sub.data.securityLog?.actualTimeOut || sub.data.securityLog?.actualTimeIn) && (
             <>
-              {sub.data.securityLog.vehicleNo?.trim() && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Vehicle No.</span>
-                  <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{sub.data.securityLog.vehicleNo}</div>
-                </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-                <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time Out</span>
-                <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"}</div>
-              </div>
-              {sub.data.securityLog.actualTimeIn && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-start px-5 py-3">
-                  <span className="text-xs sm:text-sm text-primary print:text-gray-500 uppercase tracking-wider font-bold mt-0.5">Actual Time In</span>
-                  <div className="text-xs sm:text-sm font-bold text-foreground sm:col-span-2 text-left">{new Date(sub.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}</div>
-                </div>
-              )}
+              {sub.data.securityLog.vehicleNo?.trim() && <DetailRow label="Vehicle No." value={sub.data.securityLog.vehicleNo} />}
+              <DetailRow label="Actual Time Out" value={getGatePassTimeOut(sub) !== null ? new Date(getGatePassTimeOut(sub)!).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—"} />
+              {sub.data.securityLog.actualTimeIn && <DetailRow label="Actual Time In" value={new Date(sub.data.securityLog.actualTimeIn).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} />}
             </>
           )}
         </div>
@@ -431,14 +427,15 @@ const SecurityDashboard = () => {
                  "Pending HOD approval."}
               </p>
               <div className="w-full max-w-md">
-                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Security Admin Action</p>
-                <Input
-                  placeholder="Enter remarks if rejecting..."
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Security override</p>
+                <Textarea
+                  placeholder="Reason for rejecting this gate pass…"
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
-                  className="mb-3 h-11 bg-background"
+                  rows={2}
+                  className="mb-3 resize-y bg-background"
                 />
-                <button disabled={isProcessing} onClick={() => handleReject(selectedSubmission)} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm disabled:cursor-not-allowed disabled:opacity-60">{isProcessing ? "SAVING..." : "REJECT SUBMISSION"}</button>
+                <button disabled={isProcessing} onClick={() => handleReject(selectedSubmission)} className="w-full rounded-xl bg-destructive px-6 py-3 text-center text-sm font-bold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-60">{isProcessing ? "Saving…" : "Reject Gate Pass"}</button>
               </div>
             </div>
           </div>
@@ -465,12 +462,12 @@ const SecurityDashboard = () => {
               </div>
               <div>
                 <Label className="text-xs font-semibold text-primary">Remarks</Label>
-                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Enter remarks if any..." className="h-11 mt-1" />
+                <Textarea value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Note any incident, ID check, or condition…" rows={2} className="mt-1 resize-y" />
               </div>
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-3 sm:flex-row">
-                <button disabled={isProcessing} onClick={() => void handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="flex-1 rounded-xl bg-destructive px-6 py-3 text-center font-bold text-white transition-all hover:bg-destructive/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60">REJECT</button>
-                <button onClick={handleConfirmExit} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-center font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50" disabled={!securityLog.actualTimeOut || isProcessing}>
-                  <LogOut className="h-4 w-4" /> {isProcessing ? "SAVING..." : (selectedSubmission.data.notReturningToday === true ? "CONFIRM EXIT & COMPLETE" : "CONFIRM EXIT")}
+                <button disabled={isProcessing} onClick={() => void handleAction(selectedSubmission.id, "rejected", { remarks: securityLog.remarks })} className="rounded-xl border border-destructive px-6 py-3 text-center text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1">Reject</button>
+                <button onClick={handleConfirmExit} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-center text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1" disabled={!securityLog.actualTimeOut || isProcessing}>
+                  <LogOut className="h-4 w-4" /> {isProcessing ? "Saving…" : (selectedSubmission.data.notReturningToday === true ? "Log Exit & Complete" : "Log Exit")}
                 </button>
               </div>
             </div>
@@ -478,26 +475,26 @@ const SecurityDashboard = () => {
         )}
 
         {isOnLeave && (
-          <div className="mt-4 rounded-xl border border-border/60 bg-background p-4 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-5">
+          <div className="mt-4 rounded-xl border border-border/60 bg-background p-4 shadow-sm sm:p-5">
             <h3 className="mb-3 text-base font-bold text-foreground sm:text-lg">Log Employee Entry</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
-              <div>
-                <Label className="text-xs font-semibold text-primary">Actual Time In</Label>
-                <Input type="time" value={securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)} onChange={e => setSecurityLog(p => ({...p, actualTimeIn: e.target.value}))} className="h-11 mt-1 dark:[color-scheme:dark]" />
-              </div>
-              <div>
-                <Label className="text-xs font-semibold text-primary">Remarks</Label>
-                <Input value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Enter remarks if any..." className="h-11 mt-1" />
-              </div>
+                <div>
+                  <Label className="text-xs font-semibold text-primary">Actual Time In</Label>
+                  <Input type="time" value={securityLog.actualTimeIn || new Date().toTimeString().slice(0, 5)} onChange={e => setSecurityLog(p => ({...p, actualTimeIn: e.target.value}))} className="mt-1 h-11 dark:[color-scheme:dark]" />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-primary">Remarks</Label>
+                  <Textarea value={securityLog.remarks} onChange={e => setSecurityLog(p => ({...p, remarks: e.target.value}))} placeholder="Note any incident or condition on return…" rows={2} className="mt-1 resize-y" />
+                </div>
               </div>
               <div className="border-t border-border pt-3">
-                <button 
+                <button
                   onClick={handleConfirmEntry}
                   disabled={isProcessing}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#57D51B] px-6 py-3 text-center font-bold text-white transition-all hover:bg-[#49BD16] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-center text-sm font-bold text-white transition-all hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <LogIn className="h-4 w-4" /> {isProcessing ? "SAVING..." : "CONFIRM ENTRY & COMPLETE"}
+                  <LogIn className="h-4 w-4" /> {isProcessing ? "Saving…" : "Log Entry & Complete"}
                 </button>
               </div>
             </div>
@@ -518,60 +515,57 @@ const SecurityDashboard = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in-5 slide-in-from-bottom-2 duration-500">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Security Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Review Gate Passes and record employee exits and returns.</p>
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Security Gate</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Log employee exits and returns for approved Gate Passes.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-semibold tabular-nums text-foreground">
+            <Clock className="h-4 w-4 text-primary" />
+            {new Date(trackingNow).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Refresh"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Action Tabs */}
-      <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0">
-        <p className="mb-3 text-sm font-bold text-foreground">Filter Gate Passes</p>
-        <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
-          <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "action_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            Action Required
-            {stats.actionRequired > 0 && (
-              <Badge className="h-6 min-w-6 justify-center border-0 bg-red-500 px-1.5 text-xs text-white hover:bg-red-500">{stats.actionRequired}</Badge>
+      {stats.overdue > 0 && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm">
+          <TimerReset className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+          <p className="font-semibold text-red-700 dark:text-red-400">
+            {stats.overdue} employee{stats.overdue === 1 ? " has" : "s have"} been out over 2 hours on a personal pass.
+            {activeTab !== "on_leave" && (
+              <button onClick={() => setActiveTab("on_leave")} className="ml-2 underline underline-offset-2">View</button>
             )}
-          </button>
-          <button onClick={() => { setActiveTab("on_leave"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "on_leave" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            Currently Out
-            {stats.onLeave > 0 && (
-              <Badge className="h-6 min-w-6 justify-center border-0 bg-indigo-500 px-1.5 text-xs text-white hover:bg-indigo-500">{stats.onLeave}</Badge>
-            )}
-          </button>
-          <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            In Progress
-            {stats.inProgress > 0 && (
-              <Badge className="h-6 min-w-6 justify-center border-0 bg-muted-foreground/20 px-1.5 text-xs text-muted-foreground hover:bg-muted-foreground/20">{stats.inProgress}</Badge>
-            )}
-          </button>
-          <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-            History
-          </button>
+          </p>
         </div>
-        <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:shrink-0">
-          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Action Required</p>
-            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.actionRequired}</p>
-          </div>
-          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Currently Out</p>
-            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.onLeave}</p>
-          </div>
-          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Over 2 Hours</p>
-            <p className={`mt-1 text-xl font-bold leading-none ${stats.overdue > 0 ? "text-red-600 dark:text-red-400" : "text-foreground"}`}>{stats.overdue}</p>
-          </div>
-          <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Total</p>
-            <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.total}</p>
-          </div>
-        </div>
-        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-muted/40 p-1.5">
+        {([
+          ["action_required", "Ready to Exit", stats.actionRequired, "bg-red-500 text-white"],
+          ["on_leave", "Currently Out", stats.onLeave, "bg-indigo-500 text-white"],
+          ["in_progress", "In Progress", stats.inProgress, "bg-muted-foreground/20 text-muted-foreground"],
+          ["history", "History", 0, ""],
+        ] as const).map(([tab, label, count, badgeClass]) => (
+          <button
+            key={tab}
+            onClick={() => { setActiveTab(tab); setIsViewAll(false); }}
+            className={`flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-bold transition-colors sm:flex-none ${activeTab === tab ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {label}
+            {count > 0 && <Badge className={`h-5 min-w-5 justify-center border-0 px-1.5 text-[11px] ${badgeClass}`}>{count}</Badge>}
+          </button>
+        ))}
       </div>
 
       {/* Submissions Table */}
@@ -633,9 +627,9 @@ const SecurityDashboard = () => {
               </TableHeader>
               <TableBody>
             {visibleSubmissions.map((sub) => {
-              const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
+              const avatarUrl = sub.data?.employeeInfo?.avatar || sub.data?.avatar;
               return (
-                <TableRow key={sub.id} className={`${getPersonalGatePassElapsed(sub, trackingNow)?.overdue ? "bg-red-500/10 hover:bg-red-500/15" : activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
+                <TableRow key={sub.id} className={getPersonalGatePassElapsed(sub, trackingNow)?.overdue ? "bg-red-500/10 hover:bg-red-500/15" : "hover:bg-muted/20"}>
                     <TableCell className="text-sm font-medium text-muted-foreground">{generateRefNo(sub)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -666,12 +660,12 @@ const SecurityDashboard = () => {
                       <button
                         onClick={() => setSelectedSubmission(sub)}
                         className={`min-h-11 min-w-[8rem] rounded-lg px-5 py-2.5 text-[15px] font-bold transition-all hover:shadow-sm active:scale-[0.98] print:hidden ${
-                          sub.status === "approved_manco" || sub.status === "on_leave" || activeTab === "in_progress" || activeTab === "history"
+                          sub.status === "approved_manco" || sub.status === "on_leave"
                             ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
                             : "text-foreground hover:bg-muted hover:text-primary"
                         }`}
                       >
-                        {sub.status === "approved_manco" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
+                        {sub.status === "approved_manco" ? "Log Exit" : sub.status === "on_leave" ? "Log Entry" : "View"}
                       </button>
                     </TableCell>
                   </TableRow>
@@ -687,7 +681,7 @@ const SecurityDashboard = () => {
                   type="button"
                   onClick={() => setSelectedSubmission(sub)}
                   className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${
-                    getPersonalGatePassElapsed(sub, trackingNow)?.overdue ? "bg-red-500/10" : activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
+                    getPersonalGatePassElapsed(sub, trackingNow)?.overdue ? "bg-red-500/10" : ""
                   }`}
                 >
                   <div className="mb-2 flex items-start justify-between gap-3">
@@ -712,7 +706,7 @@ const SecurityDashboard = () => {
                         ? "bg-primary text-primary-foreground"
                         : "bg-primary/10 text-primary"
                     }`}>
-                      {sub.status === "approved_manco" ? "Review Exit" : sub.status === "on_leave" ? "Review Entry" : "Details"}
+                      {sub.status === "approved_manco" ? "Log Exit" : sub.status === "on_leave" ? "Log Entry" : "View"}
                     </span>
                   </div>
                 </button>

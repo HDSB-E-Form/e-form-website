@@ -1,6 +1,6 @@
 export interface NotificationRecipient {
   path: string;
-  recipientType: 'hos' | 'hod' | 'manco_member' | 'hr_admin' | 'finance_admin' | 'it_admin' | 'security_guard' | 'head_of_purchasing' | 'head_of_finance';
+  recipientType: 'hos' | 'hod' | 'manco_member' | 'hr_admin' | 'finance_admin' | 'it_admin' | 'security_guard' | 'head_of_purchasing' | 'head_of_finance' | 'safety_admin';
 }
 
 interface NotificationContext {
@@ -32,6 +32,11 @@ export function getNotificationTarget(user: NotificationContext, submission: Not
   const isHOP = role === 'head_of_purchasing' || secondaryRoles.includes('head_of_purchasing');
   const isHOF = role === 'head_of_finance' || secondaryRoles.includes('head_of_finance');
   const isMancoMember = role === 'manco_member' || secondaryRoles.includes('manco_member');
+  const isSafetyAdmin = role === 'safety_admin' || secondaryRoles.includes('safety_admin');
+
+  if (isSafetyAdmin && submission.formType === 'permit_to_work' && ['pending', 'pending_closure'].includes(submission.status)) {
+    return { path: '/admin/safety/permit-to-work', recipientType: 'safety_admin' };
+  }
 
   if (isHOS && submission.status === 'pending' && (data.hosUserId ? data.hosUserId === id : (data.hosName === name || data.hos === name))) {
     return { path: '/admin/approvals', recipientType: 'hos' };

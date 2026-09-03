@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clock, ArrowLeft, Printer, FileText, Search, Calendar, XCircle, Archive, Trash2 } from "lucide-react";
+import { Clock, ArrowLeft, Printer, FileText, Search, Calendar, XCircle, Archive, Trash2, Download, ListFilter, CircleDot, CircleCheck, CircleX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useSubmissions, type Submission } from "@/contexts/SubmissionsContext";
@@ -15,6 +16,7 @@ import ITApplicationRequestDetails from "@/components/ITApplicationRequestDetail
 import ITAdminRequestDetails from "@/components/ITAdminRequestDetails";
 import ApprovalOverview from "@/components/ApprovalOverview";
 import EmployeeSummary from "@/components/EmployeeSummary";
+import PermitToWorkDetails from "@/components/PermitToWorkDetails";
 import { getGatePassTimeOut } from "@/components/PersonalGatePassTracker";
 
 const formatEstimatedTime = (submittedAt: string, time?: string) => {
@@ -37,6 +39,18 @@ const formTypeLabels: Record<string, string> = {
   it_application_request: "IT Request Form (Application)",
   it_facilities_requisition: "IT Facilities Requisition Form",
   material_requisition_slip: "Material Requisition Slip (MRS)",
+  permit_to_work: "Permit to Work",
+};
+
+const EXCLUDED_FORMS = ["inventory_addition", "ppe_request", "ppe_purchase", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
+
+// Coarse status groups for the superadmin monitoring filter.
+const STATUS_GROUPS: Record<string, string[]> = {
+  pending: ["pending"],
+  in_progress: ["reopened", "approved_hos", "approved_hod", "approved_manco", "approved_hop", "approved_hof", "pending_finance_review", "pending_closure", "on_leave", "awaiting_confirmation"],
+  approved: ["approved", "paid", "completed"],
+  rejected: ["rejected"],
+  voided: ["voided"],
 };
 
 const statusBadgeBase = "border-0 whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-wider px-2 sm:px-3 py-0.5 sm:py-1";
@@ -58,6 +72,8 @@ const statusBadge = (status: string, formType?: string) => {
       return makeStatusBadge("VOIDED", "bg-slate-500/15 text-slate-700 dark:text-slate-300");
     case "awaiting_confirmation":
       return makeStatusBadge("AWAITING EMPLOYEE CONFIRMATION", "bg-sky-500/15 text-sky-700 dark:text-sky-400");
+    case "pending_closure":
+      return makeStatusBadge("PENDING CLOSURE", "bg-sky-500/15 text-sky-700 dark:text-sky-400");
     case "reopened":
       return makeStatusBadge("REOPENED", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
     case "pending_finance_review":
@@ -93,6 +109,9 @@ const statusBadge = (status: string, formType?: string) => {
     default:
       if (formType === 'it_help_desk') {
         return makeStatusBadge("ACTION REQUIRED", "bg-violet-500/15 text-violet-700 dark:text-violet-400");
+      }
+      if (formType === 'permit_to_work') {
+        return makeStatusBadge("PENDING SAFETY APPROVAL", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
       }
       if (formType === 'leave' || formType === 'claim' || formType === 'car_rental' || formType === 'cctv_access_request' || formType === 'it_application_request') {
         return makeStatusBadge("PENDING HOS", "bg-amber-500/15 text-amber-700 dark:text-amber-400");
@@ -139,13 +158,14 @@ const toLocalDateString = (value: string | Date) => {
 
 const AllSubmissionsPage = () => {
   const { submissions: allSubmissions, refNoMap, isLoading, refreshSubmissions, permanentlyDeleteSubmission } = useSubmissions();
-  const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isViewAll, setIsViewAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'car_rental' | 'claim' | 'leave' | 'it_application_request'>('all');
+  const [activeTab, setActiveTab] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [isSubmissionRecordsOpen, setIsSubmissionRecordsOpen] = useState(false);
   const [submissionRecordSearch, setSubmissionRecordSearch] = useState("");
   const [deletionTarget, setDeletionTarget] = useState<Submission | null>(null);
@@ -159,7 +179,22 @@ const AllSubmissionsPage = () => {
 
   const isDateFiltered = startDate !== "" || endDate !== "";
   const hasInvalidDateRange = Boolean(startDate && endDate && startDate > endDate);
-  const hasActiveFilters = Boolean(search.trim() || isDateFiltered || activeTab !== "all");
+  const hasActiveFilters = Boolean(search.trim() || isDateFiltered || activeTab !== "all" || statusFilter !== "all" || departmentFilter !== "all");
+
+  const countedSubmissions = useMemo(
+    () => allSubmissions.filter(s => !EXCLUDED_FORMS.includes(s.formType)),
+    [allSubmissions],
+  );
+  const availableFormTypes = useMemo(
+    () => [...new Set(countedSubmissions.map(s => s.formType))]
+      .map(type => ({ value: type, label: formTypeLabels[type] || type.replace(/_/g, " ") }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [countedSubmissions],
+  );
+  const availableDepartments = useMemo(
+    () => [...new Set(countedSubmissions.map(s => (s.department || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [countedSubmissions],
+  );
 
   if (isLoading) {
     return (
@@ -216,9 +251,10 @@ const AllSubmissionsPage = () => {
     return refNoMap.get(sub.id) || `${sub.formType === "leave" ? "GP" : "HDSB"}-${sub.id.slice(-4)}`;
   };
 
-  const submissions = allSubmissions
-    .filter(s => !excludedForms.includes(s.formType))
+  const submissions = countedSubmissions
     .filter(s => activeTab === 'all' ? true : s.formType === activeTab)
+    .filter(s => statusFilter === 'all' ? true : (STATUS_GROUPS[statusFilter] || []).includes(s.status))
+    .filter(s => departmentFilter === 'all' ? true : (s.department || "").trim() === departmentFilter)
     .filter(s => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -242,8 +278,57 @@ const AllSubmissionsPage = () => {
       return subDate >= start && subDate <= end;
     });
 
+  const inGroup = (statuses: string, s: Submission) => STATUS_GROUPS[statuses].includes(s.status);
+  const summary = {
+    total: submissions.length,
+    pending: submissions.filter(s => inGroup("pending", s) || inGroup("in_progress", s)).length,
+    approved: submissions.filter(s => inGroup("approved", s)).length,
+    rejected: submissions.filter(s => inGroup("rejected", s) || inGroup("voided", s)).length,
+  };
+
+  const handleExportSubmissions = () => {
+    if (submissions.length === 0) return toast.error("No submissions match the current filters.");
+    const header = ["Reference", "Type", "Employee", "Department", "Status", "Submitted"];
+    const csvCell = (value: unknown) => {
+      let text = value == null ? "" : String(value);
+      if (/^[=+\-@]/.test(text.trimStart())) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const rows = [...submissions]
+      .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
+      .map(s => [
+        generateRefNo(s),
+        formTypeLabels[s.formType] || s.formType.replace(/_/g, " "),
+        s.employeeName,
+        s.department || "",
+        s.status.replace(/_/g, " "),
+        new Date(s.submittedAt).toLocaleString("en-GB"),
+      ]);
+    const csv = "﻿" + [header, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `HDSB_Submissions_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`${submissions.length} submission${submissions.length === 1 ? "" : "s"} exported.`);
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setStartDate("");
+    setEndDate("");
+    setActiveTab("all");
+    setStatusFilter("all");
+    setDepartmentFilter("all");
+    setIsViewAll(false);
+  };
+
   const eligibleDeletionSubmissions = allSubmissions.filter(submission =>
-    !excludedForms.includes(submission.formType) && ["completed", "rejected", "voided"].includes(submission.status)
+    !EXCLUDED_FORMS.includes(submission.formType) && ["completed", "rejected", "voided"].includes(submission.status)
   );
   const filteredDeletionSubmissions = eligibleDeletionSubmissions.filter(submission => {
     const query = submissionRecordSearch.trim().toLowerCase();
@@ -274,7 +359,7 @@ const AllSubmissionsPage = () => {
   };
 
   if (selectedSubmission) {
-    const usesSeparatedEmployeeSummary = ['car_rental', 'claim', 'leave', 'cctv_access_request', 'it_help_desk', 'it_admin_request', 'it_application_request', 'it_facilities_requisition'].includes(selectedSubmission.formType);
+    const usesSeparatedEmployeeSummary = ['car_rental', 'claim', 'leave', 'cctv_access_request', 'it_help_desk', 'it_admin_request', 'it_application_request', 'it_facilities_requisition', 'permit_to_work', 'material_requisition_slip'].includes(selectedSubmission.formType);
     const employeeStaffId = selectedSubmission.data.staffId || selectedSubmission.data.employeeInfo?.staffNo || selectedSubmission.data.employeeInfo?.employeeNumber || "—";
     const employeePosition = selectedSubmission.data.position || selectedSubmission.data.employeeInfo?.position || "—";
     const attachmentUrls = (selectedSubmission.data.attachments?.length
@@ -677,6 +762,8 @@ const AllSubmissionsPage = () => {
                   </div>
                 </div>
               </div>
+            ) : selectedSubmission.formType === 'permit_to_work' ? (
+              <PermitToWorkDetails submission={selectedSubmission} />
             ) : (
               <>
                 <div className="bg-muted/30 rounded-xl p-4 my-4 border border-border/50">
@@ -860,10 +947,34 @@ const AllSubmissionsPage = () => {
           <h1 className="text-2xl font-bold text-foreground">All System Submissions</h1>
           <p className="text-muted-foreground text-sm mt-1">Monitor all form submissions across the entire organization.</p>
         </div>
-        <Button variant="outline" className="h-11 w-full gap-2 font-bold sm:w-auto" onClick={() => setIsSubmissionRecordsOpen(true)}>
-          <Archive className="h-4 w-4" />
-          Submission Records
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="outline" className="h-11 w-full gap-2 font-bold sm:w-auto" onClick={handleExportSubmissions}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button variant="outline" className="h-11 w-full gap-2 font-bold sm:w-auto" onClick={() => setIsSubmissionRecordsOpen(true)}>
+            <Archive className="h-4 w-4" />
+            Submission Records
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary of the current filter selection */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: "In view", value: summary.total, icon: FileText, border: "border-l-primary", text: "text-primary", iconBg: "bg-primary/10" },
+          { label: "Pending / in progress", value: summary.pending, icon: CircleDot, border: "border-l-amber-500", text: "text-amber-700 dark:text-amber-400", iconBg: "bg-amber-500/10" },
+          { label: "Approved", value: summary.approved, icon: CircleCheck, border: "border-l-emerald-500", text: "text-emerald-700 dark:text-emerald-400", iconBg: "bg-emerald-500/10" },
+          { label: "Rejected / voided", value: summary.rejected, icon: CircleX, border: "border-l-rose-500", text: "text-rose-700 dark:text-rose-400", iconBg: "bg-rose-500/10" },
+        ].map(card => (
+          <div key={card.label} className={`card-elevated border-l-4 p-4 ${card.border}`}>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className={`text-[11px] font-bold uppercase tracking-wider ${card.text}`}>{card.label}</p>
+              <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${card.iconBg} ${card.text}`}><card.icon className="h-3.5 w-3.5" /></span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{card.value.toLocaleString("en-US")}</p>
+          </div>
+        ))}
       </div>
 
       <div className="mb-6 bg-muted/20 p-4 rounded-xl border border-border">
@@ -885,6 +996,31 @@ const AllSubmissionsPage = () => {
               </button>
             )}
           </div>
+          <Select value={activeTab} onValueChange={value => { setActiveTab(value); setIsViewAll(false); }}>
+            <SelectTrigger className="h-9 w-full text-xs lg:w-[190px]" aria-label="Filter by form type"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All form types</SelectItem>
+              {availableFormTypes.map(type => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={value => { setStatusFilter(value); setIsViewAll(false); }}>
+            <SelectTrigger className="h-9 w-full text-xs lg:w-[160px]" aria-label="Filter by status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in_progress">In progress</SelectItem>
+              <SelectItem value="approved">Approved / paid / completed</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="voided">Voided</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={departmentFilter} onValueChange={value => { setDepartmentFilter(value); setIsViewAll(false); }}>
+            <SelectTrigger className="h-9 w-full text-xs lg:w-[170px]" aria-label="Filter by department"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All departments</SelectItem>
+              {availableDepartments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-2">
             <Label className="text-xs font-medium text-muted-foreground">From:</Label>
             <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setIsViewAll(false); }} className="h-9 w-full text-xs dark:[color-scheme:dark]" />
@@ -916,14 +1052,8 @@ const AllSubmissionsPage = () => {
                 <XCircle className="h-4 w-4 mr-1.5" /> Clear Dates
               </Button>
             )}
-            {(search.trim() || activeTab !== "all") && (
-              <Button variant="ghost" size="sm" className="h-9 text-xs font-semibold text-destructive hover:text-destructive" onClick={() => {
-                setSearch("");
-                setStartDate("");
-                setEndDate("");
-                setActiveTab("all");
-                setIsViewAll(false);
-              }}>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" className="h-9 text-xs font-semibold text-destructive hover:text-destructive" onClick={resetFilters}>
                 Clear All
               </Button>
             )}
@@ -938,31 +1068,20 @@ const AllSubmissionsPage = () => {
           <p className="mt-3 text-xs text-muted-foreground" aria-live="polite">
             {submissions.length} matching {submissions.length === 1 ? "submission" : "submissions"}
             {activeTab !== "all" ? ` · ${formTypeLabels[activeTab] || activeTab}` : ""}
+            {statusFilter !== "all" ? ` · ${statusFilter.replace(/_/g, " ")}` : ""}
+            {departmentFilter !== "all" ? ` · ${departmentFilter}` : ""}
             {isDateFiltered ? ` · ${startDate || "earliest"} to ${endDate || "latest"}` : ""}
           </p>
         )}
       </div>
 
       <div className="card-elevated overflow-hidden">
-        <div className="p-5 flex items-center justify-between border-b border-border">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Submissions</h2>
-            <div className="flex w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-border bg-muted/50 p-1.5 mt-3">
-              {(['all', 'car_rental', 'claim', 'leave', 'it_application_request'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => { setActiveTab(tab); setIsViewAll(false); }}
-                  className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                    activeTab === tab
-                      ? "bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30"
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
-                  }`}
-                >
-                  {tab === 'all' ? 'All Forms' : formTypeLabels[tab] || tab}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex items-center justify-between gap-3 border-b border-border p-5">
+          <h2 className="text-lg font-bold text-foreground">Submissions</h2>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <ListFilter className="h-3.5 w-3.5" />
+            {activeTab === "all" ? "All forms" : formTypeLabels[activeTab] || activeTab}
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -1026,13 +1145,7 @@ const AllSubmissionsPage = () => {
             <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
             <p>{hasActiveFilters ? "No submissions match the selected filters." : "No submissions found in the system."}</p>
             {hasActiveFilters && (
-              <Button variant="outline" size="sm" className="mt-4" onClick={() => {
-                setSearch("");
-                setStartDate("");
-                setEndDate("");
-                setActiveTab("all");
-                setIsViewAll(false);
-              }}>
+              <Button variant="outline" size="sm" className="mt-4" onClick={resetFilters}>
                 Clear All Filters
               </Button>
             )}

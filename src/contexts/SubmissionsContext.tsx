@@ -18,8 +18,9 @@ export type SubmissionStatus =
   | "awaiting_confirmation"
   | "reopened"
   | "voided"
+  | "pending_closure"
   | "pending_finance_review";
-export type FormType = "car_rental" | "leave" | "claim" | "ppe_request" | "inventory_addition" | "waste_inventory" | "mixing_chemical_stages" | "final_discharge" | string;
+export type FormType = "car_rental" | "leave" | "claim" | "ppe_request" | "inventory_addition" | "waste_inventory" | "mixing_chemical_stages" | "final_discharge" | "permit_to_work" | string;
 
 export interface Submission {
   id: string;
@@ -239,6 +240,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
     );
     const isSafetyForm = isSafetyFormType && !isSafetyDashboardRemark;
     const isGatePass = sub.formType === 'leave';
+    const isPermitToWork = sub.formType === 'permit_to_work';
     const isMaterialRequisition = sub.formType === 'material_requisition_slip';
     const usesSharedHdsbReference = [
       "claim",
@@ -248,7 +250,7 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       "it_admin_request",
       "it_application_request",
     ].includes(sub.formType);
-    const isStandardForm = !["inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring", "material_requisition_slip"].includes(sub.formType);
+    const isStandardForm = !["inventory_addition", "ppe_request", "leave", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring", "material_requisition_slip", "permit_to_work"].includes(sub.formType);
 
     const submissionId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -263,6 +265,15 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
         return false;
       }
       refNo = safetyRefNo;
+    } else if (isPermitToWork) {
+      // Permit to Work shares the Safety department's annual SFTY-YYNNNNN sequence.
+      const { data: ptwRefNo, error } = await supabase.rpc('next_safety_ref_no');
+      if (error || typeof ptwRefNo !== "string") {
+        console.error("Could not allocate Permit to Work reference number:", error);
+        toast.error("Could not generate a Permit to Work reference number. Please try again.");
+        return false;
+      }
+      refNo = ptwRefNo;
     } else if (isGatePass) {
       const { data: gatePassRefNo, error } = await supabase.rpc('next_gate_pass_ref_no');
       if (error || typeof gatePassRefNo !== "string") {

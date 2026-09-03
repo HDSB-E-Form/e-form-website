@@ -1,17 +1,23 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Scale, Droplet, Layers, XCircle } from "lucide-react";
+import { ArrowLeft, Scale, Droplet, Layers, XCircle, HardHat } from "lucide-react";
 import safetyPoster from "@/assets/safety_poster.png";
 import { supabase } from "@/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SAFETY_POSTER_SEEN_KEY = "hdsb_safety_poster_seen";
 
 const SafetyFormsPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSafetyStaff = Boolean(
+    user && [user.role, ...(user.secondary_roles || [])].some(role => role === "safety_admin" || role === "super_admin"),
+  );
   const [posterConfig, setPosterConfig] = useState<{ enabled: boolean; url: string | null }>({ enabled: true, url: null });
   const [showPoster, setShowPoster] = useState(false);
 
   useEffect(() => {
+    if (!isSafetyStaff) return;
     supabase.from("safety_dashboard_settings").select("value").eq("key", "safety_poster").maybeSingle()
       .then(({ data }) => {
         const config = (data?.value || { enabled: true, url: null }) as { enabled: boolean; url: string | null };
@@ -23,7 +29,7 @@ const SafetyFormsPage = () => {
           sessionStorage.setItem(SAFETY_POSTER_SEEN_KEY, "true");
         }
       });
-  }, []);
+  }, [isSafetyStaff]);
 
   const returnToHome = () => {
     sessionStorage.removeItem(SAFETY_POSTER_SEEN_KEY);
@@ -36,8 +42,8 @@ const SafetyFormsPage = () => {
       {showPoster && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setShowPoster(false)}>
           <div className="relative max-w-2xl w-full animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={() => setShowPoster(false)} 
+            <button
+              onClick={() => setShowPoster(false)}
               className="absolute -top-3 -right-3 sm:-top-5 sm:-right-5 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full p-1 transition-colors z-10 shadow-lg"
               title="Close Poster"
             >
@@ -60,46 +66,64 @@ const SafetyFormsPage = () => {
 
       <div className="grid md:grid-cols-2 gap-6">
         <div
-          onClick={() => navigate("/safety/mixing")}
+          onClick={() => navigate("/safety/permit-to-work")}
           className="dept-card group"
         >
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-5">
-            <Layers className="h-7 w-7 text-white" strokeWidth={3} />
+            <HardHat className="h-7 w-7 text-white" strokeWidth={2.5} />
           </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Mixing & Chemical Stages</h2>
-          <p className="text-muted-foreground text-sm">Submit mixing & chemical stages records</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">Permit to Work</h2>
+          <p className="text-muted-foreground text-sm">Request approval for contractor work on site</p>
           <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
             Open Form →
           </div>
         </div>
 
-        <div
-          onClick={() => navigate("/safety/discharge")}
-          className="dept-card group"
-        >
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-5">
-            <Droplet className="h-7 w-7 text-white" strokeWidth={3} />
-          </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Final Discharge</h2>
-          <p className="text-muted-foreground text-sm">Submit final discharge records</p>
-          <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
-            Open Form →
-          </div>
-        </div>
+        {isSafetyStaff && (
+          <>
+            <div
+              onClick={() => navigate("/safety/mixing")}
+              className="dept-card group"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-5">
+                <Layers className="h-7 w-7 text-white" strokeWidth={3} />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Mixing & Chemical Stages</h2>
+              <p className="text-muted-foreground text-sm">Submit mixing & chemical stages records</p>
+              <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
+                Open Form →
+              </div>
+            </div>
 
-        <div
-          onClick={() => navigate("/safety/waste-inventory")}
-          className="dept-card group"
-        >
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-5">
-            <Scale className="h-7 w-7 text-white" strokeWidth={3} />
-          </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Waste Inventory Smart Calculator</h2>
-          <p className="text-muted-foreground text-sm">Calculate and record scheduled waste inventory</p>
-          <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
-            Open Form →
-          </div>
-        </div>
+            <div
+              onClick={() => navigate("/safety/discharge")}
+              className="dept-card group"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-5">
+                <Droplet className="h-7 w-7 text-white" strokeWidth={3} />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Final Discharge</h2>
+              <p className="text-muted-foreground text-sm">Submit final discharge records</p>
+              <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
+                Open Form →
+              </div>
+            </div>
+
+            <div
+              onClick={() => navigate("/safety/waste-inventory")}
+              className="dept-card group"
+            >
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-5">
+                <Scale className="h-7 w-7 text-white" strokeWidth={3} />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Waste Inventory Smart Calculator</h2>
+              <p className="text-muted-foreground text-sm">Calculate and record scheduled waste inventory</p>
+              <div className="mt-5 text-accent font-medium text-sm group-hover:translate-x-1 transition-transform">
+                Open Form →
+              </div>
+            </div>
+          </>
+        )}
       </div>
       </div>
     </>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions, type Submission, type SubmissionStatus } from "@/contexts/SubmissionsContext";
 import { Badge } from "@/components/ui/badge";
@@ -18,31 +18,40 @@ import VoidSubmissionControl from "@/components/VoidSubmissionControl";
 
 const formTypeLabels: Record<string, string> = {
   car_rental: "Vehicle Request",
-  claim: "Petty Cash Claim",
-  leave: "Gate Pass",
-  ppe_request: "PPE | Uniform | Office Supplies",
-  ppe_purchase: "PPE | Uniform | Office Supplies",
-  cctv_access_request: "CCTV Access Request",
+};
+
+// Milliseconds the submission has sat at its current approval stage — based on
+// the last approval-remark timestamp, else the submission time.
+const stageEnteredAt = (sub: Submission): number => {
+  const history = Array.isArray(sub.data?.approvalRemarksHistory) ? sub.data.approvalRemarksHistory : [];
+  const stamp = history.length ? history[history.length - 1]?.createdAt : null;
+  const time = new Date(stamp || sub.submittedAt).getTime();
+  return Number.isNaN(time) ? new Date(sub.submittedAt).getTime() : time;
+};
+
+const formatWaiting = (sub: Submission): { label: string; tone: string } => {
+  const hours = (Date.now() - stageEnteredAt(sub)) / 3_600_000;
+  if (hours < 1) return { label: "just now", tone: "text-muted-foreground" };
+  if (hours < 24) return { label: `${Math.round(hours)}h`, tone: "text-muted-foreground" };
+  const days = Math.floor(hours / 24);
+  const tone = days >= 5 ? "text-rose-600 dark:text-rose-400" : days >= 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground";
+  return { label: `${days}d`, tone };
 };
 
 const statusBadge = (status: string) => {
   switch (status) {
     case "approved":
       return <Badge className="bg-[#57D51B] text-white hover:bg-[#57D51B] border-0 text-xs font-medium px-3 py-1">Fully Approved</Badge>;
-    case "approved_hof":
-      return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400 border-0 text-xs font-medium px-3 py-1">HOF Approved</Badge>;
-    case "approved_hop":
-      return <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-400 border-0 text-xs font-medium px-3 py-1">HOP Approved</Badge>;
     case "approved_hod":
-      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">HOD Approved</Badge>;
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-0 text-xs font-medium px-3 py-1">Pending HR</Badge>;
     case "approved_hos":
-      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">HOS Approved</Badge>;
+      return <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 border-0 text-xs font-medium px-3 py-1">Pending HOD</Badge>;
     case "rejected":
       return <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive border-0 text-xs font-medium px-3 py-1">Rejected</Badge>;
     case "voided":
       return <Badge className="border-0 bg-slate-500/15 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">Voided</Badge>;
     case "completed":
-      return <Badge className="border-0 bg-[#57D51B] px-3 py-1 text-xs font-medium text-white hover:bg-[#57D51B]">Returned</Badge>;
+      return <Badge className="border-0 bg-[#57D51B] px-3 py-1 text-xs font-medium text-white hover:bg-[#57D51B]">Completed</Badge>;
     case "pending":
     default:
       return <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 text-xs font-medium px-3 py-1">Pending HOS</Badge>;
@@ -164,7 +173,7 @@ const handlePrint = (sub: Submission | null) => {
 
 const AdminDashboard = () => {
   const { user } = useAuth();
-  const { submissions, updateSubmissionStatus, addSubmission, isLoading, refreshSubmissions } = useSubmissions();
+  const { submissions, refNoMap, updateSubmissionStatus, isLoading, refreshSubmissions } = useSubmissions();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [search, setSearch] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -198,53 +207,36 @@ const AdminDashboard = () => {
              dateStr2.includes(q);
     });
 
-  const isRecent = (dateStr: string) => {
-    const hours = (new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60);
-    return hours < 48;
-  };
+  const tabFiltered = filtered
+    .filter(s => {
+      if (activeTab === "action_required") return s.status === "approved_hod";
+      if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
+      if (activeTab === "history") return ["approved", "completed", "rejected", "voided"].includes(s.status);
+      return true;
+    })
+    .sort((a, b) =>
+      activeTab === "action_required"
+        ? stageEnteredAt(a) - stageEnteredAt(b)                                   // longest-waiting first
+        : new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()   // newest first
+    );
 
-  const tabFiltered = filtered.filter(s => {
-    if (activeTab === "action_required") return s.status === "approved_hod";
-    if (activeTab === "in_progress") return s.status === "pending" || s.status === "approved_hos";
-    if (activeTab === "history") return ["approved", "completed", "rejected", "voided"].includes(s.status);
-    return true;
-  });
-
+  const decidedCount = filtered.filter(s => s.status === "approved" || s.status === "rejected").length;
   const stats = {
     total: filtered.length,
     actionRequired: filtered.filter(s => s.status === "approved_hod").length,
     inProgress: filtered.filter(s => s.status === "pending" || s.status === "approved_hos").length,
-    approvalRate: filtered.length > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / filtered.length) * 100) : 0,
+    approvalRate: decidedCount > 0 ? Math.round((filtered.filter(s => s.status === "approved").length / decidedCount) * 100) : 0,
   };
   const visibleSubmissions = isViewAll ? tabFiltered : tabFiltered.slice(0, 10);
   const activePersonalGatePasses = submissions.filter(submission => getPersonalGatePassElapsed(submission, trackingNow));
 
-  const refNoMap = useMemo(() => {
-    const map = new Map<string, string>();
-    const excludedForms = ["inventory_addition", "ppe_request", "waste_inventory", "mixing_chemical_stages", "final_discharge", "daily_operation_monitoring"];
-    const standardForms = submissions
-      .filter(s => !excludedForms.includes(s.formType))
-      .sort((a, b) => {
-        const timeDiff = new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-        return timeDiff !== 0 ? timeDiff : a.id.localeCompare(b.id);
-      });
-    standardForms.forEach((s, idx) => {
-      map.set(s.id, `HDSB-${String(idx + 1).padStart(4, "0")}`);
-    });
-    return map;
-  }, [submissions]);
-
-  const generateRefNo = (sub: Submission) => {
-    if (sub.data?.refNo) return sub.data.refNo;
-    return refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
-  };
+  const generateRefNo = (sub: Submission) => sub.data?.refNo || refNoMap.get(sub.id) || `HDSB-${sub.id.slice(-4)}`;
 
   const handleAction = (id: string, status: SubmissionStatus) => {
     const currentSubmission = submissions.find(submission => submission.id === id);
-    const isEarlyHrRejection = status === "rejected" && currentSubmission && ["pending", "approved_hos"].includes(currentSubmission.status);
 
-    if (isEarlyHrRejection && !remarks.trim()) {
-      toast.error("Please enter a reason before rejecting an in-progress request.");
+    if (status === "rejected" && !remarks.trim()) {
+      toast.error("Please enter a reason before rejecting this request.");
       return;
     }
 
@@ -392,7 +384,7 @@ const AdminDashboard = () => {
   }
 
   if (selectedSubmission) {
-    const isApprovalForm = selectedSubmission.formType === "car_rental" || selectedSubmission.formType === "leave";
+    const isApprovalForm = selectedSubmission.formType === "car_rental";
     const canApprove = selectedSubmission.status === "approved_hod";
     const isPending = selectedSubmission.status === "pending" || selectedSubmission.status === "approved_hos";
 
@@ -413,15 +405,15 @@ const AdminDashboard = () => {
                  "No action required at this time."}
               </p>
               <div className="w-full max-w-md">
-                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">HR Admin Action</p>
+                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">HR override</p>
                 <Textarea
-                  placeholder="Enter remarks if rejecting..."
+                  placeholder="Reason for rejecting this request..."
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
                   rows={3}
                   className="mb-3 min-h-20 resize-y bg-background"
                 />
-                <button onClick={() => handleAction(selectedSubmission.id, "rejected")} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">REJECT SUBMISSION</button>
+                <button onClick={() => handleAction(selectedSubmission.id, "rejected")} className="w-full px-6 py-3 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm">Reject request</button>
               </div>
             </div>
           </div>
@@ -441,25 +433,25 @@ const AdminDashboard = () => {
             <div className="flex flex-row gap-3 sm:gap-4">
               <button
                 onClick={() => handleAction(selectedSubmission.id, "rejected")}
-                className="w-1/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-xs sm:text-base"
+                className="flex-1 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-destructive text-white font-bold text-center hover:bg-destructive/90 transition-colors text-sm sm:text-base"
               >
-                REJECT
+                Reject
               </button>
               <button
                 onClick={() => handleAction(selectedSubmission.id, "approved")}
-                className="w-2/3 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-[#57D51B] text-white font-bold text-center hover:bg-[#49BD16] transition-colors text-xs sm:text-base"
+                className="flex-1 px-2 sm:px-6 py-3 sm:py-4 rounded-xl bg-[#57D51B] text-white font-bold text-center hover:bg-[#49BD16] transition-colors text-sm sm:text-base"
               >
-                APPROVE
+                Approve
               </button>
             </div>
             </div>
           </>
         )}
 
-        {selectedSubmission.formType === 'ppe_purchase' && (
+        {isApprovalForm && (
           <div className="flex justify-center mt-8">
             <button onClick={() => handlePrint(selectedSubmission)} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
-              <Printer className="h-4 w-4" /> Print Record
+              <Printer className="h-4 w-4" /> Print request
             </button>
           </div>
         )}
@@ -476,49 +468,36 @@ const AdminDashboard = () => {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">HR Form Approvals</h1>
-          <p className="text-muted-foreground text-sm mt-1">Review and approve incoming vehicle booking requests.</p>
+          <p className="text-muted-foreground text-sm mt-1">Final approval for vehicle booking requests, after HOS and HOD sign-off.</p>
+        </div>
+        <div className="flex items-center gap-5 sm:gap-6">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Approval rate</p>
+            <p className="mt-0.5 text-lg font-bold leading-none text-foreground">{stats.approvalRate}%</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total requests</p>
+            <p className="mt-0.5 text-lg font-bold leading-none text-foreground">{stats.total}</p>
+          </div>
         </div>
       </div>
 
       <div className="animate-in slide-in-from-bottom-2 duration-700">
-          <div className="card-elevated mb-4 border-border/60 bg-muted/40 p-4 sm:p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="min-w-0">
-            <p className="mb-3 text-sm font-bold text-foreground">Filter Approvals</p>
-            <div className="flex w-full items-center gap-1.5 overflow-x-auto rounded-xl p-1.5 pb-2 sm:w-fit sm:pb-1.5">
-              <button onClick={() => { setActiveTab("action_required"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "action_required" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-                Action Required
-                {stats.actionRequired > 0 && (
-                  <Badge className="h-6 min-w-6 justify-center border-0 bg-red-500 px-1.5 text-xs text-white hover:bg-red-500">{stats.actionRequired}</Badge>
-                )}
+          <div className="mb-4 flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-muted/40 p-1.5">
+            {([
+              ["action_required", "Action Required", stats.actionRequired, "bg-red-500 text-white"],
+              ["in_progress", "In Progress", stats.inProgress, "bg-muted-foreground/20 text-muted-foreground"],
+              ["history", "History", 0, ""],
+            ] as const).map(([tab, label, count, badgeClass]) => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setIsViewAll(false); }}
+                className={`flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-bold transition-colors sm:flex-none ${activeTab === tab ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {label}
+                {count > 0 && <Badge className={`h-5 min-w-5 justify-center border-0 px-1.5 text-[11px] ${badgeClass}`}>{count}</Badge>}
               </button>
-              <button onClick={() => { setActiveTab("in_progress"); setIsViewAll(false); }} className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "in_progress" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-                In Progress
-                {stats.inProgress > 0 && (
-                  <Badge className="h-6 min-w-6 justify-center border-0 bg-muted-foreground/20 px-1.5 text-xs text-muted-foreground hover:bg-muted-foreground/20">{stats.inProgress}</Badge>
-                )}
-              </button>
-              <button onClick={() => { setActiveTab("history"); setIsViewAll(false); }} className={`flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-5 py-2.5 text-[15px] font-bold transition-all sm:flex-none ${activeTab === "history" ? "border-primary bg-primary text-primary-foreground shadow-md ring-1 ring-primary/30" : "border-border/60 bg-background text-muted-foreground shadow-sm hover:border-primary/25 hover:text-foreground hover:shadow"}`}>
-                History
-              </button>
-            </div>
-            <p className="mt-2 text-[11px] font-medium text-muted-foreground sm:hidden">Swipe sideways to see all filters →</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 xl:shrink-0">
-              <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-                <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Action Required</p>
-                <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.actionRequired}</p>
-              </div>
-              <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-                <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Approval Rate</p>
-                <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.approvalRate}%</p>
-              </div>
-              <div className="min-w-24 rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-3 py-2 shadow-sm">
-                <p className="text-[10px] font-semibold leading-tight text-muted-foreground">Total</p>
-                <p className="mt-1 text-xl font-bold leading-none text-foreground">{stats.total}</p>
-              </div>
-            </div>
-            </div>
+            ))}
           </div>
 
           {activePersonalGatePasses.length > 0 && (
@@ -539,7 +518,9 @@ const AdminDashboard = () => {
 
           <div className="card-elevated overflow-hidden">
             <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-              <h2 className="text-lg font-bold text-foreground">Recent Submissions</h2>
+              <h2 className="text-lg font-bold text-foreground">
+                {activeTab === "action_required" ? "Awaiting HR approval" : activeTab === "in_progress" ? "In progress" : "History"}
+              </h2>
               <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -566,15 +547,19 @@ const AdminDashboard = () => {
                         <TableHead className="text-xs font-bold uppercase tracking-wider">Employee</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Submission Date</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Booking Date</TableHead>
+                        {activeTab === "action_required" && (
+                          <TableHead className="text-xs font-bold uppercase tracking-wider whitespace-nowrap">Waiting</TableHead>
+                        )}
                         <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Status</TableHead>
                         <TableHead className="text-xs font-bold uppercase tracking-wider text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {visibleSubmissions.map((sub) => {
-                        const avatarUrl = (sub as any).avatar || sub.data?.employeeInfo?.avatar || sub.data?.avatar;
+                        const avatarUrl = sub.data?.employeeInfo?.avatar || sub.data?.avatar;
+                        const waiting = activeTab === "action_required" ? formatWaiting(sub) : null;
                         return (
-                          <TableRow key={sub.id} className={`${activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}>
+                          <TableRow key={sub.id} className="hover:bg-muted/20">
                             <TableCell className="text-sm font-semibold text-primary whitespace-nowrap">{generateRefNo(sub)}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-3">
@@ -615,10 +600,13 @@ const AdminDashboard = () => {
                                 )}
                               </div>
                             </TableCell>
+                            {waiting && (
+                              <TableCell className={`whitespace-nowrap text-sm font-semibold ${waiting.tone}`}>{waiting.label}</TableCell>
+                            )}
                             <TableCell className="text-center">{statusBadge(sub.status)}</TableCell>
                             <TableCell className="text-center">
                               <button onClick={() => setSelectedSubmission(sub)} className="min-h-11 min-w-[8rem] whitespace-nowrap rounded-lg bg-primary px-5 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
-                                {sub.status === "pending" || sub.status === "approved_hos" || sub.status === "approved_hod" ? "Review" : "Details"}
+                                {sub.status === "approved_hod" ? "Review" : "View"}
                               </button>
                             </TableCell>
                           </TableRow>
@@ -628,14 +616,14 @@ const AdminDashboard = () => {
                   </Table>
                 </div>
                 <div className="divide-y divide-border/60 sm:hidden">
-                  {visibleSubmissions.map(sub => (
+                  {visibleSubmissions.map(sub => {
+                    const waiting = activeTab === "action_required" ? formatWaiting(sub) : null;
+                    return (
                     <button
                       key={sub.id}
                       type="button"
                       onClick={() => setSelectedSubmission(sub)}
-                      className={`block w-full p-4 text-left transition-colors hover:bg-muted/30 ${
-                        activeTab === "action_required" && isRecent(sub.submittedAt) ? "bg-primary/5" : ""
-                      }`}
+                      className="block w-full p-4 text-left transition-colors hover:bg-muted/30"
                     >
                       <div className="mb-2 flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -648,13 +636,15 @@ const AdminDashboard = () => {
                         <div className="text-xs text-muted-foreground">
                           <p>Submitted: {new Date(sub.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
                           <p className="mt-1">Booking: {sub.data?.fromDate ? new Date(sub.data.fromDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}</p>
+                          {waiting && <p className={`mt-1 font-semibold ${waiting.tone}`}>Waiting {waiting.label}</p>}
                         </div>
                         <span className="flex min-h-11 min-w-[7rem] shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm">
-                          {["pending", "approved_hos", "approved_hod"].includes(sub.status) ? "Review" : "Details"}
+                          {sub.status === "approved_hod" ? "Review" : "View"}
                         </span>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="flex items-center justify-between p-4 border-t border-border">
                   <p className="text-sm text-muted-foreground">Showing {Math.min(tabFiltered.length, isViewAll ? tabFiltered.length : 10)} of {tabFiltered.length} results</p>

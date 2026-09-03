@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect } from "react";
 import { useSubmissions, type CarInfo, type Submission } from "@/contexts/SubmissionsContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Car, CheckCircle, ArrowRightLeft, Info, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera, ChevronDown, ChevronUp } from "lucide-react";
+import { Car, CheckCircle, ArrowRightLeft, History, XCircle, CalendarClock, Plus, Trash2, Pencil, Upload, Image as ImageIcon, Camera, ChevronDown, ChevronUp, Search, Fuel, ZoomIn, Wrench, RotateCcw, CircleParking, UserCheck, ClipboardList } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -59,6 +59,49 @@ const toLocalDateTimeValue = (date: Date) => {
   return localDate.toISOString().slice(0, 16);
 };
 
+const STATUS_META: Record<string, { label: string; badge: string; dot: string; accent: string }> = {
+  available: { label: "Available", badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", accent: "border-l-emerald-500" },
+  checked_out: { label: "In Use", badge: "bg-blue-500/15 text-blue-700 dark:text-blue-400", dot: "bg-blue-500", accent: "border-l-blue-500" },
+  maintenance: { label: "Maintenance", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-400", dot: "bg-amber-500", accent: "border-l-amber-500" },
+};
+const STATUS_ORDER: Record<string, number> = { available: 0, checked_out: 1, maintenance: 2 };
+
+const shortDate = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+};
+
+const FuelGauge = ({ level, className = "" }: { level?: string | null; className?: string }) => {
+  if (!level) return null;
+  const bars = fuelBars[level] ?? 0;
+  return (
+    <div className={`flex items-center gap-1.5 ${className}`}>
+      <Fuel className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-[11px] font-semibold text-muted-foreground">{level}</span>
+      <div className="flex h-2.5 gap-0.5">
+        {[1, 2, 3, 4, 5, 6, 7].map(bar => (
+          <div key={bar} className={`w-1 rounded-[1px] ${bar <= bars ? (bars === 1 ? "bg-destructive" : "bg-primary") : "bg-muted-foreground/25"}`} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const STAT_TONES = {
+  primary: { border: "border-l-primary", text: "text-primary" },
+  emerald: { border: "border-l-emerald-500", text: "text-emerald-700 dark:text-emerald-400" },
+  blue: { border: "border-l-blue-500", text: "text-blue-700 dark:text-blue-400" },
+  amber: { border: "border-l-amber-500", text: "text-amber-700 dark:text-amber-400" },
+} as const;
+
+const StatTile = ({ label, value, tone }: { label: string; value: number; tone: keyof typeof STAT_TONES }) => (
+  <div className={`card-elevated border-l-4 p-3.5 ${STAT_TONES[tone].border}`}>
+    <p className={`text-[11px] font-bold uppercase tracking-wider ${STAT_TONES[tone].text}`}>{label}</p>
+    <p className="mt-0.5 text-2xl font-bold text-foreground">{value}</p>
+  </div>
+);
+
 const CarManagement = () => {
   const { submissions, refNoMap, cars, checkInCar, checkOutCar, addCar, deleteCar, updateCar, refreshSubmissions, isLoading } = useSubmissions();
   const { user } = useAuth();
@@ -69,6 +112,8 @@ const CarManagement = () => {
   const [carToEdit, setCarToEdit] = useState<CarInfo | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "available" | "checked_out" | "maintenance">("all");
 
   useEffect(() => { void refreshSubmissions(); }, [refreshSubmissions]);
   useEffect(() => {
@@ -81,6 +126,29 @@ const CarManagement = () => {
   const available = cars.filter(c => c.status === "available");
   const checkedOut = cars.filter(c => c.status === "checked_out");
   const maintenance = cars.filter(c => c.status === "maintenance");
+
+  const carQuery = search.trim().toLowerCase();
+  const visibleCars = [...cars]
+    .filter(c => statusFilter === "all" || c.status === statusFilter)
+    .filter(c => {
+      if (!carQuery) return true;
+      return c.model.toLowerCase().includes(carQuery)
+        || c.plateNumber.toLowerCase().includes(carQuery)
+        || (c.type || "").toLowerCase().includes(carQuery)
+        || (c.lastCheckedOutBy || "").toLowerCase().includes(carQuery)
+        || (c.activeSubmissionRefNo || "").toLowerCase().includes(carQuery);
+    })
+    .sort((a, b) => (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) || a.model.localeCompare(b.model));
+
+  const handleMarkAvailable = async (car: CarInfo) => {
+    const success = await updateCar(car.id, { status: "available" });
+    if (success) toast.success(`${car.model} (${car.plateNumber}) is now available.`);
+  };
+  const handleSendToMaintenance = async (car: CarInfo) => {
+    if (!window.confirm(`Send "${car.model} (${car.plateNumber})" to maintenance? It will be unavailable for booking.`)) return;
+    const success = await updateCar(car.id, { status: "maintenance" });
+    if (success) toast.success(`${car.model} (${car.plateNumber}) moved to maintenance.`);
+  };
 
   const handleStartCheckout = (car: CarInfo) => {
     setSelectedCar(car);
@@ -177,215 +245,177 @@ const CarManagement = () => {
           initialData={carToEdit}
           onClose={() => setIsCarModalOpen(false)} 
           onSubmit={async (model, plateNumber, type, imageUrl, status) => {
+            const normalizedPlate = plateNumber.trim().toUpperCase();
+            const duplicate = cars.some(c => c.id !== carToEdit?.id && c.plateNumber.trim().toUpperCase() === normalizedPlate);
+            if (duplicate) {
+              toast.error(`A vehicle with plate "${normalizedPlate}" already exists.`);
+              return;
+            }
             if (carToEdit) {
-              const success = await updateCar(carToEdit.id, { model, plateNumber, type, imageUrl, status: status as any });
+              const success = await updateCar(carToEdit.id, { model, plateNumber: normalizedPlate, type, imageUrl, status: status as CarInfo["status"] });
               if (success) {
-                toast.success(`Vehicle ${model} (${plateNumber}) has been updated.`);
+                toast.success(`Vehicle ${model} (${normalizedPlate}) has been updated.`);
                 setIsCarModalOpen(false);
               }
             } else if (addCar) {
-              const success = await addCar({ id: Math.random().toString(36).slice(2), model, plateNumber, status: status as any, history: [], type, imageUrl });
+              const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+              const success = await addCar({ id, model, plateNumber: normalizedPlate, status: status as CarInfo["status"], history: [], type, imageUrl });
               if (success) {
-                toast.success(`Vehicle ${model} (${plateNumber}) has been added.`);
+                toast.success(`Vehicle ${model} (${normalizedPlate}) has been added.`);
                 setIsCarModalOpen(false);
               }
             }
-          }} 
+          }}
         />
       )}
-      <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Cars Overview</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage and review all incoming department requests.</p>
+          <h1 className="text-2xl font-bold text-foreground">Car Management</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Fleet vehicles, check-outs, returns, and trip history.</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/40 p-2 sm:flex sm:items-stretch">
-          <div className="rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-4 py-2 shadow-sm">
-            <p className="text-[11px] font-semibold text-muted-foreground">Available</p>
-            <p className="mt-0.5 text-xl font-bold leading-none text-foreground">{available.length}</p>
-          </div>
-          <div className="rounded-lg border border-border/60 border-l-4 border-l-primary bg-background px-4 py-2 shadow-sm">
-            <p className="text-[11px] font-semibold text-muted-foreground">In Use</p>
-            <p className="mt-0.5 text-xl font-bold leading-none text-foreground">{checkedOut.length}</p>
-          </div>
-        <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="col-span-2 flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98] sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Add New Car
-        </button>
-        <button onClick={() => setIsBookingHistoryOpen(true)} className="col-span-2 flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border/60 bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/25 hover:shadow sm:w-auto">
-          <History className="h-4 w-4" />
-          Vehicle Usage History
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setIsBookingHistoryOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border bg-background px-4 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/25 hover:shadow">
+            <History className="h-4 w-4" /> History
+          </button>
+          <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
+            <Plus className="h-4 w-4" /> Add Vehicle
+          </button>
         </div>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ready for Check-Out */}
-        <div className="card-elevated overflow-hidden h-fit">
-          <div className="p-5 border-b border-border flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-foreground">Available Cars</h2>
-              <p className="text-xs text-muted-foreground">Ready for Check-out</p>
-            </div>
-            <Badge className="border-0 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{available.length} VEHICLES</Badge>
-          </div>
-          <div className="divide-y divide-border">
-            {available.length === 0 && (
-              <p className="p-6 text-center text-sm text-muted-foreground">No vehicles available</p>
-            )}
-            {available.map(car => (
-              <div key={car.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex items-center gap-4 w-full">
-                  <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {car.imageUrl ? (
-                      <img src={car.imageUrl} alt={car.model} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setFullscreenImage(car.imageUrl!)} title="Click to enlarge" />
-                    ) : (
-                      <Car className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">{car.model}</p>
-                    <div className="mt-0.5 sm:flex sm:items-center sm:gap-2">
-                      <p className="text-xs text-muted-foreground">{car.plateNumber} • {car.type || "Sedan"}</p>
-                      {(() => {
-                        const fuel = car.currentFuelLevel || car.history?.[0]?.fuelLevelIn;
-                        if (!fuel) return null;
-                        const activeBars = fuelBars[fuel] || 0;
-                        return (
-                          <div className="mt-2 flex items-center gap-1.5 sm:ml-2 sm:mt-0 sm:border-l sm:border-border sm:pl-3">
-                            <span className="text-[11px] font-bold text-muted-foreground">Fuel: {fuel}</span>
-                            <div className="flex gap-0.5 h-2.5">
-                              {[1, 2, 3, 4, 5, 6, 7].map(bar => (
-                                <div key={bar} className={`w-1 h-full ${bar <= activeBars ? (activeBars === 1 ? 'bg-destructive' : 'bg-primary') : 'bg-muted-foreground/20'}`} />
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <button 
-                    onClick={() => { setCarToEdit(car); setIsCarModalOpen(true); }} 
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                    title="Edit Car">
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteCar(car)} 
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    title="Delete Car">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => handleStartCheckout(car)} className="ml-auto flex min-h-11 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-4 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
-                    <ArrowRightLeft className="h-3.5 w-3.5" /> Check-Out
-                  </button>
-                </div>
-              </div>
+      {/* KPI row */}
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="Total Fleet" value={cars.length} tone="primary" />
+        <StatTile label="Available" value={available.length} tone="emerald" />
+        <StatTile label="In Use" value={checkedOut.length} tone="blue" />
+        <StatTile label="Maintenance" value={maintenance.length} tone="amber" />
+      </div>
+
+      {/* Approved bookings waiting for a vehicle */}
+      {approvedBookings.length > 0 && (
+        <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <p className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <CalendarClock className="h-4 w-4 text-primary" />
+            {approvedBookings.length} approved booking{approvedBookings.length === 1 ? "" : "s"} waiting for a vehicle
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {approvedBookings.slice(0, 5).map(booking => (
+              <span key={booking.submissionId} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-2.5 py-1 text-xs">
+                <span className="font-semibold text-foreground">{booking.employeeName}</span>
+                <span className="text-muted-foreground">· {booking.referenceNumber} · until {shortDate(booking.toDate)}</span>
+              </span>
             ))}
+            {approvedBookings.length > 5 && <span className="px-1 py-1 text-xs font-semibold text-muted-foreground">+{approvedBookings.length - 5} more</span>}
           </div>
         </div>
+      )}
 
-        <div className="flex flex-col gap-6">
-          {/* Waiting for Check-In */}
-          <div className="card-elevated overflow-hidden h-fit">
-            <div className="p-5 border-b border-border flex items-center justify-between">
-              <div>
-                <h2 className="font-bold text-foreground">Vehicles In-Use</h2>
-                <p className="text-xs text-muted-foreground">Pending Returns</p>
-              </div>
-              <Badge className="border-0 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{checkedOut.length} VEHICLES</Badge>
-            </div>
-            <div className="divide-y divide-border">
-              {checkedOut.map(car => (
-                <div key={car.id} className="flex flex-col gap-4 p-4 2xl:flex-row 2xl:items-center">
-                  <div className="flex items-center gap-4 w-full">
-                    <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {car.imageUrl ? (
-                        <img src={car.imageUrl} alt={car.model} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setFullscreenImage(car.imageUrl!)} title="Click to enlarge" />
-                      ) : (
-                        <Car className="h-6 w-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2 mb-0.5">
-                        <p className="font-semibold text-foreground text-sm truncate">{car.model}</p>
-                        <Badge className="mt-0.5 shrink-0 whitespace-nowrap border-0 bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">IN USE</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{car.plateNumber} • {car.type || "Sedan"}</p>
-                      {car.activeSubmissionRefNo && <p className="mt-1 text-[11px] font-semibold text-primary">{car.activeSubmissionRefNo}</p>}
-                    </div>
-                  </div>
-                  <div className="flex w-full items-center justify-between gap-3 2xl:w-auto 2xl:justify-end 2xl:gap-6">
-                    <div className="min-w-0 max-w-[9rem] text-left">
-                      <p className="text-[11px] font-medium text-muted-foreground">Booked By</p>
-                      <p className="truncate text-sm font-bold text-foreground" title={car.lastCheckedOutBy || undefined}>
-                        {car.lastCheckedOutBy && car.lastCheckedOutBy.length > 15
-                          ? `${car.lastCheckedOutBy.slice(0, 15)}...`
-                          : car.lastCheckedOutBy || "—"}
-                      </p>
-                    </div>
-                    <button onClick={() => handleStartCheckin(car)} className="flex min-h-11 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-4 py-2.5 text-[15px] font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow active:scale-[0.98]">
-                      <ArrowRightLeft className="h-3.5 w-3.5" /> Check-In
-                    </button>
-                  </div>
-                </div>
-              ))}
-            {checkedOut.length === 0 && (
-              <p className="p-6 text-center text-sm text-muted-foreground">No vehicles checked out</p>
-            )}
-            </div>
-          </div>
+      {/* Filter bar */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search model, plate, driver…" className="h-10 pl-9 text-sm" />
+        </div>
+        <div className="flex shrink-0 gap-0.5 overflow-x-auto rounded-lg border border-border bg-muted/40 p-0.5">
+          {([["all", "All"], ["available", "Available"], ["checked_out", "In Use"], ["maintenance", "Maintenance"]] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setStatusFilter(value)}
+              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${statusFilter === value ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {/* Maintenance */}
-          {maintenance.length > 0 && (
-            <div className="card-elevated overflow-hidden border-orange-500/20 h-fit">
-              <div className="p-5 border-b border-border flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-foreground">Under Maintenance</h2>
-                  <p className="text-xs text-muted-foreground">Currently unavailable</p>
-                </div>
-                <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0 text-xs font-bold">{maintenance.length} VEHICLES</Badge>
-              </div>
-              <div className="divide-y divide-border">
-                {maintenance.map(car => (
-                  <div key={car.id} className="p-4 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {car.imageUrl ? (
-                        <img src={car.imageUrl} alt={car.model} className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setFullscreenImage(car.imageUrl!)} title="Click to enlarge" />
-                      ) : (
-                        <Car className="h-6 w-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-2 mb-0.5">
-                        <p className="font-semibold text-foreground text-sm truncate">{car.model}</p>
-                        <Badge className="bg-orange-500 text-white border-0 text-[9px] px-1.5 py-0 uppercase tracking-wider font-bold shrink-0 whitespace-nowrap mt-0.5">MAINTENANCE</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{car.plateNumber} • {car.type || "Sedan"}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => { setCarToEdit(car); setIsCarModalOpen(true); }} 
-                        className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        title="Edit Car">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteCar(car)} 
-                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                        title="Delete Car">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-          </div>
+      {/* Fleet grid */}
+      {visibleCars.length === 0 ? (
+        <div className="card-elevated flex flex-col items-center justify-center gap-2 p-12 text-center">
+          <CircleParking className="h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-foreground">{cars.length === 0 ? "No vehicles in the fleet yet." : "No vehicles match your filters."}</p>
+          {cars.length === 0 && (
+            <button onClick={() => { setCarToEdit(null); setIsCarModalOpen(true); }} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" /> Add the first vehicle
+            </button>
           )}
         </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleCars.map(car => {
+            const meta = STATUS_META[car.status] || STATUS_META.available;
+            const fuel = car.currentFuelLevel || car.history?.[0]?.fuelLevelIn || car.fuelLevelOut;
+            return (
+              <article key={car.id} className={`card-elevated flex flex-col overflow-hidden border-l-4 ${meta.accent}`}>
+                <button
+                  type="button"
+                  onClick={() => car.imageUrl && setFullscreenImage(car.imageUrl)}
+                  className="group relative block aspect-[16/9] w-full overflow-hidden bg-muted"
+                  aria-label={car.imageUrl ? `Enlarge photo of ${car.model}` : `${car.model} — no photo`}
+                >
+                  {car.imageUrl ? (
+                    <>
+                      <img src={car.imageUrl} alt={car.model} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100"><ZoomIn className="h-6 w-6" /></span>
+                    </>
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center"><Car className="h-10 w-10 text-muted-foreground/40" /></span>
+                  )}
+                  <span className={`absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full border-0 px-2.5 py-1 text-[11px] font-bold ${meta.badge}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} /> {meta.label}
+                  </span>
+                </button>
+
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <div>
+                    <p className="truncate font-bold text-foreground">{car.model}</p>
+                    <p className="text-xs text-muted-foreground">{car.plateNumber} · {car.type || "Sedan"}</p>
+                  </div>
+
+                  {fuel && <FuelGauge level={fuel} />}
+
+                  {car.status === "checked_out" && (
+                    <div className="rounded-lg border border-blue-500/15 bg-blue-500/5 p-2.5 text-xs">
+                      <p className="text-foreground">Out with <span className="font-bold">{car.lastCheckedOutBy || "—"}</span></p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        {car.activeSubmissionRefNo ? `${car.activeSubmissionRefNo} · ` : ""}since {shortDate(car.lastCheckedOutAt)}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-auto flex items-center gap-2 pt-1">
+                    {car.status === "available" && (
+                      <>
+                        <button onClick={() => handleSendToMaintenance(car)} title="Send to maintenance" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-amber-500/10 hover:text-amber-600"><Wrench className="h-4 w-4" /></button>
+                        <button onClick={() => { setCarToEdit(car); setIsCarModalOpen(true); }} title="Edit vehicle" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => handleDeleteCar(car)} title="Delete vehicle" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => handleStartCheckout(car)} className="ml-auto inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]">
+                          <ArrowRightLeft className="h-4 w-4" /> Check Out
+                        </button>
+                      </>
+                    )}
+                    {car.status === "checked_out" && (
+                      <button onClick={() => handleStartCheckin(car)} className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.98]">
+                        <RotateCcw className="h-4 w-4" /> Check In
+                      </button>
+                    )}
+                    {car.status === "maintenance" && (
+                      <>
+                        <button onClick={() => { setCarToEdit(car); setIsCarModalOpen(true); }} title="Edit vehicle" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => handleDeleteCar(car)} title="Delete vehicle" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => handleMarkAvailable(car)} className="ml-auto inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-600/40 px-3 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-400">
+                          <CheckCircle className="h-4 w-4" /> Mark Available
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
+      )}
 
     </div>
   );
@@ -446,13 +476,16 @@ function CheckOutForm({ car, bookings, availablePetrolCards, onCancel, onSubmit 
 
   return (
     <div className="mx-auto max-w-5xl animate-in slide-in-from-bottom-2 p-4 duration-700 sm:p-6 lg:p-8">
-      <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-Out</span></p>
-      <h1 className="text-2xl font-bold text-foreground">Vehicle Check-Out Form</h1>
+      <button type="button" onClick={onCancel} className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80">
+        <ArrowRightLeft className="h-3.5 w-3.5 rotate-180" /> Car Management
+      </button>
+      <h1 className="text-2xl font-bold text-foreground">Vehicle Check-Out</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Hand the vehicle to an employee with an approved booking.</p>
 
       {/* Car Info */}
       <div className="card-elevated p-5 mt-6">
         <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">
-          <Car className="h-4 w-4 text-primary" /> Car Info
+          <Car className="h-4 w-4 text-primary" /> Vehicle
         </h3>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -468,7 +501,7 @@ function CheckOutForm({ car, bookings, availablePetrolCards, onCancel, onSubmit 
 
       {/* Employee Selection */}
       <div className="card-elevated p-5 mt-4">
-        <h3 className="font-bold text-foreground flex items-center gap-2 mb-3">👤 Employee Selection</h3>
+        <h3 className="font-bold text-foreground flex items-center gap-2 mb-3"><UserCheck className="h-4 w-4 text-primary" /> Employee</h3>
         <p className="text-xs text-muted-foreground mb-2">Who is taking the car?</p>
         <Select value={submissionId} onValueChange={setSubmissionId} required>
           <SelectTrigger className="h-11 text-base sm:text-sm">
@@ -486,7 +519,7 @@ function CheckOutForm({ car, bookings, availablePetrolCards, onCancel, onSubmit 
 
       {/* Booking Details */}
       <div className="card-elevated p-5 mt-4">
-        <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">📋 Booking Details</h3>
+        <h3 className="font-bold text-foreground flex items-center gap-2 mb-4"><ClipboardList className="h-4 w-4 text-primary" /> Vehicle Condition (Out)</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
@@ -630,7 +663,7 @@ function CheckOutForm({ car, bookings, availablePetrolCards, onCancel, onSubmit 
             }
           }}
           disabled={isSubmitting}
-          className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
+          className="btn-gold w-full sm:w-auto sm:min-w-[16rem] px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
           <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit Check-Out"}
         </button>
         <div className="w-full h-px bg-border sm:hidden" />
@@ -694,14 +727,15 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
 
   return (
     <div className="mx-auto max-w-5xl animate-in slide-in-from-bottom-2 p-4 duration-700 sm:p-6 lg:p-8">
-      <p className="text-sm text-primary mb-1">Cars Overview › <span className="font-bold text-foreground">Check-In</span></p>
-      <h1 className="text-2xl font-bold text-foreground">Vehicle Check-In Form</h1>
+      <button type="button" onClick={onCancel} className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80">
+        <ArrowRightLeft className="h-3.5 w-3.5 rotate-180" /> Car Management
+      </button>
+      <h1 className="text-2xl font-bold text-foreground">Vehicle Check-In</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Record the vehicle's return condition and close the trip.</p>
 
-      {/* Section 1: Booking Summary */}
-      <div className="card-elevated mt-4 p-4">
-        <div className="mb-3 border-b border-border pb-2">
-          <h3 className="text-sm font-bold text-primary">Section 1: Booking Summary</h3>
-        </div>
+      {/* Trip summary */}
+      <div className="card-elevated mt-6 p-5">
+        <h3 className="mb-3 flex items-center gap-2 font-bold text-foreground"><ClipboardList className="h-4 w-4 text-primary" /> Trip Summary (Out)</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Car Name</p>
@@ -751,11 +785,9 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
         )}
       </div>
 
-      {/* Section 2: Check-In Details */}
+      {/* Return details */}
       <div className="card-elevated p-5 mt-4">
-        <div className="border-b border-border pb-3 mb-4">
-          <h3 className="font-bold text-primary">Section 2: Check-In Details</h3>
-        </div>
+        <h3 className="mb-4 flex items-center gap-2 font-bold text-foreground"><ClipboardList className="h-4 w-4 text-primary" /> Vehicle Condition (Return)</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
@@ -863,7 +895,7 @@ function CheckInForm({ car, onCancel, onSubmit }: { car: CarInfo; onCancel: () =
             }
           }} 
           disabled={isSubmitting}
-          className="btn-gold w-full sm:w-auto px-6 py-3.5 sm:px-32 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
+          className="btn-gold w-full sm:w-auto sm:min-w-[16rem] px-6 py-3.5 sm:py-4 rounded-full text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-300">
           <CheckCircle className="h-4 w-4" /> {isSubmitting ? "Submitting..." : "Submit Check-In"}
         </button>
         <div className="w-full h-px bg-border sm:hidden" />
@@ -1068,7 +1100,7 @@ function CarModal({ initialData, onClose, onSubmit }: { initialData?: CarInfo | 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { if (!isUploading) onClose(); }}>
       <div className="card-elevated p-6 w-full max-w-md relative animate-in fade-in-90 slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors" disabled={isUploading}>
           <XCircle className="h-5 w-5" />

@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
-import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale, BarChart3, Warehouse } from "lucide-react";
+import { Home, FileText, LayoutDashboard, Car, LogOut, Users, Settings, ShieldCheck, Headphones, Package, ShoppingCart, Droplet, Layers, Recycle, Database, MonitorCog, ChevronRight, CalendarDays, DollarSign, UploadCloud, Cctv, Scale, BarChart3, Warehouse, HardHat } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useStoreDepartmentAccess } from "@/hooks/useStoreDepartmentAccess";
 
@@ -55,10 +55,8 @@ const formDepartments = [
     { title: "IT Request – Admin", url: "/it/request-admin", icon: MonitorCog },
     { title: "IT Request – Application", url: "/it/request-application", icon: MonitorCog },
   ] },
-  { id: "safety", title: "Safety Department", icon: ShieldCheck, restricted: true, forms: [
-    { title: "Mixing & Chemical", url: "/safety/mixing", icon: Layers },
-    { title: "Final Discharge", url: "/safety/discharge", icon: Droplet },
-    { title: "Waste Calculator", url: "/safety/waste-inventory", icon: Scale },
+  { id: "safety", title: "Safety Department", icon: ShieldCheck, forms: [
+    { title: "Permit to Work", url: "/safety/permit-to-work", icon: HardHat },
   ] },
   { id: "store", title: "Store Department", icon: Warehouse, departmentGated: true, forms: [
     { title: "Material Requisition Slip", url: "/store/material-requisition-slip", icon: Package },
@@ -76,6 +74,7 @@ const itAdminNav = [
 ];
 
 const safetyAdminNav = [
+  { title: "Permit to Work", url: "/admin/safety/permit-to-work", icon: HardHat },
   { title: "Final Discharge", url: "/admin/safety/discharge", icon: Droplet },
   { title: "Mixing & Chemical", url: "/admin/safety/mixing", icon: Layers },
   { title: "Scheduled Waste", url: "/admin/safety/waste", icon: Recycle },
@@ -156,7 +155,7 @@ export function AppSidebar() {
   const isSecurityGuard = user?.role === "security_guard";
 
   const pendingCounts = useMemo(() => {
-    if (!user) return { hr: 0, finance: 0, it: 0, helpDesk: 0, facilities: 0, approver: 0, security: 0 };
+    if (!user) return { hr: 0, finance: 0, it: 0, helpDesk: 0, facilities: 0, approver: 0, security: 0, permitToWork: 0 };
 
     const hrCount = submissions.filter(s => 
       s.status === 'approved_hod' && s.formType === 'car_rental'
@@ -178,8 +177,12 @@ export function AppSidebar() {
       ["it_admin_request", "it_application_request", "it_facilities_requisition"].includes(s.formType) && ["approved_hod", "reopened"].includes(s.status)
     ).length;
 
-    const securityCount = submissions.filter(s => 
+    const securityCount = submissions.filter(s =>
       s.formType === 'leave' && s.status === 'approved_manco'
+    ).length;
+
+    const permitToWorkCount = submissions.filter(s =>
+      s.formType === 'permit_to_work' && ['pending', 'pending_closure'].includes(s.status)
     ).length;
 
     const approverCount = submissions.filter(s => {
@@ -202,6 +205,7 @@ export function AppSidebar() {
       facilities: facilitiesCount,
       approver: approverCount,
       security: securityCount,
+      permitToWork: permitToWorkCount,
     };
 
   }, [submissions, user]);
@@ -254,6 +258,7 @@ export function AppSidebar() {
     })();
 
     const safetySubtitle = (() => {
+      if (pathname.startsWith("/admin/safety/permit-to-work")) return "Permit to Work";
       if (pathname.startsWith("/admin/safety/discharge")) return "Final Discharge";
       if (pathname.startsWith("/admin/safety/mixing")) return "Mixing & Chemical";
       if (pathname.startsWith("/admin/safety/waste-records")) return "Safety Records";
@@ -303,6 +308,7 @@ export function AppSidebar() {
     if (item.url === "/admin/it/help-desk") return pendingCounts.helpDesk;
     if (item.url === "/admin/it/facilities") return pendingCounts.facilities;
     if (item.url === "/admin/security") return pendingCounts.security;
+    if (item.url === "/admin/safety/permit-to-work") return pendingCounts.permitToWork;
     if (item.url === "/admin/approvals") return pendingCounts.approver;
     return 0;
   };

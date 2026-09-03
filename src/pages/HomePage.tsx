@@ -118,7 +118,7 @@ const HomePage = () => {
     {
       id: "safety",
       title: "Safety Department",
-      description: "Submit water treatment logs, Final Discharge, and waste inventory records.",
+      description: "Raise a Permit to Work for contractor jobs, plus Safety monitoring records.",
       icon: ShieldCheck,
       color: "from-red-500 to-red-600",
       iconColor: "text-white",
@@ -158,9 +158,10 @@ const HomePage = () => {
       }
     }
 
-    // Filter out departments the user shouldn't see.
+    // Filter out departments the user shouldn't see. The Safety Department card is
+    // visible to everyone now — the Permit to Work form is open to all staff, while
+    // the record forms behind it stay gated inside the page itself.
     return depts.filter(dept => {
-      if (dept.id === 'safety') return hasSafetyAccess;
       if (dept.id === 'store') return hasStoreAccess;
       return true;
     });

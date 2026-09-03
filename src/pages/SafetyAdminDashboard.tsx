@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionsContext";
-import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -661,7 +661,13 @@ const SafetyAdminDashboard = () => {
                     </div>
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <AreaChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <defs>
+                                    <linearGradient id="dischargeFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.28} />
+                                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
+                                    </linearGradient>
+                                </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                                 <YAxis 
@@ -689,8 +695,8 @@ const SafetyAdminDashboard = () => {
                                         <ReferenceLine y={5.5} stroke="#ef4444" strokeDasharray="3 3" />
                                     </>
                                 )}
-                                <Line type="monotone" dataKey="value" name={`${selectedParamInfo?.label} (${selectedParamInfo?.unit})`} stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                            </LineChart>
+                                <Area type="monotone" dataKey="value" name={`${selectedParamInfo?.label} (${selectedParamInfo?.unit})`} stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#dischargeFill)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
@@ -723,7 +729,13 @@ const SafetyAdminDashboard = () => {
                     </div>
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={mixingChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <AreaChart data={mixingChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <defs>
+                                    <linearGradient id="mixingFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.28} />
+                                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
+                                    </linearGradient>
+                                </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                                 <YAxis 
@@ -734,8 +746,8 @@ const SafetyAdminDashboard = () => {
                                 />
                                 <Tooltip contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))", fontSize: "12px", fontWeight: "bold" }} itemStyle={{ color: "hsl(var(--primary))", fontSize: "12px" }} />
                                 <Legend />
-                                <Line type="monotone" dataKey="value" name={`${selectedMixingParamInfo?.label} ${selectedMixingParamInfo?.unit ? `(${selectedMixingParamInfo.unit})` : ''}`} stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                            </LineChart>
+                                <Area type="monotone" dataKey="value" name={`${selectedMixingParamInfo?.label} ${selectedMixingParamInfo?.unit ? `(${selectedMixingParamInfo.unit})` : ''}`} stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#mixingFill)" dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
